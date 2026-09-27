@@ -228,10 +228,11 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 <dialog id="dlg-disk">
   <div class="dh"><h2>Supports</h2><button class="x" data-close aria-label="Fermer">×</button></div>
   <div class="db">
-    <h3 class="sub">Image .d64 · lecteur 8</h3>
+    <h3 class="sub">Lecteur 8 · image .d64 ou .g64</h3>
+    <div id="drv-box"></div>
     <div id="d64-box"></div>
     <div class="bar" style="margin:10px 0 22px">
-      <label class="act ghost" style="cursor:pointer">Insérer une image .d64<input type="file" id="d64-file" accept=".d64,.D64" hidden></label>
+      <label class="act ghost" style="cursor:pointer">Insérer une image .d64 / .g64<input type="file" id="d64-file" accept=".d64,.g64,.D64,.G64" hidden></label>
       <button class="act ghost" id="d64-blank">Créer une disquette vierge</button>
     </div>
     <h3 class="sub">Cassette · .tap ou .t64</h3>
@@ -254,10 +255,10 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 <dialog id="dlg-import">
   <div class="dh"><h2>Importer un programme</h2><button class="x" data-close aria-label="Fermer">×</button></div>
   <div class="db">
-    <p>Collez un listing BASIC (une instruction numérotée par ligne) ou choisissez un fichier <b>.d64</b>, <b>.t64</b>, <b>.tap</b>, <b>.crt</b>, <b>.prg</b>, <b>.bas</b> ou <b>.txt</b> : il est chargé dès sa sélection. Vous pouvez aussi glisser un fichier sur l'écran. Les codes entre accolades comme <b>{clr}</b>, <b>{wht}</b> ou <b>{rvon}</b> sont reconnus.</p>
+    <p>Collez un listing BASIC (une instruction numérotée par ligne) ou choisissez un fichier <b>.d64</b>, <b>.g64</b>, <b>.t64</b>, <b>.tap</b>, <b>.crt</b>, <b>.prg</b>, <b>.bas</b> ou <b>.txt</b> : il est chargé dès sa sélection. Vous pouvez aussi glisser un fichier sur l'écran. Les codes entre accolades comme <b>{clr}</b>, <b>{wht}</b> ou <b>{rvon}</b> sont reconnus.</p>
     <textarea class="code" id="imp-text" placeholder='10 PRINT "BONJOUR"&#10;20 GOTO 10'></textarea>
     <div class="bar">
-      <input type="file" id="imp-file" accept=".prg,.d64,.t64,.tap,.crt,.bas,.txt,.PRG,.D64,.T64,.TAP,.CRT,.BAS,.TXT">
+      <input type="file" id="imp-file" accept=".prg,.d64,.g64,.t64,.tap,.crt,.bas,.txt,.PRG,.D64,.G64,.T64,.TAP,.CRT,.BAS,.TXT">
       <label><input type="checkbox" id="imp-run" checked> Lancer après import</label>
       <button class="act" id="imp-go">Importer le listing</button>
     </div>
@@ -281,6 +282,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <div class="list" id="rom-list"></div>
     <div class="bar" style="margin:12px 0 4px">
       <label class="act ghost" style="cursor:pointer">Choisir les fichiers ROM<input type="file" id="rom-file" multiple hidden></label>
+      <button class="act ghost" id="rom-vps">Charger depuis le serveur</button>
       <button class="act" id="rom-start">Démarrer avec mes ROM</button>
       <button class="act ghost" id="rom-forget">Oublier mes ROM</button>
     </div>
@@ -336,12 +338,15 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Une image .d64 (35 ou 40 pistes) insérée va dans le lecteur 8 ; elle est lisible et modifiable (SAVE écrit dans l'image, téléchargeable ensuite). La disquette du navigateur est alors sur le lecteur 9 ; sans image, elle est sur le lecteur 8. LOAD"$",8 affiche le répertoire ; LOAD"NOM",8 charge au début du BASIC, LOAD"NOM",8,1 à l'adresse du fichier ; LOAD"*",8,1 charge le premier programme. Sans numéro de lecteur, LOAD et SAVE simulent la cassette sur la disquette du navigateur (mode BASIC intégré uniquement).</p>
     <p>Tout fichier .prg importé est chargé en mémoire et copié sur la disquette du navigateur : pour le recharger plus tard, LOAD"NOM",8,1 (ou ,9,1 si une image .d64 est insérée). Un programme en langage machine peut charger la suite d'un jeu par la routine système LOAD.</p>
 
+    <h3>Lecteur 1541 émulé</h3>
+    <p>Avec la ROM du lecteur (16 Ko, ou ses deux moitiés de 8 Ko, chargées dans Système) et le mode ROM, le lecteur 8 peut être émulé au niveau matériel (Supports → Lecteur 1541 émulé → Activer). Son propre processeur 6502 fait tourner le vrai DOS, avec ses deux VIA, le bus série câblé fil par fil (ATN, CLOCK, DATA) et le disque lu et écrit bit par bit en codage GCR, zones de vitesse comprises. Les chargeurs rapides et la plupart des protections fonctionnent alors, et les images .g64 (disquettes protégées) sont acceptées. Les chargements sont accélérés pendant que le moteur tourne ; les écritures sont reportées dans l'image quand le moteur s'arrête. La disquette du navigateur passe sur le lecteur 9 (virtuel).</p>
+
     <h3>Cassettes et cartouches</h3>
     <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
     <p>Cartouches .crt gérées : normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
-    <p>L'affichage est exact à la ligne près, pas au cycle près : un changement fait au milieu d'une ligne s'applique à toute la ligne suivante, et les astuces qui en dépendent (bordures latérales ouvertes, FLD, étirement de sprites, données vidéo modifiées en cours de rangée) ne sont pas reproduites. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 n'est pas émulé au niveau matériel : les disquettes protégées ou à chargeur rapide ne fonctionnent pas.</p>
+    <p>L'affichage est exact à la ligne près, pas au cycle près : un changement fait au milieu d'une ligne s'applique à toute la ligne suivante, et les astuces qui en dépendent (bordures latérales ouvertes, FLD, étirement de sprites, données vidéo modifiées en cours de rangée) ne sont pas reproduites. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
   </div>
 </dialog>
 
@@ -1098,11 +1103,11 @@ function d64Mount(buf,file){
   if(n===174848||n===175531) tracks=35; else if(n===196608||n===197376) tracks=40;
   else throw new Error('Ce fichier n\u2019est pas une image .d64 valide ('+n+' octets).');
   d64={img:new Uint8Array(buf.subarray(0,tracks===35?174848:196608)),tracks,file:file||'disque.d64'};
-  d64Persist(); return d64;
+  d64Persist(); drvLoadDisk(); return d64;
 }
-function d64Eject(){ d64=null; try{ localStorage.removeItem(D64_KEY); }catch(e){} }
+function d64Eject(){ drvSync(); d64=null; drvLoadDisk(); try{ localStorage.removeItem(D64_KEY); }catch(e){} }
 function d64Persist(){
-  if(!d64) return;
+  if(!d64||d64.g64) return;
   try{
     let bin=''; const im=d64.img;
     for(let i=0;i<im.length;i+=0x8000) bin+=String.fromCharCode.apply(null,im.subarray(i,i+0x8000));
@@ -1229,6 +1234,7 @@ function fileArgs(){
   return {name:name.slice(0,16),dev,sa,disk:dev>=8};
 }
 function driveOf(dev){ return dev===8&&d64?'d64':'web'; }
+function webDev(){ return (d64||DRV.on)?9:8; }
 function lookup(name,dev){ if(dev===1&&TAPE.t64) return t64Lookup(name); return driveOf(dev)==='d64'?d64Lookup(name):webLookup(name,dev>=8); }
 function busy(ms,fn){ state='busy'; jumped=true; pending={at:now()+(turbo?0:ms),fn}; }
 function applyLoad(found,sa,wasRun){
@@ -1363,7 +1369,8 @@ function scanRows(){ const sel=~(cia1.pra|~cia1.ddra)&255; let rows=255; if(sel)
 function scanCols(){ const sel=~(cia1.prb|~cia1.ddrb)&255; let cols=255; if(sel) for(const k of keysDown) if(sel&(1<<(k&7))) cols&=~(1<<(k>>3)); return cols; }
 function ciaRead(c,r){
   switch(r){
-    case 0: return (c.pra|~c.ddra)&(c===cia1?(joyPort===2?joy2:255)&scanCols():255)&255;
+    case 0: if(c===cia2){ if(!DRV.on) return (c.pra|~c.ddra)&255; drvRun(cyc); busLines(); return (c.pra|~c.ddra)&(0x3F|(BUS.clk?0:0x40)|(BUS.data?0:0x80))&255; }
+      return (c.pra|~c.ddra)&(joyPort===2?joy2:255)&scanCols()&255;
     case 1: return (c.prb|~c.ddrb)&(c===cia1?scanRows()&(joyPort===1?joy2:255):255)&255;
     case 2: return c.ddra; case 3: return c.ddrb;
     case 4: return c.ta&255; case 5: return c.ta>>8; case 6: return c.tb&255; case 7: return c.tb>>8;
@@ -1381,7 +1388,10 @@ function ciaRead(c,r){
 }
 function ciaWrite(c,r,v){
   switch(r){
-    case 0: c.pra=v; break; case 1: c.prb=v; break; case 2: c.ddra=v; break; case 3: c.ddrb=v; break;
+    case 0: if(c===cia2&&DRV.on){ drvRun(cyc); c.pra=v; atnCheck(); } else c.pra=v; break;
+    case 1: c.prb=v; break;
+    case 2: if(c===cia2&&DRV.on){ drvRun(cyc); c.ddra=v; atnCheck(); } else c.ddra=v; break;
+    case 3: c.ddrb=v; break;
     case 4: c.la=(c.la&0xFF00)|v; break;
     case 5: c.la=(c.la&255)|(v<<8); if(!(c.cra&1)) c.ta=c.la; break;
     case 6: c.lb=(c.lb&0xFF00)|v; break;
@@ -1491,7 +1501,7 @@ function initMem(){
 }
 
 /* ================= Processeur 6510 ================= */
-const C={a:0,x:0,y:0,sp:0xFF,pc:0,n:0,v:0,d:0,i:0,z:0,c:0};
+let C={a:0,x:0,y:0,sp:0xFF,pc:0,n:0,v:0,d:0,i:0,z:0,c:0};
 let RD=a=>{
   if(a<0x400){ if(a===1) return portRead(); return romMode?mem[a]:peek(a); }
   switch(pageR[a>>12]){
@@ -1776,6 +1786,7 @@ function vicDoLine(L){
 }
 function tick(){
   if(cyc>=vicNext) vicAdvance();
+  if(DRV.on) drvRun(cyc);
   if(TAPE.run&&cyc>=TAPE.nextEdge) tapeEdges();
   const n=cyc-ciaLast;
   if(n>0){ ciaLast=cyc; ciaAdvance(cia1,n); ciaAdvance(cia2,n);
@@ -1784,7 +1795,7 @@ function tick(){
     nmiLvl=lvl;
   }
 }
-function fastNow(){ return turbo||(TAPE.run&&TAPE.warp); }
+function fastNow(){ return turbo||(TAPE.run&&TAPE.warp)||(DRV.on&&DRV.motor&&DRV.warp); }
 function irqPending(){ return ((d019&mem[0xD01A]&15)!==0)||((cia1.icr&cia1.mask&0x1F)!==0); }
 function cpuFault(e){
   if(romMode){ romHalted=true; if(HAS_DOM) toast((e&&e.m?e.m:'Erreur du processeur')+' : cliquez sur Reset'); return; }
@@ -2082,22 +2093,41 @@ const ROM_KEY='emu64.roms.v1', MODE_KEY='emu64.mode.v1';
 function b64d(s){ const bin=atob(s), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
 function b64e(u){ let bin=''; for(let i=0;i<u.length;i+=0x8000) bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(bin); }
 function romKind(b){
+  const txt=String.fromCharCode(...b.subarray(0,Math.min(b.length,16384)));
   if(b.length===4096) return 'chargen';
-  if(b.length===16384) return 'basic+kernal';
+  if(b.length===16384) return txt.slice(4,12)==='CBMBASIC'||(b[0x3FD2]===0x6C||b[0x3FD2]===0x4C)&&(b[1]>=0xE0)?'basic+kernal':'dos';
   if(b.length!==8192) return null;
   const v=o=>b[o]|(b[o+1]<<8);
+  const vecs=v(0x1FFA)>=0xE000&&v(0x1FFC)>=0xE000&&v(0x1FFE)>=0xE000, jt=b[0x1FD2]===0x6C||b[0x1FD2]===0x4C;
+  if(/1541|CBM DOS/.test(txt)||(vecs&&!jt)) return 'dos-hi';
+  if(txt.slice(4,12)!=='CBMBASIC'&&!vecs&&v(0)<0xE000) return 'dos-lo';
   if(v(0x1FFA)>=0xE000&&v(0x1FFC)>=0xE000&&v(0x1FFE)>=0xE000) return 'kernal';
   return 'basic';
 }
 function romAddFile(b,name){
   const k=romKind(b); if(!k) throw new Error('« '+name+' » : taille inattendue ('+b.length+' octets). Il faut 8 Ko (BASIC ou KERNAL) ou 4 Ko (caractères).');
-  if(k==='basic+kernal'){ USER_ROM.basic=b.slice(0,8192); USER_ROM.kernal=b.slice(8192); USER_ROM.names.basic=USER_ROM.names.kernal=name; }
+  if(k==='kernal'||k==='basic+kernal') USER_ROM._repaired=false;
+  if(k==='dos'){ USER_ROM.dos=b.slice(); USER_ROM.names.dos=name; }
+  else if(k==='basic+kernal'){ USER_ROM.basic=b.slice(0,8192); USER_ROM.kernal=b.slice(8192); USER_ROM.names.basic=name+' (moitié BASIC du fichier de 16 Ko)'; USER_ROM.names.kernal=name+' (moitié KERNAL du fichier de 16 Ko)'; }
+  else if(k==='dos-lo'||k==='dos-hi'){
+    USER_ROM._dosParts=USER_ROM._dosParts||{}; USER_ROM._dosParts[k]=b.slice();
+    USER_ROM.names[k]=name;
+    const lo=USER_ROM._dosParts['dos-lo'], hi=USER_ROM._dosParts['dos-hi'];
+    if(lo&&hi){ const d=new Uint8Array(16384); d.set(lo,0); d.set(hi,8192); USER_ROM.dos=d; USER_ROM.names.dos=(USER_ROM.names['dos-lo']||'')+' + '+(USER_ROM.names['dos-hi']||''); if(DRV.on){ drvDisable(); DRV.rom=null; } }
+    else { USER_ROM.names[k]=name; romPersist(); return k==='dos-lo'?'lecteur 1541, moitié basse ($C000) : ajoutez la moitié haute (901229, $E000)':'lecteur 1541, moitié haute ($E000) : ajoutez la moitié basse (325302-01, $C000)'; }
+  }
   else { USER_ROM[k]=b.slice(); USER_ROM.names[k]=name; }
-  romPersist(); return k;
+  romPersist(); return k==='dos'||k.startsWith('dos')?'lecteur 1541':k;
 }
-function romPersist(){ try{ const o={names:USER_ROM.names}; for(const k of ['basic','kernal','chargen']) if(USER_ROM[k]) o[k]=b64e(USER_ROM[k]); localStorage.setItem(ROM_KEY,JSON.stringify(o)); }catch(e){} }
-function romRestoreStore(){ try{ const o=JSON.parse(localStorage.getItem(ROM_KEY)||'null'); if(!o) return; for(const k of ['basic','kernal','chargen']) if(o[k]) USER_ROM[k]=b64d(o[k]); USER_ROM.names=o.names||{}; }catch(e){} }
-function romForget(){ USER_ROM.basic=USER_ROM.kernal=USER_ROM.chargen=null; USER_ROM.names={}; try{ localStorage.removeItem(ROM_KEY); }catch(e){} }
+function romPersist(){ try{ const o={names:USER_ROM.names}; for(const k of ['basic','kernal','chargen','dos']) if(USER_ROM[k]) o[k]=b64e(USER_ROM[k]); if(USER_ROM._dosParts){ o.parts={}; for(const k in USER_ROM._dosParts) o.parts[k]=b64e(USER_ROM._dosParts[k]); } localStorage.setItem(ROM_KEY,JSON.stringify(o)); }catch(e){} }
+function romRestoreStore(){ try{ const o=JSON.parse(localStorage.getItem(ROM_KEY)||'null'); if(!o) return; USER_ROM.names=o.names||{}; for(const k of ['basic','kernal','chargen','dos']) if(o[k]) USER_ROM[k]=b64d(o[k]); if(o.parts){ USER_ROM._dosParts={}; for(const k in o.parts) USER_ROM._dosParts[k]=b64d(o.parts[k]); }
+    if(USER_ROM.kernal&&romKind(USER_ROM.kernal)==='dos-hi'){
+      const hi=USER_ROM.kernal, nm=USER_ROM.names.kernal; USER_ROM.kernal=null; delete USER_ROM.names.kernal;
+      USER_ROM._dosParts=USER_ROM._dosParts||{}; USER_ROM._dosParts['dos-hi']=hi; USER_ROM.names['dos-hi']=nm;
+      const lo=USER_ROM._dosParts['dos-lo']; if(lo){ const d=new Uint8Array(16384); d.set(lo,0); d.set(hi,8192); USER_ROM.dos=d; USER_ROM.names.dos=(USER_ROM.names['dos-lo']||'')+' + '+nm; }
+      USER_ROM._repaired=true; romPersist();
+    } }catch(e){} }
+function romForget(){ drvDisable(); USER_ROM.basic=USER_ROM.kernal=USER_ROM.chargen=USER_ROM.dos=null; USER_ROM._dosParts=null; USER_ROM.names={}; try{ localStorage.removeItem(ROM_KEY); }catch(e){} }
 function setMode(m){ try{ localStorage.setItem(MODE_KEY,m); }catch(e){} }
 function getMode(){ try{ return localStorage.getItem(MODE_KEY)||'builtin'; }catch(e){ return 'builtin'; } }
 function startRom(src){
@@ -2106,10 +2136,10 @@ function startRom(src){
   ROM.basic=set.basic; ROM.kernal=set.kernal; ROM.chargen=set.chargen;
   romSource=src; romMode=true; setMode(src); romReset();
 }
-function stopRom(){ cart=null; tapeStop(); romMode=false; romSource=''; setMode('builtin'); buildCharRom(); coldReset(); }
+function stopRom(){ drvDisable(); cart=null; tapeStop(); romMode=false; romSource=''; setMode('builtin'); buildCharRom(); coldReset(); }
 function romReset(){
   pending=null; stopReq=false; typeQueue.length=0; kbd=[]; romActions.length=0; physHeld.clear(); synthKeys.length=0; keysDown.clear();
-  romHalted=false; mem.fill(0); mem[0]=0x2F; mem[1]=0x37; cartReset(); updRom(); TAPE.run=false; TAPE.rem=0;
+  romHalted=false; mem.fill(0); mem[0]=0x2F; mem[1]=0x37; cartReset(); if(DRV.on) drvReset(); updRom(); TAPE.run=false; TAPE.rem=0;
   if(ROM.chargen) CHARROM.set(ROM.chargen); else buildCharRom();
   d019=0; rasterCmp=0; ciaReset(cia1); ciaReset(cia2); nmiLvl=false; ramD.fill(0); vicReset(); sidReset();
   const jt=a=>RD(a)===0x4C?(RD(a+1)|(RD(a+2)<<8)):-1;
@@ -2187,30 +2217,34 @@ function romTrap(pc){
 }
 const setST=b=>{ mem[0x90]|=b; };
 const ckey=()=>IEC.dev*16+IEC.ch;
-function iecListen(){ const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?1:0; if(!IEC.mode) setST(0x80); C.c=0; }
-function iecTalk(){ const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?2:0; if(!IEC.mode) setST(0x80); C.c=0; }
+function iecListen(){ if(DRV.on&&!DRV.halted&&(C.a&31)===8){ IEC.real=true; return false; } IEC.real=false; const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?1:0; if(!IEC.mode) setST(0x80); C.c=0; }
+function iecTalk(){ if(DRV.on&&!DRV.halted&&(C.a&31)===8){ IEC.real=true; return false; } IEC.real=false; const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?2:0; if(!IEC.mode) setST(0x80); C.c=0; }
 function iecSecond(){
+  if(IEC.real) return false;
   C.c=0; if(!IEC.mode){ setST(0x80); return; }
   const a=C.a, ch=a&15, cmd=a&0xF0; IEC.ch=ch;
   if(cmd===0xF0){ IEC.opening={ch,name:[]}; }
   else if(cmd===0xE0){ iecClose(IEC.dev*16+ch); IEC.opening=null; }
   else IEC.opening=null;
 }
-function iecTksa(){ C.c=0; if(!IEC.mode){ setST(0x80); return; } IEC.ch=C.a&15; }
+function iecTksa(){ if(IEC.real) return false; C.c=0; if(!IEC.mode){ setST(0x80); return; } IEC.ch=C.a&15; }
 function iecCiout(){
+  if(IEC.real) return false;
   C.c=0; if(!IEC.mode){ setST(0x80); return; }
   if(IEC.opening){ IEC.opening.name.push(C.a); return; }
   if(IEC.ch===15){ IEC.cmd.push(C.a); return; }
   const c=IEC.chans[ckey()]; if(c&&c.w) c.buf.push(C.a);
 }
 function iecUnlsn(){
+  if(IEC.real) return false;
   C.c=0;
   if(IEC.opening){ iecOpen(IEC.opening.ch,IEC.opening.name); IEC.opening=null; }
   else if(IEC.ch===15&&IEC.cmd.length){ iecCommand(String.fromCharCode(...IEC.cmd)); IEC.cmd=[]; }
   IEC.mode=0;
 }
-function iecUntlk(){ C.c=0; IEC.mode=0; }
+function iecUntlk(){ if(IEC.real) return false; C.c=0; IEC.mode=0; }
 function iecAcptr(){
+  if(IEC.real) return false;
   C.c=0;
   let c=IEC.chans[ckey()];
   if(IEC.ch===15&&(!c||c.pos>=c.data.length)){ c=IEC.chans[ckey()]={data:Uint8Array.from(pet((IEC.err[IEC.dev]||'00, OK,00,00')+'\r')),pos:0}; IEC.err[IEC.dev]='00, OK,00,00'; }
@@ -2265,6 +2299,7 @@ function iecCommand(raw){
 }
 function vecLoad(){
   const dev=mem[0xBA]; if(dev!==8&&dev!==9&&!(dev===1&&TAPE.t64)) return false;
+  if(DRV.on&&dev===8) return false;
   const ptr=mem[0xBB]|(mem[0xBC]<<8); let name=''; for(let i=0;i<mem[0xB7];i++) name+=String.fromCharCode(RD((ptr+i)&0xFFFF));
   const r=lookup(name,dev);
   if(!r||C.a!==0){ C.c=1; C.a=r?0x1D:4; return; }
@@ -2274,12 +2309,240 @@ function vecLoad(){
 }
 function vecSave(){
   const dev=mem[0xBA]; if(dev!==8&&dev!==9) return false;
+  if(DRV.on&&dev===8) return false;
   const ptr=mem[0xBB]|(mem[0xBC]<<8); let name=''; for(let i=0;i<mem[0xB7];i++) name+=String.fromCharCode(RD((ptr+i)&0xFFFF));
   const st=mem[0xC1]|(mem[0xC2]<<8), en=mem[0xAE]|(mem[0xAF]<<8);
   if(!name||en<=st){ C.c=1; C.a=8; return; }
   const b=new Uint8Array(en-st+2); b[0]=st&255; b[1]=st>>8; b.set(mem.subarray(st,en),2);
   try{ saveTo(dev,parseDosName(name).name,b); C.c=0; mem[0x90]=0; }catch(e){ C.c=1; C.a=5; }
 }
+
+/* ================= Lecteur 1541 (émulation matérielle) ================= */
+const GCR_EN=[0x0A,0x0B,0x12,0x13,0x0E,0x0F,0x16,0x17,0x09,0x19,0x1A,0x1B,0x0D,0x1D,0x1E,0x15];
+const GCR_DE=new Int8Array(32).fill(-1); GCR_EN.forEach((v,i)=>{ GCR_DE[v]=i; });
+function gcrEncode(src){
+  const out=[]; let acc=0, nb=0;
+  for(const b of src){ for(const nib of [b>>4,b&15]){ acc=(acc<<5)|GCR_EN[nib]; nb+=5; while(nb>=8){ out.push((acc>>(nb-8))&255); nb-=8; } acc&=(1<<nb)-1; } }
+  return out;
+}
+function gcrDecode(buf,off,n){
+  const out=[]; let acc=0, nb=0, half=-1;
+  for(let i=0;i<n;i++){
+    acc=((acc<<8)|buf[off+i])&0xFFFF; nb+=8;
+    while(nb>=5){ const c=GCR_DE[(acc>>(nb-5))&31]; nb-=5; if(c<0) return null; if(half<0) half=c; else { out.push((half<<4)|c); half=-1; } }
+  }
+  return out;
+}
+const zoneOf=t=>t<=17?3:t<=24?2:t<=30?1:0;
+const TRACK_LEN=[6250,6666,7142,7692];
+function buildTrack(img,t){
+  const ns=SPT(t), len=TRACK_LEN[zoneOf(t)], b=tsOff(18,0), id1=img[b+0xA2], id2=img[b+0xA3];
+  const out=new Uint8Array(len).fill(0x55); let p=0;
+  const gap=Math.max(4,Math.floor((len-ns*354)/ns));
+  for(let s=0;s<ns;s++){
+    for(let k=0;k<5;k++) out[p++]=0xFF;
+    for(const v of gcrEncode([0x08,s^t^id2^id1,s,t,id2,id1,0x0F,0x0F])) out[p++]=v;
+    p+=9;
+    for(let k=0;k<5;k++) out[p++]=0xFF;
+    const o=tsOff(t,s), data=img.subarray(o,o+256); let ck=0; for(const v of data) ck^=v;
+    for(const v of gcrEncode([0x07,...data,ck,0,0])) out[p++]=v;
+    p+=gap;
+  }
+  return out;
+}
+function decodeTrack(tr,t,img){
+  const L=tr.length, buf=new Uint8Array(L+400); buf.set(tr); buf.set(tr.subarray(0,400),L); let n=0;
+  for(let i=1;i<L;i++){
+    if(buf[i-1]!==0xFF||buf[i]===0xFF) continue;
+    const h=gcrDecode(buf,i,10);
+    if(!h||h[0]!==8||h[3]!==t||h[2]>=SPT(t)) continue;
+    let j=i+10; while(j<i+80&&!(buf[j-1]===0xFF&&buf[j]!==0xFF)) j++;
+    if(j>=i+80||j+325>buf.length) continue;
+    const d=gcrDecode(buf,j,325);
+    if(d&&d[0]===7){ const o=tsOff(t,h[2]); for(let k=0;k<256;k++) img[o+k]=d[k+1]; n++; }
+  }
+  return n;
+}
+function parseG64(b){
+  if(String.fromCharCode(...b.subarray(0,8))!=='GCR-1541') throw new Error('Ce fichier n\u2019est pas une image .g64 valide.');
+  const nt=b[9], le32=o=>(b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0, tracks=[];
+  for(let i=0;i<nt;i++){ const off=le32(12+i*4); if(!off||off+2>b.length) continue; const len=b[off]|(b[off+1]<<8); tracks[i+2]=b.slice(off+2,off+2+len); }
+  return tracks;
+}
+function buildG64(tracks){
+  const nt=84, max=7928, parts=[]; let off=12+nt*8; const hdr=new Uint8Array(off);
+  hdr.set(pet('GCR-1541'),0); hdr[8]=0; hdr[9]=nt; hdr[10]=max&255; hdr[11]=max>>8;
+  for(let i=0;i<nt;i++){
+    const tr=tracks[i+2], sp=zoneOf((i+2)>>1);
+    const so=12+nt*4+i*4; hdr[so]=sp;
+    if(!tr) continue;
+    const e=new Uint8Array(2+max); e[0]=tr.length&255; e[1]=tr.length>>8; e.set(tr.subarray(0,max),2);
+    const to=12+i*4; hdr[to]=off&255; hdr[to+1]=(off>>8)&255; hdr[to+2]=(off>>16)&255; hdr[to+3]=off>>>24;
+    parts.push(e); off+=e.length;
+  }
+  const out=new Uint8Array(off); out.set(hdr,0); let p=hdr.length; for(const e of parts){ out.set(e,p); p+=e.length; }
+  return out;
+}
+function g64Mount(b,file){
+  const tracks=parseG64(b), img=new Uint8Array(196608);
+  let maxT=35; for(let h=2;h<tracks.length;h++) if(tracks[h]&&(h>>1)>maxT) maxT=Math.min(40,h>>1);
+  for(let t=1;t<=maxT;t++) if(tracks[2*t]) decodeTrack(tracks[2*t],t,img);
+  d64={img:img.subarray(0,maxT>35?196608:174848),tracks:maxT>35?40:35,file:file||'disque.g64',g64:tracks};
+  try{ localStorage.removeItem(D64_KEY); }catch(e){}
+  drvLoadDisk(); return d64;
+}
+function makeVIA(){ return {pra:0,prb:0,ddra:0,ddrb:0,t1c:0xFFFF,t1l:0xFFFF,t2c:0xFFFF,t2l:0xFF,t1on:false,t2on:false,acr:0,pcr:0,ifr:0,ier:0,sr:0}; }
+const DRV={on:false,warp:true,halted:false,C:{a:0,x:0,y:0,sp:0xFF,pc:0,n:0,v:0,d:0,i:1,z:0,c:0},cyc:0,ram:new Uint8Array(2048),rom:null,
+  via1:makeVIA(),via2:makeVIA(),ht:36,tracks:[],bitPos:0,bitAcc:0,shift:0,ones:0,bitCnt:0,latch:0,wshift:0,sync:false,dirty:false,phase:0,prevAtn:false,motor:false,led:false,density:3};
+const BUS={atn:false,clk:false,data:false};
+const DRV_KEY='emu64.drive.v1';
+function busLines(){
+  const o=cia2.pra&cia2.ddra, atn=(o&8)!==0; let clk=(o&0x10)!==0, data=(o&0x20)!==0;
+  if(DRV.on&&!DRV.halted){ const v=DRV.via1, q=v.prb&v.ddrb; if(q&8) clk=true; if((q&2)||(atn!==((q&0x10)!==0))) data=true; }
+  BUS.atn=atn; BUS.clk=clk; BUS.data=data;
+}
+function atnCheck(){
+  busLines();
+  if(BUS.atn!==DRV.prevAtn){ DRV.prevAtn=BUS.atn; const v=DRV.via1; if((v.pcr&1)?BUS.atn:!BUS.atn) v.ifr|=0x02; }
+}
+function viaAdvance(v,n){
+  let t=v.t1c-n;
+  if(t<0){ if(v.t1on){ v.ifr|=0x40; if(!(v.acr&0x40)) v.t1on=false; } if(v.acr&0x40){ const per=v.t1l+2; t=((t%per)+per)%per; } else t&=0xFFFF; }
+  v.t1c=t;
+  if(!(v.acr&0x20)){ let u=v.t2c-n; if(u<0){ if(v.t2on){ v.ifr|=0x20; v.t2on=false; } u&=0xFFFF; } v.t2c=u; }
+}
+function viaPortA(v){ if(v===DRV.via2) return (DRV.latch&~v.ddra)|(v.pra&v.ddra); return (v.pra|~v.ddra)&255; }
+function viaPortB(v){
+  if(v===DRV.via1){ busLines(); const inp=(BUS.data?1:0)|(BUS.clk?4:0)|(BUS.atn?0x80:0); return ((v.prb&v.ddrb)|(inp&~v.ddrb))&255; }
+  const inp=0x10|(DRV.sync?0:0x80); return ((v.prb&v.ddrb)|(inp&~v.ddrb))&255;
+}
+function viaRead(v,r){
+  switch(r){
+    case 0: v.ifr&=~0x18; return viaPortB(v);
+    case 1: v.ifr&=~0x03; return viaPortA(v);
+    case 15: return viaPortA(v);
+    case 2: return v.ddrb; case 3: return v.ddra;
+    case 4: v.ifr&=~0x40; return v.t1c&255;
+    case 5: return (v.t1c>>8)&255;
+    case 6: return v.t1l&255; case 7: return v.t1l>>8;
+    case 8: v.ifr&=~0x20; return v.t2c&255;
+    case 9: return (v.t2c>>8)&255;
+    case 10: return v.sr; case 11: return v.acr; case 12: return v.pcr;
+    case 13: return v.ifr|((v.ifr&v.ier&0x7F)?0x80:0);
+    case 14: return v.ier|0x80;
+  }
+  return 0;
+}
+function viaWrite(v,r,x){
+  switch(r){
+    case 0: v.prb=x; v.ifr&=~0x18; break;
+    case 1: v.pra=x; v.ifr&=~0x03; break;
+    case 15: v.pra=x; break;
+    case 2: v.ddrb=x; break; case 3: v.ddra=x; break;
+    case 4: case 6: v.t1l=(v.t1l&0xFF00)|x; break;
+    case 5: v.t1l=(v.t1l&255)|(x<<8); v.t1c=v.t1l; v.t1on=true; v.ifr&=~0x40; break;
+    case 7: v.t1l=(v.t1l&255)|(x<<8); v.ifr&=~0x40; break;
+    case 8: v.t2l=x; break;
+    case 9: v.t2c=v.t2l|(x<<8); v.t2on=true; v.ifr&=~0x20; break;
+    case 10: v.sr=x; break; case 11: v.acr=x; break; case 12: v.pcr=x; break;
+    case 13: v.ifr&=~x; break;
+    case 14: if(x&0x80) v.ier|=x&0x7F; else v.ier&=~x&0x7F; break;
+  }
+}
+const drvRD=a=>{
+  if(a<0x1800) return DRV.ram[a&0x7FF];
+  if(a<0x1C00) return viaRead(DRV.via1,a&15);
+  if(a<0x2000) return viaRead(DRV.via2,a&15);
+  if(a>=0x8000) return DRV.rom[a&0x3FFF];
+  return a>>8;
+};
+const drvWR=(a,v)=>{
+  if(a<0x1800){ DRV.ram[a&0x7FF]=v; return; }
+  if(a<0x1C00){ viaWrite(DRV.via1,a&15,v); return; }
+  if(a<0x2000){ viaWrite(DRV.via2,a&15,v); const r=a&15; if(r===0||r===2) drvPB2(); }
+};
+function trackBits(h){ const tr=DRV.tracks[h]; return tr?tr.length*8:50000; }
+function drvPB2(){
+  const v=DRV.via2, q=v.prb&v.ddrb, ph=q&3;
+  if(ph!==DRV.phase){
+    const d=(ph-DRV.phase)&3, h0=DRV.ht; let h=h0;
+    if(d===1&&h<84) h++; else if(d===3&&h>2) h--;
+    if(h!==h0){ DRV.bitPos=Math.floor(DRV.bitPos*trackBits(h)/trackBits(h0))%trackBits(h); DRV.ht=h; }
+    DRV.phase=ph;
+  }
+  const was=DRV.motor; DRV.motor=(q&4)!==0; DRV.led=(q&8)!==0; DRV.density=(q>>5)&3;
+  if(was&&!DRV.motor&&DRV.dirty) drvSync();
+}
+function drvByteReady(soe){ DRV.via2.ifr|=0x02; if(soe) DRV.C.v=1; }
+function diskAdvance(n){
+  if(!DRV.motor) return;
+  const bitT=[32,30,28,26][DRV.density]/8, v=DRV.via2;
+  DRV.bitAcc+=n; if(DRV.bitAcc<bitT) return;
+  const tr=DRV.tracks[DRV.ht], bits=tr?tr.length*8:50000;
+  const writing=((v.pcr>>5)&7)===6, soe=((v.pcr>>1)&7)===7;
+  while(DRV.bitAcc>=bitT){
+    DRV.bitAcc-=bitT;
+    const pos=DRV.bitPos; DRV.bitPos=pos+1>=bits?0:pos+1;
+    if(writing){
+      if(DRV.bitCnt===0) DRV.wshift=v.pra;
+      const bit=(DRV.wshift>>(7-DRV.bitCnt))&1;
+      if(tr){ const bi=pos>>3, m=0x80>>(pos&7); if(bit) tr[bi]|=m; else tr[bi]&=~m; DRV.dirty=true; }
+      DRV.ones=0; DRV.sync=false;
+      if(++DRV.bitCnt===8){ DRV.bitCnt=0; drvByteReady(soe); }
+    } else {
+      const bit=tr?(tr[pos>>3]>>(7-(pos&7)))&1:0;
+      if(bit){ if(++DRV.ones>=10) DRV.sync=true; } else { DRV.ones=0; DRV.sync=false; }
+      DRV.shift=((DRV.shift<<1)|bit)&255;
+      if(DRV.sync) DRV.bitCnt=0;
+      else if(++DRV.bitCnt===8){ DRV.bitCnt=0; DRV.latch=DRV.shift; drvByteReady(soe); }
+    }
+  }
+}
+function drvIrq(){ const c=DRV.C; push(c.pc>>8); push(c.pc&255); push((getP()&~0x10)|0x20); c.i=1; c.pc=drvRD(0xFFFE)|(drvRD(0xFFFF)<<8); cyc+=7; }
+function drvRun(t64){
+  if(!DRV.on||DRV.halted) return;
+  const target=Math.floor(t64*1.0149723);
+  if(DRV.cyc>=target) return;
+  const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive;
+  C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false;
+  const v1=DRV.via1, v2=DRV.via2;
+  try{
+    while(cyc<target){
+      const c0=cyc;
+      cpuStep();
+      const n=cyc-c0; viaAdvance(v1,n); viaAdvance(v2,n); diskAdvance(n);
+      if(!C.i&&((v1.ifr&v1.ier&0x7F)||(v2.ifr&v2.ier&0x7F))) drvIrq();
+    }
+  }catch(e){ DRV.halted=true; console.warn('Lecteur 1541 bloqué',e); if(HAS_DOM) toast('Le lecteur 1541 émulé s\u2019est bloqué : désactivez-le puis réactivez-le'); }
+  DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA;
+}
+function drvLoadDisk(){
+  drvSync(); DRV.tracks=[]; DRV.dirty=false;
+  if(!d64) return;
+  if(d64.g64){ d64.g64.forEach((t,h)=>{ if(t) DRV.tracks[h]=t; }); }
+  else for(let t=1;t<=d64.tracks;t++) DRV.tracks[2*t]=buildTrack(d64.img,t);
+  DRV.bitPos=0;
+}
+function drvSync(){
+  if(!DRV.dirty||!d64) return;
+  DRV.dirty=false;
+  for(let t=1;t<=d64.tracks;t++) if(DRV.tracks[2*t]) decodeTrack(DRV.tracks[2*t],t,d64.img);
+  if(d64.g64) d64.g64=DRV.tracks; else d64Persist();
+  refreshDisk();
+}
+function drvReset(){
+  Object.assign(DRV.via1,makeVIA()); Object.assign(DRV.via2,makeVIA());
+  DRV.ram.fill(0); DRV.halted=false; DRV.phase=0; DRV.motor=false; DRV.led=false; DRV.density=3; DRV.ht=36; DRV.bitAcc=0; DRV.bitCnt=0; DRV.ones=0; DRV.sync=false; DRV.prevAtn=false;
+  Object.assign(DRV.C,{a:0,x:0,y:0,sp:0xFF,n:0,v:0,d:0,i:1,z:0,c:0}); DRV.C.pc=DRV.rom[0x3FFC]|(DRV.rom[0x3FFD]<<8);
+  DRV.cyc=Math.floor(cyc*1.0149723);
+}
+function drvEnable(){
+  if(!USER_ROM.dos) throw new Error('Il faut la ROM du lecteur 1541 (menu Système).');
+  if(!romMode) throw new Error('Le lecteur 1541 émulé demande le mode ROM (menu Système).');
+  DRV.rom=USER_ROM.dos; drvReset(); drvLoadDisk(); DRV.on=true;
+  try{ localStorage.setItem(DRV_KEY,'1'); }catch(e){}
+}
+function drvDisable(){ drvSync(); DRV.on=false; DRV.motor=false; try{ localStorage.setItem(DRV_KEY,'0'); }catch(e){} }
 
 /* ================= Système ================= */
 function coldReset(){
@@ -2594,10 +2857,11 @@ function buildCharRom(){ CHARROM.set(FONT[0],0); for(let i=0;i<1024;i++) CHARROM
 let canvas, ctx2, IMG, IMG32, cursorOn=true, blinkT=0;
 const FBW=new Uint32Array(W*H), FB_D=new Uint32Array(W*H);   // image en cours de balayage / dernière image complète
 const lineFg=new Uint8Array(W), sprOwnL=new Uint8Array(W);
-function frameFlip(){ FB_D.set(FBW); }
+let vicFrameNo=0, skipDraw=false;
+function frameFlip(){ if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNow()&&(vicFrameNo&7)!==0; }
 function render(){ if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
 function drawLine(L){
-  const y=L-15; if(y<0||y>=H) return;
+  const y=L-15; if(y<0||y>=H||skipDraw) return;
   const o=y*W, buf=FBW, brd=PAL[mem[53280]&15];
   if(vBorder){ buf.fill(brd,o,o+W); return; }
   const d011=mem[53265], d016=mem[53270], d018=mem[53272];
@@ -2746,12 +3010,24 @@ function prepLoad(){ closeAll(); if(romMode) return; if(state!=='idle') restoreK
 function refreshDisk(){
   if(!HAS_DOM) return;
   const dbox=$('#d64-box'); if(!dbox) return;
+  const xb=$('#drv-box'); xb.innerHTML='';
+  const dm=document.createElement('div'); dm.className='item'+(DRV.on?' disk':'');
+  dm.innerHTML='<div><b>Lecteur 1541 émulé</b><small></small></div><div class="bar" style="margin:0"></div>';
+  dm.querySelector('small').textContent=DRV.on?(DRV.halted?'Bloqué':'Actif : vrai DOS, chargeurs rapides et protections')+' · piste '+(DRV.ht>>1)+(DRV.ht&1?',5':''):!USER_ROM.dos?'Chargez la ROM du lecteur dans Système pour l\u2019activer':'Désactivé : lecteur virtuel instantané';
+  if(USER_ROM.dos){
+    const tg=mkBtn(DRV.on?'Désactiver':'Activer',DRV.on?'ghost':'',()=>{ try{ if(DRV.on) drvDisable(); else { ensureRom(); drvEnable(); } refreshDisk(); toast(DRV.on?'Lecteur 1541 émulé activé':'Retour au lecteur virtuel'); }catch(ex){ toast(ex.message); } });
+    const wl=document.createElement('label'); wl.className='act ghost'; wl.style.cursor='pointer';
+    wl.innerHTML='<input type="checkbox"'+(DRV.warp?' checked':'')+'> Accélérer'; wl.querySelector('input').onchange=e=>{ DRV.warp=e.target.checked; };
+    dm.lastChild.append(tg,wl);
+  }
+  xb.append(dm);
   dbox.innerHTML='';
   if(d64){
     const h=d64Header(), free=d64FreeBlocks(), files=d64Dir();
     dbox.append(mkItem(petToText(h.name)||'(sans nom)','ID '+petToText(h.id)+' · '+files.length+' fichier'+(files.length>1?'s':'')+' · '+free+' blocs libres · '+d64.file,[
       mkBtn('Répertoire','',()=>{ prepLoad(); typeQueue.push(...textToPet('LOAD"$",8\nLIST\n')); }),
-      mkBtn('.d64','ghost',()=>{ download(d64.img,d64.file.replace(/\.d64$/i,'')+'.d64','application/octet-stream'); toast('Image téléchargée : '+d64.file); }),
+      mkBtn('.d64','ghost',()=>{ drvSync(); download(d64.img,d64.file.replace(/\.[dg]64$/i,'')+'.d64','application/octet-stream'); toast('Image .d64 téléchargée'); }),
+      mkBtn('.g64','ghost',()=>{ drvSync(); const tr=DRV.on||d64.g64?(d64.g64||DRV.tracks):(()=>{ const a=[]; for(let t=1;t<=d64.tracks;t++) a[2*t]=buildTrack(d64.img,t); return a; })(); download(buildG64(tr),d64.file.replace(/\.[dg]64$/i,'')+'.g64','application/octet-stream'); toast('Image .g64 téléchargée'); }),
       mkBtn('Éjecter','ghost',()=>{ d64Eject(); refreshDisk(); toast('Disquette éjectée : le lecteur 8 revient à la disquette du navigateur'); })
     ],'disk'));
     const list=document.createElement('div'); list.className='list files'; list.style.marginTop='8px';
@@ -2799,7 +3075,7 @@ function refreshDisk(){
     mkBtn('Redémarrer','',()=>{ closeAll(); romReset(); }),
     mkBtn('Débrancher','ghost',()=>{ cartEject(); refreshDisk(); toast('Cartouche débranchée'); })],'disk'));
   else cbx.innerHTML='<div class="empty">Aucune cartouche. Brancher une cartouche redémarre la machine en mode ROM.</div>';
-  const dev=d64?9:8;
+  const dev=webDev();
   $('#web-title').textContent='Disquette du navigateur · lecteur '+dev;
   $('#web-hint').innerHTML='Les programmes enregistrés avec <b>SAVE"NOM",'+dev+'</b> sont gardés dans ce navigateur.';
   const box=$('#disk-list'), all=diskAll(), names=Object.keys(all); box.innerHTML='';
@@ -2816,11 +3092,13 @@ function refreshDisk(){
 function refreshRom(){
   if(!HAS_DOM) return;
   const box=$('#rom-list'); if(!box) return; box.innerHTML='';
-  const label={basic:'BASIC · $A000',kernal:'KERNAL · $E000',chargen:'Caractères · $D000'};
-  for(const k of ['basic','kernal','chargen']){
+  const label={basic:'BASIC · $A000',kernal:'KERNAL · $E000',chargen:'Caractères · $D000',dos:'Lecteur 1541 · $C000'};
+  for(const k of ['basic','kernal','chargen','dos']){
     const ok=!!USER_ROM[k];
-    box.append(mkItem(label[k],ok?'Chargée : '+(USER_ROM.names[k]||'fichier')+' ('+USER_ROM[k].length+' octets)':(k==='chargen'?'Absente : la police intégrée sera utilisée':'Manquante'),[],ok?'disk':''));
+    box.append(mkItem(label[k],ok?'Chargée : '+(USER_ROM.names[k]||'fichier')+' ('+USER_ROM[k].length+' octets)':(k==='chargen'?'Absente : la police intégrée sera utilisée':k==='dos'?(USER_ROM._dosParts&&USER_ROM._dosParts['dos-lo']?'Moitié basse chargée ('+(USER_ROM.names['dos-lo']||'fichier')+') : il manque la moitié haute, 901229-xx ($E000-$FFFF)':USER_ROM._dosParts&&USER_ROM._dosParts['dos-hi']?'Moitié haute chargée ('+(USER_ROM.names['dos-hi']||'fichier')+') : il manque la moitié basse, 325302-01 ($C000-$DFFF)':'Absente : le lecteur virtuel sera utilisé (16 Ko, ou les deux moitiés de 8 Ko)'):'Manquante'),[],ok?'disk':''));
   }
+  if(USER_ROM._repaired&&!(USER_ROM.kernal&&romKind(USER_ROM.kernal)==='kernal')) USER_ROM._repaired=false;
+  if(USER_ROM._repaired) box.append(mkItem('Correction automatique','Une ROM du lecteur 1541 avait été rangée par erreur à la place du KERNAL : elle a été déplacée. Rechargez votre ROM KERNAL du C64.',[],''));
   $('#rom-start').disabled=!(USER_ROM.basic&&USER_ROM.kernal);
   $('#rom-start').style.opacity=$('#rom-start').disabled?.5:1;
 }
@@ -2829,8 +3107,8 @@ async function openFile(f,run){
   if(low.endsWith('.crt')){ const c=parseCRT(new Uint8Array(await f.arrayBuffer())); closeAll(); cartInsert(c); refreshDisk(); toast('Cartouche « '+c.name+' » branchée'); return; }
   if(low.endsWith('.tap')){ const t=parseTAP(new Uint8Array(await f.arrayBuffer())); tapeInsert('tap',t,f.name); closeAll(); ensureRom(); refreshDisk(); if(run){ romAfter(300,()=>{}); typeQueue.push(...pet('LOAD"",1'),13); romAfter(1500,()=>tapePlay()); } toast('Cassette insérée'+(run?' : chargement lancé':'')); return; }
   if(low.endsWith('.t64')){ const t=parseT64(new Uint8Array(await f.arrayBuffer())); tapeInsert('t64',t,f.name); closeAll(); refreshDisk(); if(run){ prepLoad(); const f0=t.files[0], ml=(f0.bytes[0]|(f0.bytes[1]<<8))!==0x0801; typeQueue.push(...pet('LOAD'),13); if(!ml) typeQueue.push(...pet('RUN'),13); } toast('Archive « '+(petToText(t.name)||f.name)+' » insérée'); return; }
-  if(low.endsWith('.d64')){
-    d64Mount(new Uint8Array(await f.arrayBuffer()),f.name); refreshDisk();
+  if(low.endsWith('.d64')||low.endsWith('.g64')){
+    const u=new Uint8Array(await f.arrayBuffer()); if(low.endsWith('.g64')) g64Mount(u,f.name); else d64Mount(u,f.name); refreshDisk();
     const h=d64Header(); closeAll();
     if(run){ if(state!=='idle') restoreKey(); typeQueue.push(...textToPet('LOAD"$",8\nLIST\n')); }
     toast('Disquette « '+petToText(h.name).trim()+' » insérée dans le lecteur 8');
@@ -2952,19 +3230,40 @@ function initUI(){
     it.append(go); pl.append(it);
   });
 
-  $('#btn-dir').addEventListener('click',()=>{ prepLoad(); typeQueue.push(...textToPet('LOAD"$",'+(d64?9:8)+'\nLIST\n')); });
+  $('#btn-dir').addEventListener('click',()=>{ prepLoad(); typeQueue.push(...textToPet('LOAD"$",'+webDev()+'\nLIST\n')); });
   $('#rom-file').addEventListener('change',async e=>{
     const fs=[...e.target.files]; e.target.value=''; const got=[];
     for(const f of fs){ try{ got.push(romAddFile(new Uint8Array(await f.arrayBuffer()),f.name)); }catch(ex){ toast(ex.message); } }
     refreshRom(); if(got.length) toast('ROM reconnue'+(got.length>1?'s':'')+' : '+got.join(', '));
+    if(USER_ROM.dos&&fs.length) refreshDisk();
   });
   $('#rom-start').addEventListener('click',()=>{ try{ startRom('user'); closeAll(); toast('Démarrage sur les ROM d\u2019origine'); }catch(ex){ toast(ex.message); } });
+  $('#rom-vps').addEventListener('click',async()=>{
+    const u=prompt('Utilisateur pour les ROM privées :');
+    if(!u) return;
+    const w=prompt('Mot de passe :');
+    if(!w) return;
+    const auth='Basic '+btoa(u+':'+w);
+    let ok=[],ko=[];
+    for(const [url,name] of [['rom/basic-kernal.bin','basic-kernal'],['rom/chargen.bin','chargen'],['rom/1541-c000.bin','1541-c000'],['rom/1541-e000.bin','1541-e000']]){
+      try{
+        const r=await fetch(url,{headers:{'Authorization':auth},cache:'no-store'});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const b=new Uint8Array(await r.arrayBuffer());
+        const k=romAddFile(b,name);
+        ok.push(k);
+      }catch(ex){ ko.push(name+' ('+ex.message+')'); }
+    }
+    refreshRom();
+    if(ok.length) toast('ROM du serveur chargée'+(ok.length>1?'s':'')+' : '+ok.join(', '));
+    if(ko.length) toast('Échec : '+ko.join(', '));
+  });
   $('#rom-open').addEventListener('click',()=>{ startRom('open'); closeAll(); toast('Démarrage sur Open ROMs'); });
   $('#rom-builtin').addEventListener('click',()=>{ stopRom(); closeAll(); toast('Retour au BASIC intégré'); });
   $('#rom-forget').addEventListener('click',()=>{ romForget(); refreshRom(); if(romSource==='user') stopRom(); toast('ROM effacées de ce navigateur'); });
   $('#tape-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ await openFile(f,false); $('#dlg-disk').showModal(); refreshDisk(); }catch(ex){ toast(ex.message); } });
   $('#cart-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ await openFile(f,true); }catch(ex){ toast(ex.message); } });
-  $('#d64-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ d64Mount(new Uint8Array(await f.arrayBuffer()),f.name); refreshDisk(); toast('Disquette insérée : '+f.name); }catch(ex){ toast(ex.message); } });
+  $('#d64-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const u=new Uint8Array(await f.arrayBuffer()); if(/\.g64$/i.test(f.name)) g64Mount(u,f.name); else d64Mount(u,f.name); refreshDisk(); toast('Disquette insérée : '+f.name); }catch(ex){ toast(ex.message); } });
   $('#d64-blank').addEventListener('click',()=>{ const n=Object.keys(diskAll()).length; d64Mount(d64Blank('DISQUETTE','01'),'vierge.d64'); refreshDisk(); toast('Disquette vierge insérée : SAVE"NOM",8 pour y enregistrer'); });
   const tube=$('.monitor');
   tube.addEventListener('dragover',e=>{ e.preventDefault(); tube.classList.add('drop'); });
@@ -3004,8 +3303,9 @@ function frame(t){
   update(dt);
   blinkT+=dt; if(blinkT>=320){ blinkT=0; cursorOn=!cursorOn; }
   render();
-  const st=state==='rom'?(romHalted?'Processeur bloqué':TAPE.run?'Cassette '+Math.round(100*(TAPE.pos-20)/Math.max(1,TAPE.end-20))+' %'+(TAPE.warp?' (accéléré)':''):(cart?cart.name:romSource==='open'?'Open ROMs':'ROM d\u2019origine')+(turbo?' (turbo)':'')):state==='cpu'?(turbo?'Langage machine (turbo)':'Langage machine'):state==='running'?(turbo?'Exécution (turbo)':'Exécution'):state==='input'?'Attente de saisie':state==='busy'?'Lecteur en activité':'Prêt';
+  const st=state==='rom'?(romHalted?'Processeur bloqué':DRV.on&&DRV.motor?'1541 · piste '+(DRV.ht>>1)+(DRV.warp?' (accéléré)':''):TAPE.run?'Cassette '+Math.round(100*(TAPE.pos-20)/Math.max(1,TAPE.end-20))+' %'+(TAPE.warp?' (accéléré)':''):(cart?cart.name:romSource==='open'?'Open ROMs':'ROM d\u2019origine')+(turbo?' (turbo)':'')):state==='cpu'?(turbo?'Langage machine (turbo)':'Langage machine'):state==='running'?(turbo?'Exécution (turbo)':'Exécution'):state==='input'?'Attente de saisie':state==='busy'?'Lecteur en activité':'Prêt';
   if(st!==lastStat){ lastStat=st; $('#stat').textContent=st; $('#led').className='led '+(state==='busy'?'busy':'on'); }
+  const ledOn=state==='busy'||(DRV.on&&DRV.led); if(ledOn!==frame.led){ frame.led=ledOn; $('#led').className='led '+(ledOn?'busy':'on'); }
   requestAnimationFrame(frame);
 }
 async function start(){
@@ -3018,13 +3318,14 @@ async function start(){
   buildFonts(ok);
   d64Restore(); romRestoreStore(); coldReset(); refreshDisk(); refreshRom();
   const md=getMode(); if(md==='user'&&USER_ROM.basic&&USER_ROM.kernal) startRom('user'); else if(md==='open') startRom('open');
+  try{ if(romMode&&USER_ROM.dos&&localStorage.getItem(DRV_KEY)==='1') drvEnable(); }catch(e){}
   requestAnimationFrame(frame);
 }
 if(HAS_DOM) start();
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
