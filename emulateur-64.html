@@ -136,6 +136,9 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 .help td:first-child{white-space:nowrap;width:40%}
 .help h3{margin:1em 0 .3em;font-size:20px}
 .empty{color:var(--muted);padding:10px 0}
+.thumb{width:96px;height:68px;border-radius:6px;object-fit:cover;background:#15120f;flex:none;image-rendering:pixelated}
+.item.state{justify-content:flex-start}
+.item.state .bar{margin-left:auto}
 .sub{margin:2px 0 10px;font-size:21px;font-weight:700}
 .list.files{max-height:320px;overflow:auto}
 .item.disk{background:rgba(217,164,65,.10);border-color:var(--amber)}
@@ -162,6 +165,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <button data-open="dlg-disk">Supports</button>
       <button data-open="dlg-import">Importer</button>
       <button id="btn-export">Exporter</button>
+      <button data-open="dlg-state">États</button>
       <button data-open="dlg-rom">Système</button>
       <button data-open="dlg-help">Aide</button>
     </nav>
@@ -297,6 +301,19 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
   </div>
 </dialog>
 
+<dialog id="dlg-state">
+  <div class="dh"><h2>Sauvegardes d'état</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+  <div class="db">
+    <p>Une sauvegarde fige la machine entière : mémoire, processeur, puces vidéo, son et entrées/sorties, disquette, cassette ou cartouche insérée, lecteur 1541. Elle la restaure à l'identique, même au milieu d'un jeu ou d'un chargement. Raccourcis : <b>F9</b> sauvegarde rapide, <b>F10</b> restauration rapide.</p>
+    <div class="list" id="state-list"></div>
+    <div class="bar" style="margin-top:14px">
+      <button class="act ghost" id="st-export">Exporter l'état actuel</button>
+      <label class="act ghost" style="cursor:pointer">Importer un état<input type="file" id="st-import" accept=".c64s,.json" hidden></label>
+    </div>
+    <p style="margin-top:12px;font-size:15px;color:var(--muted)">Les ROM ne sont pas incluses dans les sauvegardes : un état fait avec vos ROM d'origine demande qu'elles soient chargées dans ce navigateur.</p>
+  </div>
+</dialog>
+
 <dialog id="dlg-help" class="help">
   <div class="dh"><h2>Aide</h2><button class="x" data-close aria-label="Fermer">×</button></div>
   <div class="db">
@@ -314,12 +331,16 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <tr><td><kbd>F1…F8</kbd></td><td>Touches de fonction (lisibles avec GET)</td></tr>
       <tr><td>Flèches + <kbd>Tab</kbd></td><td>Joystick pendant un programme (Tab = feu) : port 2 par défaut, lu en PEEK(56320) ; le bouton « Joystick » le passe sur le port 1 (PEEK(56321))</td></tr>
       <tr><td><kbd>Ctrl V</kbd></td><td>Colle du texte comme s'il était tapé</td></tr>
+      <tr><td><kbd>F9</kbd> / <kbd>F10</kbd></td><td>Sauvegarde / restauration rapide de l'état complet de la machine</td></tr>
     </table>
     <p>Tapez en minuscules : les lettres s'affichent en majuscules, comme sur la machine. Sur mobile, touchez l'écran ou la touche ⌨ pour faire apparaître le clavier.</p>
 
     <h3>Boutons et menus</h3>
     <p>Sous l'écran : RUN/STOP, RESTORE, curseurs, inversion vidéo, C= ⇧ (majuscules/minuscules), F1 à F7, FEU (tir du joystick) et les 16 couleurs. Sur le moniteur : <b>Turbo</b> (vitesse maximale au lieu de celle d'origine), <b>Synchro écran</b> (voir ci-dessous), <b>Son</b>, <b>Effet tube</b> (lignes de balayage), <b>Joystick 2 / 1</b> (port utilisé) et <b>Reset</b> (redémarrage, mémoire effacée).</p>
     <p><b>Programmes</b> : démonstrations prêtes à lancer. <b>Supports</b> : disquette .d64, cassette .tap ou .t64, cartouche .crt et disquette du navigateur. <b>Importer</b> : listing collé, ou fichier .d64, .t64, .tap, .crt, .prg, .bas, .txt (vous pouvez aussi le glisser sur l'écran). <b>Exporter</b> : programme en mémoire en .prg, en .txt ou copié. <b>Système</b> : BASIC intégré ou ROM d'origine.</p>
+
+    <h3>Sauvegardes d'état</h3>
+    <p>Menu États : cinq emplacements (dont la sauvegarde rapide, F9 pour sauver, F10 pour revenir), avec miniature et date, gardés dans ce navigateur. Un état peut aussi être exporté dans un fichier .c64s et réimporté ailleurs. En BASIC intégré, la sauvegarde n'est pas possible pendant un INPUT ou un chargement en cours.</p>
 
     <h3>Cadence d'affichage</h3>
     <p>Le C64 européen produit 50 images par seconde. Sur un écran à 50 ou 100 Hz, chaque image est affichée au bon moment et le bouton Synchro écran s'active tout seul. Sur un écran à 60 Hz, deux choix : en temps réel (par défaut), la vitesse est exacte mais une image sur six est répétée, ce qui donne un léger à-coup dans les défilements ; avec Synchro écran, chaque rafraîchissement montre une nouvelle image, les défilements sont parfaitement fluides, mais la machine (et donc la musique) tourne 20 % plus vite. Survolez le bouton pour voir la fréquence mesurée de votre écran.</p>
@@ -331,7 +352,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 
     <h3>Matériel simulé</h3>
     <p>Processeur 6510 complet (instructions officielles et non documentées, mode décimal, cycle supplémentaire au franchissement de page, double écriture des instructions lecture-modification-écriture) cadencé à 985 kHz. SYS lance du code machine, qui revient au BASIC par RTS.</p>
-    <p>Affichage calculé ligne par ligne pendant le balayage : un changement de registre en cours d'image (couleurs, mode, jeu de caractères, position des sprites) ne s'applique qu'aux lignes suivantes, ce qui permet les écrans partagés et le multiplexage des sprites. Modes texte, multicolore, couleur de fond étendue et bitmap ; défilement fin horizontal et vertical, modes 38 colonnes et 24 lignes ; changement de banque ; ouverture des bordures haute et basse. La puce vidéo vole 40 cycles au processeur toutes les 8 lignes et 2 cycles par sprite affiché. Sprites agrandis, multicolores, avec priorité, collisions et interruptions de collision.</p>
+    <p>Affichage calculé cycle par cycle pendant le balayage (8 pixels par cycle) : chaque écriture du processeur dans un registre vidéo prend effet à sa position exacte dans la ligne, ce qui permet les changements de couleur en milieu de ligne, les écrans partagés, le multiplexage des sprites et l'ouverture des bordures (latérales, haute et basse) grâce aux bascules internes de la puce, reproduites fidèlement. Modes texte, multicolore, couleur de fond étendue et bitmap ; défilement fin horizontal et vertical, modes 38 colonnes et 24 lignes ; changement de banque ; ouverture des bordures haute et basse. La puce vidéo vole 40 cycles au processeur toutes les 8 lignes et 2 cycles par sprite affiché. Sprites agrandis, multicolores, avec priorité, collisions et interruptions de collision.</p>
     <p>SID 6581 synthétisé échantillon par échantillon : trois voix (triangle, dent de scie, impulsion à largeur réglable, bruit, formes combinées), enveloppes ADSR, synchronisation et modulation en anneau, filtre passe-bas / passe-bande / passe-haut avec résonance, sons échantillonnés joués par le registre de volume. Le son est coupé en Turbo. Deux CIA complets : timers A et B (continu ou un seul coup, B pouvant compter les passages à zéro de A), horloge TOD, interruptions (IRQ pour le premier, NMI pour le second), matrice clavier dans les deux sens, joystick sur les ports 1 et 2. La mémoire vive cachée sous les E/S ($D000-$DFFF) et sous les ROM est accessible selon le registre $01 et les lignes de la cartouche.</p>
 
     <h3>ROM d'origine (menu Système)</h3>
@@ -350,7 +371,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Cartouches .crt gérées : normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
-    <p>L'affichage est exact à la ligne près, pas au cycle près : un changement fait au milieu d'une ligne s'applique à toute la ligne suivante, et les astuces qui en dépendent (bordures latérales ouvertes, FLD, étirement de sprites, données vidéo modifiées en cours de rangée) ne sont pas reproduites. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
+    <p>L'affichage est calculé au cycle près pour les registres (couleurs, modes, défilement, bordures, y compris leur ouverture), mais les sprites sont lus au début de chaque ligne et les accès mémoire de la puce vidéo ne sont pas simulés un par un : l'étirement ou la compression de sprites et les effets du type VSP ou FLI ne sont pas reproduits. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
   </div>
 </dialog>
 
@@ -1441,7 +1462,7 @@ function ioRead(a){
 }
 function ioWrite(a,v){
   if(a<0xD400){
-    const r=a&63; mem[0xD000+r]=v;
+    const r=a&63; mem[0xD000+r]=v; if(cpuActive) vlog.push(cyc,r,v);
     if(r===0x11) rasterCmp=(rasterCmp&255)|((v&128)<<1);
     else if(r===0x12) rasterCmp=(rasterCmp&256)|v;
     else if(r===0x19) d019&=~v;
@@ -1753,28 +1774,38 @@ function warmStart(){
   curIdx=-1; ready();
 }
 /* --- VIC-II : balayage ligne par ligne --- */
-let vicNext=0, vicLine=0, vicPhase=0, vicLineCur=0, vcBase=0, vc=0, rc=0, vDisplay=false, vBorder=true, den30=false, ciaLast=0;
+let vicNext=0, vicLine=0, vicPhase=0, vicLineCur=0, vcBase=0, vc=0, rc=0, vDisplay=false, vBorder=true, mBorder=true, den30=false, ciaLast=0, vLineStart=0;
 const rowSC=new Uint8Array(40), rowCol=new Uint8Array(40);
-function vicReset(){ vicNext=cyc; vicLine=0; vicPhase=0; vicLineCur=0; vcBase=0; vc=0; rc=0; vDisplay=false; vBorder=true; den30=false; ciaLast=cyc; }
+const vstart=new Uint8Array(64), vwork=new Uint8Array(64);   // registres vidéo au début de la ligne / pendant son calcul
+let vlog=[];                                                 // écritures horodatées : cycle, registre, valeur
+function vicReset(){ vicNext=cyc; vicLine=0; vicPhase=0; vicLineCur=0; vcBase=0; vc=0; rc=0; vDisplay=false; vBorder=true; mBorder=true; den30=false; ciaLast=cyc; vLineStart=cyc; vlog=[]; vstart.set(mem.subarray(0xD000,0xD040)); }
 function vicAdvance(){
   while(cyc>=vicNext){
     const L=vicLine;
     if(vicPhase===0){
-      vicLineCur=L;
+      // fin de la ligne précédente : calcul au cycle près, puis cycle 58 (compteurs)
+      const P=L===0?311:L-1;
+      renderLine(P);
+      if(rc===7){ vcBase=vDisplay?(vc+40)&1023:vc; vDisplay=lineBad; }
+      if(vDisplay) rc=(rc+1)&7;
+      // début de la nouvelle ligne
+      vLineStart=vicNext; vicLineCur=L; lineBad=false;
+      vstart.set(mem.subarray(0xD000,0xD040));
       if(L===0){ vcBase=0; frameFlip(); }
       if(L===rasterCmp) d019|=1;
       vicPhase=1; vicNext+=14;
     } else {
-      vicDoLine(L);
+      vicCycle14(L);
       vicPhase=0; vicNext+=49; vicLine=L===311?0:L+1;
     }
   }
 }
-function vicDoLine(L){
+let lineBad=false;
+function vicCycle14(L){
   const d011=mem[53265], d018=mem[53272];
   if(L===0x30) den30=(d011&16)!==0;
   const bad=den30&&L>=0x30&&L<=0xF7&&(L&7)===(d011&7);
-  vc=vcBase;
+  lineBad=bad; vc=vcBase;
   if(bad){
     rc=0; vDisplay=true;
     const scr=vicBank()+((d018>>4)<<10);
@@ -1782,11 +1813,6 @@ function vicDoLine(L){
     for(let i=0;i<40;i++){ const n=(vc+i)&1023; rowSC[i]=vread(scr+n); rowCol[i]=mem[CRAM+n]&15; if(n===cur){ rowSC[i]^=128; rowCol[i]=mem[646]&15; } }
     if(cpuActive) cyc+=40;
   }
-  const rsel=d011&8;
-  if(L===(rsel?251:247)) vBorder=true; else if(L===(rsel?51:55)&&(d011&16)) vBorder=false;
-  drawLine(L);
-  if(rc===7){ vcBase=vDisplay?(vc+40)&1023:vc; vDisplay=bad; }
-  if(vDisplay) rc=(rc+1)&7;
 }
 function tick(){
   if(cyc>=vicNext) vicAdvance();
@@ -1799,6 +1825,7 @@ function tick(){
     nmiLvl=lvl;
   }
 }
+let cpuSliceMs=12;
 function fastNow(){ return turbo||(TAPE.run&&TAPE.warp)||(DRV.on&&DRV.motor&&DRV.warp); }
 function irqPending(){ return ((d019&mem[0xD01A]&15)!==0)||((cia1.icr&cia1.mask&0x1F)!==0); }
 function cpuFault(e){
@@ -1814,7 +1841,7 @@ function runCpu(budget){
       if(!fastNow()&&cyc>=target) break;
       cpuStep(); tick();
       if(!C.i&&irqPending()) irqEnter();
-      if((++n&2047)===0&&now()-t0>12) break;
+      if((++n&2047)===0&&now()-t0>cpuSliceMs) break;
     }
   }catch(e){ cpuFault(e); }
   cpuActive=false;
@@ -2146,17 +2173,20 @@ function romReset(){
   romHalted=false; mem.fill(0); mem[0]=0x2F; mem[1]=0x37; cartReset(); if(DRV.on) drvReset(); updRom(); TAPE.run=false; TAPE.rem=0;
   if(ROM.chargen) CHARROM.set(ROM.chargen); else buildCharRom();
   d019=0; rasterCmp=0; ciaReset(cia1); ciaReset(cia2); nmiLvl=false; ramD.fill(0); vicReset(); sidReset();
-  const jt=a=>RD(a)===0x4C?(RD(a+1)|(RD(a+2)<<8)):-1;
+  iecSetup();
+  IEC.chans={}; IEC.mode=0; IEC.opening=null; IEC.err={8:'73,CBM DOS V2.6 1541,00,00',9:'73,CBM DOS V2.6 1541,00,00'};
+  C.sp=0xFD; C.i=1; C.d=0; C.a=C.x=C.y=0; C.pc=RD(0xFFFC)|(RD(0xFFFD)<<8);
+  typeHoldUntil=cyc+2600000;
+  state='rom';
+}
+function iecSetup(){
+  const jt=a=>{ const k=ROM.kernal; if(!k) return -1; const o=a-0xE000; return k[o]===0x4C?(k[o+1]|(k[o+2]<<8)):-1; };
   iecStock=jt(0xFFB1)===0xED0C;
   IEC_TRAPS.clear();
   if(iecStock){
     IEC_TRAPS.set(jt(0xFFB1),iecListen); IEC_TRAPS.set(jt(0xFFB4),iecTalk); IEC_TRAPS.set(jt(0xFF93),iecSecond); IEC_TRAPS.set(jt(0xFF96),iecTksa);
     IEC_TRAPS.set(jt(0xFFA8),iecCiout); IEC_TRAPS.set(jt(0xFFA5),iecAcptr); IEC_TRAPS.set(jt(0xFFAE),iecUnlsn); IEC_TRAPS.set(jt(0xFFAB),iecUntlk);
   }
-  IEC.chans={}; IEC.mode=0; IEC.opening=null; IEC.err={8:'73,CBM DOS V2.6 1541,00,00',9:'73,CBM DOS V2.6 1541,00,00'};
-  C.sp=0xFD; C.i=1; C.d=0; C.a=C.x=C.y=0; C.pc=RD(0xFFFC)|(RD(0xFFFD)<<8);
-  typeHoldUntil=cyc+2600000;
-  state='rom';
 }
 function romAfter(ms,fn){ romActions.push({at:now()+ms,fn}); }
 function romRestore(){ pressKeys([63],220); romAfter(70,()=>{ if(state==='rom') nmi(); }); typeHoldUntil=cyc+450000; }
@@ -2548,6 +2578,105 @@ function drvEnable(){
 }
 function drvDisable(){ drvSync(); DRV.on=false; DRV.motor=false; try{ localStorage.setItem(DRV_KEY,'0'); }catch(e){} }
 
+/* ================= Sauvegardes d'état ================= */
+function encV(v){
+  if(v instanceof Uint8Array) return {$u8:b64e(v)};
+  if(v instanceof Map) return {$map:[...v].map(([k,x])=>[k,encV(x)])};
+  if(Array.isArray(v)){ const a=new Array(v.length); for(let i=0;i<v.length;i++) a[i]=v[i]===undefined?null:encV(v[i]); return a; }
+  if(v&&typeof v==='object'){ const o={}; for(const k in v){ const x=v[k]; if(typeof x!=='function') o[k]=encV(x); } return o; }
+  return v;
+}
+function decV(v){
+  if(Array.isArray(v)) return v.map(decV);
+  if(v&&typeof v==='object'){
+    if(v.$u8!==undefined) return b64d(v.$u8);
+    if(v.$map) return new Map(v.$map.map(([k,x])=>[k,decV(x)]));
+    const o={}; for(const k in v) o[k]=decV(v[k]); return o;
+  }
+  return v;
+}
+function romSum(){ let s=0; for(const r of [ROM.basic,ROM.kernal]) if(r) for(let i=0;i<r.length;i+=7) s=(s*31+r[i])>>>0; return s; }
+function refOf(b){ const i=prog.findIndex(l=>l.bytes===b); return i>=0?{l:i}:{a:Array.from(b||[])}; }
+function refDe(r){ return r.l!==undefined?prog[r.l].bytes:r.a; }
+function saveState(){
+  if(!romMode&&(state==='input'||state==='busy')) throw new Error('Terminez d\u2019abord la saisie ou le chargement en cours.');
+  if(state==='boot') throw new Error('La machine démarre encore.');
+  sidFlush(true); drvSync();
+  const o={v:1,t:Date.now(),mode:romMode?romSource:'builtin',romSum:romMode?romSum():0,
+    mem,ramD,cpu:Object.assign({},C),cyc,cycFrac,rasterCmp,d019,collSS,collSB,joyPort,nmiLvl,joy2,
+    cia1,cia2,
+    vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo},
+    sid:{SV,SF,sidCyc},
+    state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,
+    tape:TAPE,cart,d64,
+    drv:DRV.on?{C:DRV.C,cyc:DRV.cyc,ram:DRV.ram,via1:DRV.via1,via2:DRV.via2,ht:DRV.ht,tracks:DRV.tracks,bitPos:DRV.bitPos,bitAcc:DRV.bitAcc,shift:DRV.shift,ones:DRV.ones,bitCnt:DRV.bitCnt,latch:DRV.latch,wshift:DRV.wshift,sync:DRV.sync,dirty:DRV.dirty,phase:DRV.phase,prevAtn:DRV.prevAtn,motor:DRV.motor,led:DRV.led,density:DRV.density,warp:DRV.warp}:null,
+    basic:romMode?null:{prog:prog.map(l=>[l.num,l.bytes]),vars,arrays,
+      fns:[...fns].map(([k,f])=>[k,{param:f.param,b:refOf(f.bytes),pos:f.pos}]),
+      stack:stack.map(e=>Object.assign({},e,{bytes:refOf(e.bytes)})),
+      dataIdx,dataPos,dataIn,B:refOf(B),P,curIdx,stmtStart,cont:cont?Object.assign({},cont,{bytes:refOf(cont.bytes)}):null,
+      crow,ccol,rvs,quote,insCount,link:[...link],ti:now()-tiStart,rs,credit}};
+  return JSON.stringify(encV(o));
+}
+function loadState(json){
+  let o; try{ o=decV(JSON.parse(json)); }catch(e){ throw new Error('Fichier d\u2019état illisible.'); }
+  if(!o||o.v!==1||!o.mem) throw new Error('Ce fichier n\u2019est pas une sauvegarde d\u2019état de cet émulateur.');
+  let warn='';
+  if(o.mode==='user'&&!(USER_ROM.basic&&USER_ROM.kernal)) throw new Error('Cet état a été fait avec vos ROM d\u2019origine : chargez-les d\u2019abord dans Système.');
+  if(o.drv&&!USER_ROM.dos) throw new Error('Cet état utilise le lecteur 1541 émulé : chargez d\u2019abord sa ROM dans Système.');
+  pending=null; stopReq=false; typeQueue.length=0; romActions.length=0; physHeld.clear(); synthKeys.length=0; keysDown.clear();
+  if(o.mode==='builtin'){ romMode=false; romSource=''; }
+  else {
+    const set=o.mode==='open'?{basic:b64d(OPEN_ROMS.basic),kernal:b64d(OPEN_ROMS.kernal),chargen:b64d(OPEN_ROMS.chargen)}:USER_ROM;
+    ROM.basic=set.basic; ROM.kernal=set.kernal; ROM.chargen=set.chargen; romMode=true; romSource=o.mode; setMode(o.mode);
+    if(romSum()!==o.romSum) warn='Vos ROM diffèrent de celles utilisées lors de la sauvegarde : le résultat peut varier.';
+  }
+  mem.set(o.mem); ramD.set(o.ramD); C=Object.assign(C,o.cpu);
+  cyc=o.cyc; cycFrac=o.cycFrac; rasterCmp=o.rasterCmp; d019=o.d019; collSS=o.collSS; collSB=o.collSB; joyPort=o.joyPort; nmiLvl=o.nmiLvl; joy2=255;
+  Object.assign(cia1,makeCIA(),o.cia1); Object.assign(cia2,makeCIA(),o.cia2);
+  const V=o.vic; vicNext=V.vicNext; vicLine=V.vicLine; vicPhase=V.vicPhase; vicLineCur=V.vicLineCur; vcBase=V.vcBase; vc=V.vc; rc=V.rc; vDisplay=V.vDisplay; vBorder=V.vBorder; mBorder=V.mBorder; den30=V.den30; ciaLast=V.ciaLast; vLineStart=V.vLineStart; rowSC.set(V.rowSC); rowCol.set(V.rowCol); vstart.set(V.vstart); vlog=V.vlog||[]; lineBad=V.lineBad; vicFrameNo=V.vicFrameNo;
+  for(let i=0;i<3;i++) Object.assign(SV[i],o.sid.SV[i]); Object.assign(SF,o.sid.SF); SID.q.length=0; sidCyc=cyc; SID.next=0;
+  romHalted=o.romHalted; typeHoldUntil=o.typeHoldUntil; kbd=o.kbd||[]; kName=o.kern.kName; kDev=o.kern.kDev; kSa=o.kern.kSa;
+  Object.assign(TAPE,o.tape); cart=o.cart; d64=o.d64;
+  if(o.iec) Object.assign(IEC,o.iec); else { IEC.chans={}; IEC.mode=0; IEC.opening=null; IEC.real=false; }
+  if(o.drv){ Object.assign(DRV,o.drv); DRV.rom=USER_ROM.dos; DRV.on=true; DRV.halted=false; } else { DRV.on=false; DRV.motor=false; }
+  if(o.basic){
+    const b=o.basic;
+    prog=b.prog.map(([n,x])=>({num:n,bytes:x})); reindex();
+    vars=b.vars; arrays=b.arrays; fns=new Map(b.fns.map(([k,f])=>[k,{param:f.param,bytes:refDe(f.b),pos:f.pos}]));
+    stack=b.stack.map(e=>Object.assign({},e,{bytes:refDe(e.bytes)}));
+    dataIdx=b.dataIdx; dataPos=b.dataPos; dataIn=b.dataIn; B=refDe(b.B); P=b.P; curIdx=b.curIdx; stmtStart=b.stmtStart;
+    cont=b.cont?Object.assign({},b.cont,{bytes:refDe(b.cont.bytes)}):null;
+    crow=b.crow; ccol=b.ccol; rvs=b.rvs; quote=b.quote; insCount=b.insCount; b.link.forEach((x,i)=>{ link[i]=x; });
+    tiStart=now()-b.ti; rs=b.rs; credit=b.credit; inputReq=null;
+  }
+  state=o.state;
+  updRom(); if(romMode){ if(ROM.chargen) CHARROM.set(ROM.chargen); else buildCharRom(); iecSetup(); } else buildCharRom();
+  refreshDisk();
+  return warn;
+}
+/* stockage des emplacements (IndexedDB, sinon mémoire de la session) */
+const IDB={db:null,tried:false,mem:new Map()};
+function idb(){ return new Promise(res=>{
+  if(IDB.db||IDB.tried) return res(IDB.db);
+  IDB.tried=true;
+  try{ const r=indexedDB.open('emu64',1); r.onupgradeneeded=()=>r.result.createObjectStore('states'); r.onsuccess=()=>{ IDB.db=r.result; res(IDB.db); }; r.onerror=()=>res(null); }
+  catch(e){ res(null); }
+}); }
+async function slotPut(k,v){ const db=await idb(); if(!db){ IDB.mem.set(k,v); return; } await new Promise((res,rej)=>{ const tx=db.transaction('states','readwrite'); tx.objectStore('states').put(v,k); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
+async function slotGet(k){ const db=await idb(); if(!db) return IDB.mem.get(k)||null; return new Promise(res=>{ const r=db.transaction('states').objectStore('states').get(k); r.onsuccess=()=>res(r.result||null); r.onerror=()=>res(null); }); }
+async function slotDel(k){ const db=await idb(); if(!db){ IDB.mem.delete(k); return; } await new Promise(res=>{ const tx=db.transaction('states','readwrite'); tx.objectStore('states').delete(k); tx.oncomplete=res; tx.onerror=res; }); }
+function modeLabel(){ return romMode?(cart?cart.name:romSource==='open'?'Open ROMs':'ROM d\u2019origine')+(DRV.on?' + 1541':''):'BASIC intégré'; }
+function thumb(){ try{ const c=document.createElement('canvas'); c.width=192; c.height=136; c.getContext('2d').drawImage(canvas,0,0,192,136); return c.toDataURL('image/png'); }catch(e){ return ''; } }
+async function stateSave(k){
+  const json=saveState();
+  await slotPut(k,{t:Date.now(),label:modeLabel(),thumb:thumb(),json});
+  return json.length;
+}
+async function stateLoad(k){
+  const v=await slotGet(k); if(!v) throw new Error('Emplacement vide.');
+  return loadState(v.json);
+}
+
 /* ================= Système ================= */
 function coldReset(){
   pending=null; stopReq=false; typeQueue.length=0; kbd=[]; inputReq=null;
@@ -2864,67 +2993,85 @@ const lineFg=new Uint8Array(W), sprOwnL=new Uint8Array(W);
 let vicFrameNo=0, skipDraw=false;
 function frameFlip(){ if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNow()&&(vicFrameNo&7)!==0; }
 function render(){ if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
-function drawLine(L){
-  const y=L-15; if(y<0||y>=H||skipDraw) return;
-  const o=y*W, buf=FBW, brd=PAL[mem[53280]&15];
-  if(vBorder){ buf.fill(brd,o,o+W); return; }
-  const d011=mem[53265], d016=mem[53270], d018=mem[53272];
-  const bank=vicBank(), scr=bank+((d018>>4)<<10), cb=bank+(((d018>>1)&7)<<11), bmpB=bank+((d018&8)?0x2000:0);
-  const ecm=d011&64, bmm=d011&32, mcm=d016&16, xs=d016&7;
-  const b0=PAL[mem[53281]&15], b1=PAL[mem[53282]&15], b2=PAL[mem[53283]&15], b3=PAL[mem[53284]&15], blk=PAL[0];
-  const x0=o+X0+xs, xEnd=o+X0+320, f0=X0+xs;
-  buf.fill(b0,o+X0,xEnd); lineFg.fill(0);
-  if(!vDisplay){
-    const g=vread(bank+(ecm?0x39FF:0x3FFF));
-    if(g) for(let c=0;c<40;c++) for(let p=0;p<8;p++){ const X=x0+c*8+p; if(X>=xEnd) break; if(g&(128>>p)){ buf[X]=blk; lineFg[f0+c*8+p]=1; } }
-  } else {
-    for(let c=0;c<40;c++){
-      const px=x0+c*8; if(px>=xEnd) break;
-      const sc=rowSC[c], cr=rowCol[c], fx=f0+c*8;
-      let g, mc=false, k0, k1, k2, k3;
-      if(bmm){
-        g=vread(bmpB+(((vc+c)&1023)<<3)+rc);
-        if(ecm){ g=0; k0=k1=blk; }
-        else if(mcm){ mc=true; k0=b0; k1=PAL[sc>>4]; k2=PAL[sc&15]; k3=PAL[cr]; }
-        else { k0=PAL[sc&15]; k1=PAL[sc>>4]; }
-      } else if(ecm){
-        g=vread(cb+((sc&63)<<3)+rc); const s6=sc>>6;
-        k0=s6===0?b0:s6===1?b1:s6===2?b2:b3; k1=PAL[cr];
-        if(mcm){ g=0; k0=k1=blk; }
-      } else {
-        g=vread(cb+(sc<<3)+rc);
-        if(mcm&&(cr&8)){ mc=true; k0=b0; k1=b1; k2=b2; k3=PAL[cr&7]; }
-        else { k0=b0; k1=PAL[cr]; }
-      }
-      if(mc){
-        for(let p=0;p<4;p++){
-          const v=(g>>(6-2*p))&3, col=v===0?k0:v===1?k1:v===2?k2:k3;
-          for(let q=0;q<2;q++){ const X=px+2*p+q; if(X<xEnd){ buf[X]=col; if(v&2) lineFg[fx+2*p+q]=1; } }
+const lineBrd=new Uint8Array(W);
+function renderLine(L){
+  const y=L-15, draw=y>=0&&y<H&&!skipDraw, o=y*W, R=vwork, lg=vlog, ln=lg.length, ls=vLineStart;
+  R.set(vstart);
+  let li=0;
+  while(li<ln&&lg[li]<ls) li+=3;
+  if(draw) lineFg.fill(0);
+  const bank=vicBank();
+  let lastC=-1, g=0, mc=false, k0=0, k1=0, k2=0, k3=0;
+  let d011=R[0x11], d016=R[0x16], d018=R[0x18], brd=PAL[R[0x20]&15], b0=PAL[R[0x21]&15], b1=PAL[R[0x22]&15], b2=PAL[R[0x23]&15], b3=PAL[R[0x24]&15];
+  let scr=bank+((d018>>4)<<10), cb=bank+(((d018>>1)&7)<<11), bmpB=bank+((d018&8)?0x2000:0);
+  for(let cc=0;cc<63;cc++){
+    const ct=ls+cc;
+    if(li<ln&&lg[li]<=ct){
+      while(li<ln&&lg[li]<=ct){ R[lg[li+1]]=lg[li+2]; li+=3; }
+      d011=R[0x11]; d016=R[0x16]; d018=R[0x18]; brd=PAL[R[0x20]&15]; b0=PAL[R[0x21]&15]; b1=PAL[R[0x22]&15]; b2=PAL[R[0x23]&15]; b3=PAL[R[0x24]&15];
+      scr=bank+((d018>>4)<<10); cb=bank+(((d018>>1)&7)<<11); bmpB=bank+((d018&8)?0x2000:0); lastC=-1;
+    }
+    const x0=cc*8-112, lcmp=(d016&8)?24:31, rcmp=(d016&8)?344:335;
+    const inCanvas=draw&&cc>=13&&cc<61, cmpHere=(lcmp>=x0&&lcmp<x0+8)||(rcmp>=x0&&rcmp<x0+8);
+    if(!inCanvas&&!cmpHere) continue;
+    const ecm=d011&64, bmm=d011&32, mcm=d016&16, xs=d016&7;
+    for(let p=0;p<8;p++){
+      const x=x0+p;
+      if(x===rcmp) mBorder=true;
+      if(x===lcmp){ const rs=d011&8; if(L===(rs?251:247)) vBorder=true; else if(L===(rs?51:55)&&(d011&16)) vBorder=false; if(!vBorder) mBorder=false; }
+      if(!inCanvas) continue;
+      const cx=x+8, k=o+cx;
+      if(mBorder){ FBW[k]=brd; lineBrd[cx]=1; continue; }
+      lineBrd[cx]=0;
+      const rel=x-24-xs;
+      if(rel<0||rel>=320){ FBW[k]=b0; continue; }
+      const c=rel>>3;
+      if(c!==lastC){
+        lastC=c; mc=false;
+        if(!vDisplay){ g=vread(bank+(ecm?0x39FF:0x3FFF)); k0=b0; k1=PAL[0]; }
+        else {
+          const sc=rowSC[c], cr=rowCol[c];
+          if(bmm){
+            g=vread(bmpB+(((vc+c)&1023)<<3)+rc);
+            if(ecm){ g=0; k0=k1=PAL[0]; }
+            else if(mcm){ mc=true; k0=b0; k1=PAL[sc>>4]; k2=PAL[sc&15]; k3=PAL[cr]; }
+            else { k0=PAL[sc&15]; k1=PAL[sc>>4]; }
+          } else if(ecm){
+            g=vread(cb+((sc&63)<<3)+rc); const s6=sc>>6;
+            k0=s6===0?b0:s6===1?b1:s6===2?b2:b3; k1=PAL[cr];
+            if(mcm){ g=0; k0=k1=PAL[0]; }
+          } else {
+            g=vread(cb+(sc<<3)+rc);
+            if(mcm&&(cr&8)){ mc=true; k0=b0; k1=b1; k2=b2; k3=PAL[cr&7]; }
+            else { k0=b0; k1=PAL[cr]; }
+          }
         }
-      } else {
-        for(let p=0;p<8;p++){ const X=px+p; if(X>=xEnd) break; if((g>>(7-p))&1){ buf[X]=k1; lineFg[fx+p]=1; } else buf[X]=k0; }
       }
+      const bit=rel&7;
+      if(mc){ const v=(g>>(6-(bit&6)))&3; FBW[k]=v===0?k0:v===1?k1:v===2?k2:k3; if(v&2) lineFg[cx]=1; }
+      else if((g>>(7-bit))&1){ FBW[k]=k1; lineFg[cx]=1; } else FBW[k]=k0;
     }
   }
-  drawSpritesLine(L,o,bank,scr,d016);
-  const lb=(d016&8)?X0:X0+7, rb=(d016&8)?X0+320:X0+311;
-  buf.fill(brd,o,o+lb); buf.fill(brd,o+rb,o+W);
+  // fin de ligne (cycle 63) : bascule verticale
+  { const rs=R[0x11]&8; if(L===(rs?251:247)) vBorder=true; else if(L===(rs?51:55)&&(R[0x11]&16)) vBorder=false; }
+  if(draw) drawSpritesLine(L,o,bank,vstart);
+  vlog=li>=ln?[]:lg.slice(li);
 }
-function drawSpritesLine(L,o,bank,scr,d016){
-  const en=mem[53269]; if(!en) return;
-  const wl=(d016&8)?X0:X0+7, wr=(d016&8)?X0+320:X0+311;
+function drawSpritesLine(L,o,bank,S){
+  const en=S[0x15]; if(!en) return;
+  const scr=bank+((S[0x18]>>4)<<10);
   let ss=0, sb=0, first=true;
   for(let s=7;s>=0;s--){
     if(!((en>>s)&1)) continue;
-    const ye=(mem[53271]>>s)&1, r=L-mem[53249+2*s];
+    const ye=(S[0x17]>>s)&1, r=L-S[1+2*s];
     if(r<0||r>=(ye?42:21)) continue;
     if(first){ sprOwnL.fill(0); first=false; }
     if(cpuActive) cyc+=2;
     const row=ye?r>>1:r, bit=1<<s;
     const ptr=bank+vread(scr+1016+s)*64;
-    let sx=mem[53248+2*s]+(((mem[53264]>>s)&1)?256:0); if(sx>=488) sx-=504;
-    const xe=((mem[53277]>>s)&1)?2:1, mc=(mem[53276]>>s)&1, behind=(mem[53275]>>s)&1;
-    const cs=PAL[mem[53287+s]&15], m0=PAL[mem[53285]&15], m1=PAL[mem[53286]&15], base=X0+sx-24;
+    let sx=S[2*s]+(((S[0x10]>>s)&1)?256:0); if(sx>=488) sx-=504;
+    const xe=((S[0x1D]>>s)&1)?2:1, mc=(S[0x1C]>>s)&1, behind=(S[0x1B]>>s)&1;
+    const cs=PAL[S[0x27+s]&15], m0=PAL[S[0x25]&15], m1=PAL[S[0x26]&15], base=X0+sx-24;
     for(let b=0;b<3;b++){
       const bits=vread(ptr+row*3+b); if(!bits) continue;
       for(let p=0;p<8;p+=(mc?2:1)){
@@ -2933,9 +3080,10 @@ function drawSpritesLine(L,o,bank,scr,d016){
         else { if(!(bits&(128>>p))) continue; col=cs; }
         const w=(mc?2:1)*xe, xs=base+(b*8+p)*xe;
         for(let d=0;d<w;d++){
-          const X=xs+d; if(X<wl||X>=wr) continue;
+          const X=xs+d; if(X<0||X>=W) continue;
           if(sprOwnL[X]) ss|=sprOwnL[X]|bit;
           sprOwnL[X]|=bit;
+          if(lineBrd[X]) continue;
           if(lineFg[X]){ sb|=bit; if(behind) continue; }
           FBW[o+X]=col;
         }
@@ -3106,6 +3254,27 @@ function refreshRom(){
   $('#rom-start').disabled=!(USER_ROM.basic&&USER_ROM.kernal);
   $('#rom-start').style.opacity=$('#rom-start').disabled?.5:1;
 }
+const SLOTS=[['rapide','Sauvegarde rapide (F9 / F10)'],['1','Emplacement 1'],['2','Emplacement 2'],['3','Emplacement 3'],['4','Emplacement 4']];
+async function refreshStates(){
+  const box=$('#state-list'); if(!box) return; box.innerHTML='';
+  for(const [k,name] of SLOTS){
+    const v=await slotGet(k);
+    const it=document.createElement('div'); it.className='item state';
+    const img=document.createElement('img'); img.className='thumb'; img.alt=''; if(v&&v.thumb) img.src=v.thumb;
+    const txt=document.createElement('div'); txt.innerHTML='<b></b><small></small>';
+    txt.querySelector('b').textContent=name;
+    txt.querySelector('small').textContent=v?new Date(v.t).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' · '+v.label:'Vide';
+    const bar=document.createElement('div'); bar.className='bar'; bar.style.margin='0';
+    bar.append(mkBtn('Sauver','',async()=>{ try{ await stateSave(k); toast(name+' : état sauvegardé'); refreshStates(); }catch(ex){ toast(ex.message); } }));
+    if(v){
+      bar.append(mkBtn('Charger','ghost',async()=>{ try{ const w=await stateLoad(k); closeAll(); toast(w||'État restauré'); }catch(ex){ toast(ex.message); } }));
+      bar.append(mkBtn('Effacer','ghost',async()=>{ await slotDel(k); refreshStates(); }));
+    }
+    it.append(img,txt,bar); box.append(it);
+  }
+}
+async function quickSave(){ try{ await stateSave('rapide'); toast('Sauvegarde rapide faite (F10 pour y revenir)'); }catch(ex){ toast(ex.message); } }
+async function quickLoad(){ try{ const w=await stateLoad('rapide'); toast(w||'Sauvegarde rapide restaurée'); }catch(ex){ toast(ex.message==='Emplacement vide.'?'Aucune sauvegarde rapide : appuyez d\u2019abord sur F9':ex.message); } }
 async function openFile(f,run){
   const low=f.name.toLowerCase();
   if(low.endsWith('.crt')){ const c=parseCRT(new Uint8Array(await f.arrayBuffer())); closeAll(); cartInsert(c); refreshDisk(); toast('Cartouche « '+c.name+' » branchée'); return; }
@@ -3146,6 +3315,8 @@ function initUI(){
     if(modalOpen()) return;
     const tg=e.target; if(tg&&tg!==ta&&(tg.tagName==='INPUT'||tg.tagName==='TEXTAREA'||tg.tagName==='SELECT')) return;
     if(e.key==='Unidentified'||e.keyCode===229) return;
+    if(e.key==='F9'){ e.preventDefault(); if(!e.repeat) quickSave(); return; }
+    if(e.key==='F10'){ e.preventDefault(); if(!e.repeat) quickLoad(); return; }
     if(romMode){
       audioInit(); updateJoy(e,true);
       if(e.key==='PageUp'){ e.preventDefault(); romRestore(); return; }
@@ -3214,6 +3385,8 @@ function initUI(){
   });
 
   const toggle=(id,fn)=>{ const b=$(id); b.addEventListener('click',()=>{ const v=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',String(v)); fn(v); }); };
+  $('#st-export').addEventListener('click',()=>{ try{ download(saveState(),'etat-c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.c64s','application/json'); toast('État exporté'); }catch(ex){ toast(ex.message); } });
+  $('#st-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=loadState(await f.text()); closeAll(); toast(w||'État importé et restauré'); }catch(ex){ toast(ex.message); } });
   $('#sw-sync').addEventListener('click',()=>{
     if(syncAuto){ toast('Écran à '+Math.round(dispHz)+' Hz : la synchro est automatique et la vitesse exacte'); return; }
     syncForced=!syncForced; try{ localStorage.setItem(SYNC_KEY,syncForced?'1':'0'); }catch(e){}
@@ -3227,7 +3400,7 @@ function initUI(){
   $('#sw-joy').addEventListener('click',e=>{ joyPort=joyPort===2?1:2; e.currentTarget.textContent='Joystick '+joyPort; toast('Joystick branché sur le port '+joyPort); });
   $('#sw-reset').addEventListener('click',()=>{ if(romMode) romReset(); else coldReset(); toast('Machine redémarrée : mémoire effacée'); });
 
-  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{ const d=$('#'+b.dataset.open); if(b.dataset.open==='dlg-disk') refreshDisk(); if(b.dataset.open==='dlg-rom') refreshRom(); d.showModal(); }));
+  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{ const d=$('#'+b.dataset.open); if(b.dataset.open==='dlg-state') refreshStates(); if(b.dataset.open==='dlg-disk') refreshDisk(); if(b.dataset.open==='dlg-rom') refreshRom(); d.showModal(); }));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
   document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{ if(e.target===d) d.close(); }));
 
@@ -3358,7 +3531,7 @@ if(HAS_DOM){ start(); globalThis.EMU_DEBUG={frames:()=>vicFrameNo, hz:()=>typeof
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
