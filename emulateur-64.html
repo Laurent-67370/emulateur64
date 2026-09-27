@@ -352,7 +352,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 
     <h3>Matériel simulé</h3>
     <p>Processeur 6510 complet (instructions officielles et non documentées, mode décimal, cycle supplémentaire au franchissement de page, double écriture des instructions lecture-modification-écriture) cadencé à 985 kHz. SYS lance du code machine, qui revient au BASIC par RTS.</p>
-    <p>Affichage calculé cycle par cycle pendant le balayage (8 pixels par cycle) : chaque écriture du processeur dans un registre vidéo prend effet à sa position exacte dans la ligne, ce qui permet les changements de couleur en milieu de ligne, les écrans partagés, le multiplexage des sprites et l'ouverture des bordures (latérales, haute et basse) grâce aux bascules internes de la puce, reproduites fidèlement. Modes texte, multicolore, couleur de fond étendue et bitmap ; défilement fin horizontal et vertical, modes 38 colonnes et 24 lignes ; changement de banque ; ouverture des bordures haute et basse. La puce vidéo vole 40 cycles au processeur toutes les 8 lignes et 2 cycles par sprite affiché. Sprites agrandis, multicolores, avec priorité, collisions et interruptions de collision.</p>
+    <p>Affichage calculé cycle par cycle pendant le balayage (8 pixels par cycle) : chaque écriture du processeur dans un registre vidéo prend effet à sa position exacte dans la ligne, ce qui permet les changements de couleur en milieu de ligne, les écrans partagés, le multiplexage des sprites et l'ouverture des bordures (latérales, haute et basse) grâce aux bascules internes de la puce, reproduites fidèlement. Modes texte, multicolore, couleur de fond étendue et bitmap ; défilement fin horizontal et vertical, modes 38 colonnes et 24 lignes ; changement de banque ; ouverture des bordures haute et basse. La puce vidéo vole 40 cycles au processeur toutes les 8 lignes et 2 cycles par sprite affiché. Sprites émulés avec la mécanique interne de la puce : compteur de données, bascule d'agrandissement vertical, accès mémoire aux cycles d'origine et registre à décalage déclenché par la position X du balayage. Cela reproduit le multiplexage vertical et horizontal (même sprite plusieurs fois sur une ligne), l'étirement et la compression (« sprite crunch »), les sprites dans les bordures ouvertes, la priorité, les collisions (y compris dans la bordure) et leurs interruptions.</p>
     <p>SID 6581 synthétisé échantillon par échantillon : trois voix (triangle, dent de scie, impulsion à largeur réglable, bruit, formes combinées), enveloppes ADSR, synchronisation et modulation en anneau, filtre passe-bas / passe-bande / passe-haut avec résonance, sons échantillonnés joués par le registre de volume. Le son est coupé en Turbo. Deux CIA complets : timers A et B (continu ou un seul coup, B pouvant compter les passages à zéro de A), horloge TOD, interruptions (IRQ pour le premier, NMI pour le second), matrice clavier dans les deux sens, joystick sur les ports 1 et 2. La mémoire vive cachée sous les E/S ($D000-$DFFF) et sous les ROM est accessible selon le registre $01 et les lignes de la cartouche.</p>
 
     <h3>ROM d'origine (menu Système)</h3>
@@ -371,7 +371,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Cartouches .crt gérées : normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
-    <p>L'affichage est calculé au cycle près pour les registres (couleurs, modes, défilement, bordures, y compris leur ouverture), mais les sprites sont lus au début de chaque ligne et les accès mémoire de la puce vidéo ne sont pas simulés un par un : l'étirement ou la compression de sprites et les effets du type VSP ou FLI ne sont pas reproduits. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
+    <p>L'affichage est calculé au cycle près, sprites compris ; en revanche, les accès mémoire des caractères ne sont pas simulés un par un : les effets de démos du type VSP, FLI ou « line crunch », qui déclenchent des lignes de mauvaise qualité en milieu de ligne, ne sont pas reproduits. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
   </div>
 </dialog>
 
@@ -1778,7 +1778,10 @@ let vicNext=0, vicLine=0, vicPhase=0, vicLineCur=0, vcBase=0, vc=0, rc=0, vDispl
 const rowSC=new Uint8Array(40), rowCol=new Uint8Array(40);
 const vstart=new Uint8Array(64), vwork=new Uint8Array(64);   // registres vidéo au début de la ligne / pendant son calcul
 let vlog=[];                                                 // écritures horodatées : cycle, registre, valeur
-function vicReset(){ vicNext=cyc; vicLine=0; vicPhase=0; vicLineCur=0; vcBase=0; vc=0; rc=0; vDisplay=false; vBorder=true; mBorder=true; den30=false; ciaLast=cyc; vLineStart=cyc; vlog=[]; vstart.set(mem.subarray(0xD000,0xD040)); }
+const SPR=[]; for(let i=0;i<8;i++) SPR.push({});              // mécanique interne de chaque sprite
+function sprReset(){ for(const p of SPR) Object.assign(p,{dma:false,disp:false,show:false,mc:0,mcb:0,ff:true,data:0,crunch:false,on:false,pos:0,sd:0}); }
+sprReset();
+function vicReset(){ vicNext=cyc; vicLine=0; vicPhase=0; vicLineCur=0; vcBase=0; vc=0; rc=0; vDisplay=false; vBorder=true; mBorder=true; den30=false; ciaLast=cyc; vLineStart=cyc; vlog=[]; vstart.set(mem.subarray(0xD000,0xD040)); sprReset(); }
 function vicAdvance(){
   while(cyc>=vicNext){
     const L=vicLine;
@@ -1788,6 +1791,7 @@ function vicAdvance(){
       renderLine(P);
       if(rc===7){ vcBase=vDisplay?(vc+40)&1023:vc; vDisplay=lineBad; }
       if(vDisplay) rc=(rc+1)&7;
+      if(cpuActive){ let n=0; for(const q of SPR) if(q.dma) n++; if(n) cyc+=2*n+3; }
       // début de la nouvelle ligne
       vLineStart=vicNext; vicLineCur=L; lineBad=false;
       vstart.set(mem.subarray(0xD000,0xD040));
@@ -2605,7 +2609,7 @@ function saveState(){
   const o={v:1,t:Date.now(),mode:romMode?romSource:'builtin',romSum:romMode?romSum():0,
     mem,ramD,cpu:Object.assign({},C),cyc,cycFrac,rasterCmp,d019,collSS,collSB,joyPort,nmiLvl,joy2,
     cia1,cia2,
-    vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo},
+    vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo,SPR},
     sid:{SV,SF,sidCyc},
     state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,
     tape:TAPE,cart,d64,
@@ -2633,7 +2637,7 @@ function loadState(json){
   mem.set(o.mem); ramD.set(o.ramD); C=Object.assign(C,o.cpu);
   cyc=o.cyc; cycFrac=o.cycFrac; rasterCmp=o.rasterCmp; d019=o.d019; collSS=o.collSS; collSB=o.collSB; joyPort=o.joyPort; nmiLvl=o.nmiLvl; joy2=255;
   Object.assign(cia1,makeCIA(),o.cia1); Object.assign(cia2,makeCIA(),o.cia2);
-  const V=o.vic; vicNext=V.vicNext; vicLine=V.vicLine; vicPhase=V.vicPhase; vicLineCur=V.vicLineCur; vcBase=V.vcBase; vc=V.vc; rc=V.rc; vDisplay=V.vDisplay; vBorder=V.vBorder; mBorder=V.mBorder; den30=V.den30; ciaLast=V.ciaLast; vLineStart=V.vLineStart; rowSC.set(V.rowSC); rowCol.set(V.rowCol); vstart.set(V.vstart); vlog=V.vlog||[]; lineBad=V.lineBad; vicFrameNo=V.vicFrameNo;
+  const V=o.vic; vicNext=V.vicNext; vicLine=V.vicLine; vicPhase=V.vicPhase; vicLineCur=V.vicLineCur; vcBase=V.vcBase; vc=V.vc; rc=V.rc; vDisplay=V.vDisplay; vBorder=V.vBorder; mBorder=V.mBorder; den30=V.den30; ciaLast=V.ciaLast; vLineStart=V.vLineStart; rowSC.set(V.rowSC); rowCol.set(V.rowCol); vstart.set(V.vstart); vlog=V.vlog||[]; lineBad=V.lineBad; vicFrameNo=V.vicFrameNo; if(V.SPR) V.SPR.forEach((q,i)=>Object.assign(SPR[i],q)); else sprReset();
   for(let i=0;i<3;i++) Object.assign(SV[i],o.sid.SV[i]); Object.assign(SF,o.sid.SF); SID.q.length=0; sidCyc=cyc; SID.next=0;
   romHalted=o.romHalted; typeHoldUntil=o.typeHoldUntil; kbd=o.kbd||[]; kName=o.kern.kName; kDev=o.kern.kDev; kSa=o.kern.kSa;
   Object.assign(TAPE,o.tape); cart=o.cart; d64=o.d64;
@@ -2995,103 +2999,112 @@ function frameFlip(){ if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNo
 function render(){ if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
 const lineBrd=new Uint8Array(W);
 function renderLine(L){
-  const y=L-15, draw=y>=0&&y<H&&!skipDraw, o=y*W, R=vwork, lg=vlog, ln=lg.length, ls=vLineStart;
+  const y=L-15, draw=y>=0&&y<H&&!skipDraw, o=y*W, R=vwork, lg=vlog, ln=lg.length, ls=vLineStart, r8=L&255;
   R.set(vstart);
   let li=0;
   while(li<ln&&lg[li]<ls) li+=3;
-  if(draw) lineFg.fill(0);
   const bank=vicBank();
   let lastC=-1, g=0, mc=false, k0=0, k1=0, k2=0, k3=0;
   let d011=R[0x11], d016=R[0x16], d018=R[0x18], brd=PAL[R[0x20]&15], b0=PAL[R[0x21]&15], b1=PAL[R[0x22]&15], b2=PAL[R[0x23]&15], b3=PAL[R[0x24]&15];
   let scr=bank+((d018>>4)<<10), cb=bank+(((d018>>1)&7)<<11), bmpB=bank+((d018&8)?0x2000:0);
+  let sprWork=false; for(let s=0;s<8;s++){ const q=SPR[s]; q.show=q.disp; if(q.disp||q.on) sprWork=true; if(!((R[0x17]>>s)&1)) q.ff=true; }
+  let ss=0, sb=0; const act=[], sxp=new Int16Array(8);
+  const listAct=()=>{ act.length=0; for(let s=0;s<8;s++){ const q=SPR[s]; if(q.show||q.on){ act.push(s); } sxp[s]=R[2*s]|(((R[0x10]>>s)&1)<<8); } sprWork=act.length>0; };
+  listAct();
+  const fetch=s=>{ const q=SPR[s]; if(!q.dma) return; const ptr=bank+vread(scr+1016+s)*64; q.data=(vread(ptr+q.mc)<<16)|(vread(ptr+((q.mc+1)&63))<<8)|vread(ptr+((q.mc+2)&63)); q.mc=(q.mc+3)&63; };
   for(let cc=0;cc<63;cc++){
     const ct=ls+cc;
     if(li<ln&&lg[li]<=ct){
-      while(li<ln&&lg[li]<=ct){ R[lg[li+1]]=lg[li+2]; li+=3; }
+      while(li<ln&&lg[li]<=ct){
+        const r=lg[li+1], v=lg[li+2]; R[r]=v; li+=3;
+        if(r===0x17) for(let s=0;s<8;s++) if(!((v>>s)&1)&&!SPR[s].ff){ SPR[s].ff=true; if(cc===15) SPR[s].crunch=true; }
+      }
       d011=R[0x11]; d016=R[0x16]; d018=R[0x18]; brd=PAL[R[0x20]&15]; b0=PAL[R[0x21]&15]; b1=PAL[R[0x22]&15]; b2=PAL[R[0x23]&15]; b3=PAL[R[0x24]&15];
       scr=bank+((d018>>4)<<10); cb=bank+(((d018>>1)&7)<<11); bmpB=bank+((d018&8)?0x2000:0); lastC=-1;
+      if(sprWork) listAct();
+    }
+    // --- mécanique des sprites, aux cycles de la vraie puce ---
+    switch(cc){
+      case 1: fetch(3); break; case 3: fetch(4); break; case 5: fetch(5); break; case 7: fetch(6); break; case 9: fetch(7); break;
+      case 15: for(const q of SPR){ if(q.dma&&q.ff) q.mcb=q.crunch?((0x2A&(q.mcb&q.mc))|(0x15&(q.mcb|q.mc))):q.mc; q.crunch=false; } break;
+      case 16: for(const q of SPR) if(q.dma&&q.mcb===63){ q.dma=false; q.disp=false; } break;
+      case 55: case 56:
+        for(let s=0;s<8;s++){ const q=SPR[s], ye=(R[0x17]>>s)&1;
+          if(cc===55&&ye) q.ff=!q.ff;
+          if(!q.dma&&((R[0x15]>>s)&1)&&R[1+2*s]===r8){ q.dma=true; q.mcb=0; if(ye) q.ff=false; }
+        } break;
+      case 58: for(let s=0;s<8;s++){ const q=SPR[s]; q.mc=q.mcb; if(q.dma&&R[1+2*s]===r8){ q.disp=true; sprWork=true; } } fetch(0); break;
+      case 60: fetch(1); break;
+      case 62: fetch(2); break;
     }
     const x0=cc*8-112, lcmp=(d016&8)?24:31, rcmp=(d016&8)?344:335;
     const inCanvas=draw&&cc>=13&&cc<61, cmpHere=(lcmp>=x0&&lcmp<x0+8)||(rcmp>=x0&&rcmp<x0+8);
-    if(!inCanvas&&!cmpHere) continue;
+    if(!inCanvas&&!cmpHere&&!sprWork) continue;
     const ecm=d011&64, bmm=d011&32, mcm=d016&16, xs=d016&7;
     for(let p=0;p<8;p++){
       const x=x0+p;
       if(x===rcmp) mBorder=true;
       if(x===lcmp){ const rs=d011&8; if(L===(rs?251:247)) vBorder=true; else if(L===(rs?51:55)&&(d011&16)) vBorder=false; if(!vBorder) mBorder=false; }
-      if(!inCanvas) continue;
-      const cx=x+8, k=o+cx;
-      if(mBorder){ FBW[k]=brd; lineBrd[cx]=1; continue; }
-      lineBrd[cx]=0;
-      const rel=x-24-xs;
-      if(rel<0||rel>=320){ FBW[k]=b0; continue; }
-      const c=rel>>3;
-      if(c!==lastC){
-        lastC=c; mc=false;
-        if(!vDisplay){ g=vread(bank+(ecm?0x39FF:0x3FFF)); k0=b0; k1=PAL[0]; }
-        else {
-          const sc=rowSC[c], cr=rowCol[c];
-          if(bmm){
-            g=vread(bmpB+(((vc+c)&1023)<<3)+rc);
-            if(ecm){ g=0; k0=k1=PAL[0]; }
-            else if(mcm){ mc=true; k0=b0; k1=PAL[sc>>4]; k2=PAL[sc&15]; k3=PAL[cr]; }
-            else { k0=PAL[sc&15]; k1=PAL[sc>>4]; }
-          } else if(ecm){
-            g=vread(cb+((sc&63)<<3)+rc); const s6=sc>>6;
-            k0=s6===0?b0:s6===1?b1:s6===2?b2:b3; k1=PAL[cr];
-            if(mcm){ g=0; k0=k1=PAL[0]; }
-          } else {
-            g=vread(cb+(sc<<3)+rc);
-            if(mcm&&(cr&8)){ mc=true; k0=b0; k1=b1; k2=b2; k3=PAL[cr&7]; }
-            else { k0=b0; k1=PAL[cr]; }
+      // graphismes
+      let gcol=b0, fg=0;
+      if(inCanvas&&!mBorder){
+        const rel=x-24-xs;
+        if(rel>=0&&rel<320){
+          const c=rel>>3;
+          if(c!==lastC){
+            lastC=c; mc=false;
+            if(!vDisplay){ g=vread(bank+(ecm?0x39FF:0x3FFF)); k0=b0; k1=PAL[0]; }
+            else {
+              const sc=rowSC[c], cr=rowCol[c];
+              if(bmm){
+                g=vread(bmpB+(((vc+c)&1023)<<3)+rc);
+                if(ecm){ g=0; k0=k1=PAL[0]; }
+                else if(mcm){ mc=true; k0=b0; k1=PAL[sc>>4]; k2=PAL[sc&15]; k3=PAL[cr]; }
+                else { k0=PAL[sc&15]; k1=PAL[sc>>4]; }
+              } else if(ecm){
+                g=vread(cb+((sc&63)<<3)+rc); const s6=sc>>6;
+                k0=s6===0?b0:s6===1?b1:s6===2?b2:b3; k1=PAL[cr];
+                if(mcm){ g=0; k0=k1=PAL[0]; }
+              } else {
+                g=vread(cb+(sc<<3)+rc);
+                if(mcm&&(cr&8)){ mc=true; k0=b0; k1=b1; k2=b2; k3=PAL[cr&7]; }
+                else { k0=b0; k1=PAL[cr]; }
+              }
+            }
           }
+          const bit=rel&7;
+          if(mc){ const v=(g>>(6-(bit&6)))&3; gcol=v===0?k0:v===1?k1:v===2?k2:k3; fg=v&2; }
+          else if((g>>(7-bit))&1){ gcol=k1; fg=1; } else gcol=k0;
         }
       }
-      const bit=rel&7;
-      if(mc){ const v=(g>>(6-(bit&6)))&3; FBW[k]=v===0?k0:v===1?k1:v===2?k2:k3; if(v&2) lineFg[cx]=1; }
-      else if((g>>(7-bit))&1){ FBW[k]=k1; lineFg[cx]=1; } else FBW[k]=k0;
+      // sprites : registres à décalage déclenchés par la position X du balayage
+      let spc=-1, behind=0, mask=0;
+      if(sprWork){
+        const vx=x<0?x+504:x;
+        for(let ai=0;ai<act.length;ai++){
+          const s=act[ai], q=SPR[s];
+          if(!q.on&&q.show&&vx===sxp[s]){ q.on=true; q.pos=0; q.sd=q.data; }
+          if(!q.on) continue;
+          const xe=(R[0x1D]>>s)&1, len=xe?48:24, b=xe?q.pos>>1:q.pos;
+          let col=-1;
+          if((R[0x1C]>>s)&1){ const v=(q.sd>>(22-(b&~1)))&3; if(v) col=v===1?PAL[R[0x25]&15]:v===2?PAL[R[0x27+s]&15]:PAL[R[0x26]&15]; }
+          else if((q.sd>>(23-b))&1) col=PAL[R[0x27+s]&15];
+          if(++q.pos>=len) q.on=false;
+          if(col<0) continue;
+          mask|=1<<s;
+          if(spc<0){ spc=col; behind=(R[0x1B]>>s)&1; }
+        }
+        if(mask){ if(mask&(mask-1)) ss|=mask; if(fg) sb|=mask; }
+      }
+      if(!inCanvas) continue;
+      FBW[o+x+8]=mBorder?brd:(spc>=0&&!(behind&&fg))?spc:gcol;
     }
   }
   // fin de ligne (cycle 63) : bascule verticale
   { const rs=R[0x11]&8; if(L===(rs?251:247)) vBorder=true; else if(L===(rs?51:55)&&(R[0x11]&16)) vBorder=false; }
-  if(draw) drawSpritesLine(L,o,bank,vstart);
-  vlog=li>=ln?[]:lg.slice(li);
-}
-function drawSpritesLine(L,o,bank,S){
-  const en=S[0x15]; if(!en) return;
-  const scr=bank+((S[0x18]>>4)<<10);
-  let ss=0, sb=0, first=true;
-  for(let s=7;s>=0;s--){
-    if(!((en>>s)&1)) continue;
-    const ye=(S[0x17]>>s)&1, r=L-S[1+2*s];
-    if(r<0||r>=(ye?42:21)) continue;
-    if(first){ sprOwnL.fill(0); first=false; }
-    if(cpuActive) cyc+=2;
-    const row=ye?r>>1:r, bit=1<<s;
-    const ptr=bank+vread(scr+1016+s)*64;
-    let sx=S[2*s]+(((S[0x10]>>s)&1)?256:0); if(sx>=488) sx-=504;
-    const xe=((S[0x1D]>>s)&1)?2:1, mc=(S[0x1C]>>s)&1, behind=(S[0x1B]>>s)&1;
-    const cs=PAL[S[0x27+s]&15], m0=PAL[S[0x25]&15], m1=PAL[S[0x26]&15], base=X0+sx-24;
-    for(let b=0;b<3;b++){
-      const bits=vread(ptr+row*3+b); if(!bits) continue;
-      for(let p=0;p<8;p+=(mc?2:1)){
-        let col;
-        if(mc){ const v=(bits>>(6-p))&3; if(!v) continue; col=v===1?m0:v===2?cs:m1; }
-        else { if(!(bits&(128>>p))) continue; col=cs; }
-        const w=(mc?2:1)*xe, xs=base+(b*8+p)*xe;
-        for(let d=0;d<w;d++){
-          const X=xs+d; if(X<0||X>=W) continue;
-          if(sprOwnL[X]) ss|=sprOwnL[X]|bit;
-          sprOwnL[X]|=bit;
-          if(lineBrd[X]) continue;
-          if(lineFg[X]){ sb|=bit; if(behind) continue; }
-          FBW[o+X]=col;
-        }
-      }
-    }
-  }
   if(ss){ if(!collSS) d019|=4; collSS|=ss; }
   if(sb){ if(!collSB) d019|=2; collSB|=sb; }
+  vlog=li>=ln?[]:lg.slice(li);
 }
 
 /* ================= Interface ================= */
@@ -3531,7 +3544,7 @@ if(HAS_DOM){ start(); globalThis.EMU_DEBUG={frames:()=>vicFrameNo, hz:()=>typeof
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
