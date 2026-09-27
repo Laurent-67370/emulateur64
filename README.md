@@ -8,7 +8,9 @@
 
 ### Modes système
 - **BASIC V2 réécrit** (mode par défaut) : interpréteur complet en JavaScript — PRINT, INPUT, GET, FOR/NEXT, GOSUB, ON…GOTO, DEF FN, POKE/PEEK, LOAD/SAVE, LIST, avec les erreurs et la tokenisation d'origine
-- **ROM d'origine** : chargez vos fichiers BASIC/KERNAL (8 Ko) et CHARGEN (4 Ko) dans le menu Système — le vrai BASIC et le vrai KERNAL tournent sur le CPU émulé
+- **ROM d'origine** : chargez vos fichiers BASIC/KERNAL (8 Ko ou 16 Ko combinés) et CHARGEN (4 Ko) dans le menu Système — le vrai BASIC et le vrai KERNAL tournent sur le CPU émulé. Bouton « Charger depuis le serveur » pour les récupérer d'un point de sécurité (BasicAuth)
+- **Lecteur 1541 matériel** : émulation au niveau du firmware — le vrai DOS 1541 (ROM 16 Ko par moitiés $C000/$E000) tourne sur son propre CPU via le bus IEC bit par bit, avec décodage GCR natif. Loadeurs rapides et protections d'époque, format .g64 en lecture et export
+- **Synchro écran** : cadence PAL exacte sur écran 50/100 Hz (une image C64 par rafraîchissement, vitesse réelle, défilements fluides), SID rescalé automatiquement
 - **Open ROMs** inclus (libre, GNU LGPL v3, © MEGA65) — expérimental
 
 ### Matériel émulé
