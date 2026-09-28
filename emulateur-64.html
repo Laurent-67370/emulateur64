@@ -4482,6 +4482,7 @@ async function openZip(f,run){
   if(zipDisks.length>1) toast(zipDisks.length+' disquettes dans l\u2019archive : changez de disque dans Supports');
 }
 async function openFile(f,run){
+  audioInit();
   if(/\.zip$/i.test(f.name)) return openZip(f,run);
   const low=f.name.toLowerCase();
   if(low.endsWith('.crt')){ const c=parseCRT(new Uint8Array(await f.arrayBuffer())); closeAll(); cartInsert(c); refreshDisk(); toast('Cartouche « '+c.name+' » branchée'); return; }
@@ -4845,6 +4846,12 @@ function vsfImport(buf){
 function initUI(){
   canvas=$('#screen');
   gfxInit(canvas);
+  /* filet de sécurité : le contexte audio est créé au premier geste, quel qu'il
+     soit (clic n'importe où, touche) — sans lui, pas un seul son (politique
+     autoplay des navigateurs) */
+  const wakeAudio=()=>{ audioInit(); document.removeEventListener('pointerdown',wakeAudio,true); document.removeEventListener('keydown',wakeAudio,true); };
+  document.addEventListener('pointerdown',wakeAudio,true);
+  document.addEventListener('keydown',wakeAudio,true);
   const ta=$('#kbd');
   const focusKbd=()=>{ try{ ta.focus({preventScroll:true}); }catch(e){} };
   $('#tube').addEventListener('pointerdown',e=>{
@@ -5014,7 +5021,7 @@ function initUI(){
     refreshRom(); if(got.length) toast('ROM reconnue'+(got.length>1?'s':'')+' : '+got.join(', '));
     if(USER_ROM.dos&&fs.length) refreshDisk();
   });
-  $('#rom-start').addEventListener('click',()=>{ try{ startRom('user'); closeAll(); toast('Démarrage sur les ROM d\u2019origine'); }catch(ex){ toast(ex.message); } });
+  $('#rom-start').addEventListener('click',()=>{ try{ startRom('user'); closeAll(); audioInit(); toast('Démarrage sur les ROM d\u2019origine'); }catch(ex){ toast(ex.message); } });
   $('#rom-vps').addEventListener('click',async()=>{
     const u=prompt('Utilisateur pour les ROM privées :');
     if(!u) return;
