@@ -75,6 +75,16 @@ button{font:inherit;color:inherit}
     linear-gradient(160deg, rgba(255,255,255,.07), transparent 35%);
 }
 .crt #screen{filter:saturate(1.15) contrast(1.05) blur(.25px)}
+.glcrt .glass{display:none}
+.glcrt #screen{filter:none}
+.crtrow{display:grid;grid-template-columns:150px 1fr 52px;gap:10px;align-items:center;font-size:16px;margin:6px 0}
+.crtrow output{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(#2c2620,#4a4238);box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;background:linear-gradient(#ffd88a,#d9a441);box-shadow:0 1px 2px rgba(0,0,0,.6)}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#4a4238}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;background:#d9a441}
+
 .foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding:12px 4px 2px;color:var(--caseInk)}
 .plate{font-family:"Press Start 2P",monospace;font-size:9px;letter-spacing:1px}
 .status{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
@@ -380,6 +390,22 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Tout ce qui est envoyé au périphérique 4 s'affiche ici : par exemple <b>OPEN4,4:CMD4:LIST</b> puis <b>PRINT#4:CLOSE4</b>, ou un programme qui imprime.</p>
     <textarea class="code" id="prn-text" readonly style="min-height:160px"></textarea>
     <div class="bar"><button class="act ghost" id="prn-dl">Télécharger .txt</button><button class="act ghost" id="prn-clear">Effacer</button></div>
+    <h3 class="sub" style="margin-top:18px">Écran · tube cathodique</h3>
+    <p id="crt-note">Rendu par la carte graphique (WebGL).</p>
+    <div class="bar" style="margin:10px 0">
+      <button class="act ghost" data-crt-preset="1084">Moniteur 1084</button>
+      <button class="act ghost" data-crt-preset="tv">TV PAL</button>
+      <button class="act ghost" data-crt-preset="demo">Démoscene</button>
+      <button class="act ghost" id="crt-reset">Réglages d'origine</button>
+    </div>
+    <div id="crt-ctrls">
+      <div class="crtrow"><label for="crt-mask">Masque RVB</label><input type="range" id="crt-mask" min="0" max="100" step="1"><output>0 %</output></div>
+      <div class="crtrow"><label for="crt-curve">Courbure du tube</label><input type="range" id="crt-curve" min="0" max="100" step="1"><output>0 %</output></div>
+      <div class="crtrow"><label for="crt-scan">Lignes de balayage</label><input type="range" id="crt-scan" min="0" max="100" step="1"><output>0 %</output></div>
+      <div class="crtrow"><label for="crt-bloom">Halo phosphorique</label><input type="range" id="crt-bloom" min="0" max="100" step="1"><output>0 %</output></div>
+      <div class="crtrow"><label for="crt-persist">Rémanence</label><input type="range" id="crt-persist" min="0" max="92" step="1"><output>0 %</output></div>
+      <div class="crtrow"><label for="crt-chroma">Bavure PAL</label><input type="range" id="crt-chroma" min="0" max="100" step="1"><output>0 %</output></div>
+    </div>
     <h3 class="sub" style="margin-top:18px">Modem (RS-232)</h3>
     <p style="color:var(--muted)">Un navigateur ne peut pas ouvrir de connexion réseau brute : pour appeler un serveur BBS, il faudrait un petit relais WebSocket sur un serveur. Non disponible pour l'instant.</p>
   </div>
@@ -423,7 +449,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Tapez en minuscules : les lettres s'affichent en majuscules, comme sur la machine. Sur mobile, touchez l'écran ou la touche ⌨ pour faire apparaître le clavier.</p>
 
     <h3>Boutons et menus</h3>
-    <p>Sous l'écran : 🕹 (joystick tactile, affiché d'office sur écran tactile), RUN/STOP, RESTORE, curseurs, inversion vidéo, C= ⇧ (majuscules/minuscules), F1 à F7, FEU (tir du joystick) et les 16 couleurs. Sur le moniteur : <b>Turbo</b> (vitesse maximale au lieu de celle d'origine), <b>Synchro écran</b> (voir ci-dessous), <b>Son</b>, <b>Effet tube</b> (lignes de balayage), <b>Joystick 2 / 1</b> (port utilisé) et <b>Reset</b> (redémarrage, mémoire effacée).</p>
+    <p>Sous l'écran : 🕹 (joystick tactile, affiché d'office sur écran tactile), RUN/STOP, RESTORE, curseurs, inversion vidéo, C= ⇧ (majuscules/minuscules), F1 à F7, FEU (tir du joystick) et les 16 couleurs. Sur le moniteur : <b>Turbo</b> (vitesse maximale au lieu de celle d'origine), <b>Synchro écran</b> (voir ci-dessous), <b>Son</b>, <b>Effet tube</b> (filtre du moniteur cathodique : masque RVB, balayage, courbure, halo et rémanence — réglable dans Périphériques, section Écran), <b>Joystick 2 / 1</b> (port utilisé) et <b>Reset</b> (redémarrage, mémoire effacée).</p>
     <p><b>Programmes</b> : démonstrations prêtes à lancer. <b>Supports</b> : disquette .d64, cassette .tap ou .t64, cartouche .crt et disquette du navigateur. <b>Importer</b> : listing collé, ou fichier .zip (décompressé automatiquement ; les autres disquettes de l'archive restent disponibles dans Supports), .d64, .t64, .tap, .crt, .prg, .bas, .txt (vous pouvez aussi le glisser sur l'écran). <b>Exporter</b> : programme en mémoire en .prg, en .txt ou copié. <b>Système</b> : BASIC intégré ou ROM d'origine.</p>
 
     <h3>Modèle de machine</h3>
@@ -462,6 +488,8 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <h3>Périphériques</h3>
     <p>Menu Périphériques : pavé numérique en second joystick, manettes USB/Bluetooth (jusqu'à deux), souris en paddles ou en souris 1351 (port 1), deuxième SID en stéréo ($D420, $D500 ou $DE00), imprimante sur le périphérique 4 (texte téléchargeable), extension mémoire REU de 128 Ko à 16 Mo. Le modem RS-232 n'est pas disponible : un navigateur ne peut pas ouvrir de connexion réseau brute.</p>
 
+    <h3>Écran et tube cathodique</h3>
+    <p>Le rendu passe par la carte graphique (<b>WebGL</b>) quand le navigateur le permet : le C64 est dessiné dans une texture, puis un filtre de tube cathodique l'affiche — masque de trous RVB, lignes de balayage, courbure, halo du phosphore et bavure de chrominance PAL. Les réglages sont dans <b>Périphériques</b>, section Écran : trois presets (Moniteur 1084, TV PAL, Démoscene) et six réglages fins, conservés d'une visite à l'autre. Le switch <b>Effet tube</b> coupe l'ensemble ; sans WebGL, un effet de lignes de balayage plus simple est utilisé, et le reste de la machine fonctionne à l'identique.</p>
     <h3>Cassettes et cartouches</h3>
     <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Pour enregistrer, choisissez « Enregistrer une cassette vierge » puis tapez SAVE"NOM" : la cassette obtenue se télécharge en .tap. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
     <p>Cartouches .crt gérées : Epyx FastLoad (avec son condensateur qui la désactive toute seule), Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
@@ -3082,7 +3110,15 @@ async function slotPut(k,v){ const db=await idb(); if(!db){ IDB.mem.set(k,v); re
 async function slotGet(k){ const db=await idb(); if(!db) return IDB.mem.get(k)||null; return new Promise(res=>{ const r=db.transaction('states').objectStore('states').get(k); r.onsuccess=()=>res(r.result||null); r.onerror=()=>res(null); }); }
 async function slotDel(k){ const db=await idb(); if(!db){ IDB.mem.delete(k); return; } await new Promise(res=>{ const tx=db.transaction('states','readwrite'); tx.objectStore('states').delete(k); tx.oncomplete=res; tx.onerror=res; }); }
 function modeLabel(){ return romMode?(cart?cart.name:romSource==='open'?'Open ROMs':'ROM d\u2019origine')+(DRV.on?' + 1541':''):'BASIC intégré'; }
-function thumb(){ try{ const c=document.createElement('canvas'); c.width=192; c.height=136; c.getContext('2d').drawImage(canvas,0,0,192,136); return c.toDataURL('image/png'); }catch(e){ return ''; } }
+function thumb(){ try{
+    const c=document.createElement('canvas'); c.width=W; c.height=H;
+    const cx=c.getContext('2d'); const im=cx.createImageData(W,H);
+    new Uint8Array(im.data.buffer).set(new Uint8Array(FB_D.buffer));
+    cx.putImageData(im,0,0);
+    const o=document.createElement('canvas'); o.width=192; o.height=136;
+    o.getContext('2d').drawImage(c,0,0,192,136);
+    return o.toDataURL('image/png');
+  }catch(e){ return ''; } }
 async function stateSave(k){
   const json=saveState();
   await slotPut(k,{t:Date.now(),label:modeLabel(),thumb:thumb(),json});
@@ -3651,7 +3687,256 @@ const FBW=new Uint32Array(W*H), FB_D=new Uint32Array(W*H);   // image en cours d
 const lineFg=new Uint8Array(W), sprOwnL=new Uint8Array(W);
 let vicFrameNo=0, skipDraw=false;
 function frameFlip(){ if(TM.lines<312&&!skipDraw) FBW.fill(PAL[0],(TM.lines-15)*W); if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNow()&&(vicFrameNo&7)!==0; }
-function render(){ if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
+/* ================= Rendu : WebGL2 + shaders CRT (repli canvas 2D) ================= */
+const CRT_KEY='emu64-crt';
+const CRT_DEF={on:true,mask:0.45,curve:0.12,scan:0.28,bloom:0.22,persist:0.20,chroma:0.15};
+const CRT_PRESETS={
+  '1084':{mask:0.45,curve:0.12,scan:0.28,bloom:0.22,persist:0.20,chroma:0.15},
+  'tv':{mask:0.35,curve:0.32,scan:0.42,bloom:0.40,persist:0.35,chroma:0.55},
+  'demo':{mask:0.78,curve:0.10,scan:0.14,bloom:0.60,persist:0.45,chroma:0.10}
+};
+let CRT=Object.assign({},CRT_DEF);
+try{ if(typeof localStorage!=='undefined') Object.assign(CRT,JSON.parse(localStorage.getItem(CRT_KEY)||'{}')); }catch(e){}
+function crtSave(){ try{ localStorage.setItem(CRT_KEY,JSON.stringify(CRT)); }catch(e){} }
+
+const CRT_VS=`#version 300 es
+out vec2 vUv;
+void main(){
+  vec2 p = vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2));
+  vUv = p;
+  gl_Position = vec4(p*2.0-1.0, 0.0, 1.0);
+}`;
+
+const CRT_FS=`#version 300 es
+precision mediump float;
+uniform sampler2D uTex;
+uniform vec2 uSrc;
+uniform vec2 uOut;
+uniform float uMask,uCurve,uScan,uBloom,uChroma,uTime;
+in vec2 vUv;
+out vec4 o;
+void main(){
+  vec2 p = vUv*2.0-1.0;
+  p.x *= (uOut.x/max(uOut.y,1.0))/(4.0/3.0);
+  float r2 = dot(p,p);
+  p *= 1.0 + uCurve*0.22*r2;
+  vec2 uv = p*0.5+0.5;
+  uv.y = 1.0-uv.y;
+  if(uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0){ o=vec4(0.0,0.0,0.0,1.0); return; }
+  vec2 sp = uv*uSrc;
+  vec2 px = (floor(sp)+0.5)/uSrc;
+  vec3 sharp = texture(uTex,px).rgb;
+  if(uChroma>0.001){
+    float d = uChroma*1.6/uSrc.x;
+    float wob = 0.75+0.25*sin(uTime*6.0+sp.y*2.0);
+    sharp.r = texture(uTex,px+vec2(d*wob,0.0)).r;
+    sharp.b = texture(uTex,px-vec2(d*wob,0.0)).b;
+  }
+  float lum = dot(sharp,vec3(0.299,0.587,0.114));
+  vec3 col = sharp;
+  if(uBloom>0.001){
+    vec3 b = vec3(0.0);
+    float wsum = 0.0;
+    for(int i=-4;i<=4;i++){
+      float w = exp(-float(i*i)*0.30);
+      b += texture(uTex,px+vec2(float(i)/uSrc.x,0.0)).rgb*w;
+      wsum += w;
+    }
+    b /= wsum;
+    col = mix(sharp,max(sharp,b),uBloom*smoothstep(0.15,0.85,lum));
+  }
+  float scaleX = uOut.x/uSrc.x;
+  float mAmt = uMask;
+  if(mAmt>0.002){
+    float ph = scaleX>=3.0 ? fract(sp.x) : fract(gl_FragCoord.x/3.0);
+    vec3 m = vec3(0.5+0.5*cos(6.28318*ph),
+                  0.5+0.5*cos(6.28318*(ph-0.333333)),
+                  0.5+0.5*cos(6.28318*(ph-0.666667)));
+    col *= mix(vec3(1.0),0.40+0.90*m,mAmt);
+  }
+  if(uScan>0.002){
+    float sy = fract(sp.y);
+    float fine = clamp((uOut.y/uSrc.y-1.0)/1.6,0.30,1.0);
+    float att = 1.0 - uScan*fine*(1.0-sin(sy*3.14159));
+    att = mix(att,1.0,smoothstep(0.45,1.0,lum)*0.7);
+    col *= att;
+  }
+  col *= 1.0 + 0.42*max(mAmt,uScan);
+  o = vec4(col,1.0);
+}`;
+
+const CRT_MIX_FS=`#version 300 es
+precision mediump float;
+uniform sampler2D uTex,uPrev;
+uniform float uPersist;
+in vec2 vUv;
+out vec4 o;
+void main(){
+  vec3 s = texture(uTex,vUv).rgb;
+  vec3 p = texture(uPrev,vUv).rgb*uPersist;
+  o = vec4(max(s,p),1.0);
+}`;
+
+let GL=null, FB_U8=null;
+function glProg(gl,fsSrc){
+  const mk=(t,src)=>{ const s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)||'shader'); return s; };
+  const p=gl.createProgram();
+  gl.attachShader(p,mk(gl.VERTEX_SHADER,CRT_VS));
+  gl.attachShader(p,mk(gl.FRAGMENT_SHADER,fsSrc));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)||'programme');
+  return p;
+}
+function glTex(gl,w,h){
+  const t=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return t;
+}
+function glFbo(gl,tex){
+  const f=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+  const ok=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return ok?f:null;
+}
+function gfxProbe(){
+  if(typeof document==='undefined'||!document.createElement) return false;
+  try{
+    const c=document.createElement('canvas'); c.width=8; c.height=8;
+    const gl=c.getContext('webgl2',{alpha:false,antialias:false,depth:false,stencil:false});
+    if(!gl) return false;
+    glProg(gl,CRT_MIX_FS); glProg(gl,CRT_FS);
+    return true;
+  }catch(e){ return false; }
+}
+function gfxInit(cv){
+  const opts={alpha:false,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false,powerPreference:'low-power'};
+  let gl=null;
+  try{ if(gfxProbe()) gl=cv.getContext('webgl2',opts); }catch(e){ gl=null; }
+  if(gl){
+    try{
+      const pMix=glProg(gl,CRT_MIX_FS), pCrt=glProg(gl,CRT_FS);
+      const tSrc=glTex(gl,W,H), tA=glTex(gl,W,H), tB=glTex(gl,W,H);
+      const fA=glFbo(gl,tA), fB=glFbo(gl,tB);
+      if(!fA||!fB) throw new Error('framebuffer incomplet');
+      gl.useProgram(pMix);
+      const u=(p,n)=>gl.getUniformLocation(p,n);
+      GL={gl,pMix,pCrt,tSrc,tA,tB,fA,fB,cur:0,ow:0,oh:0,
+          mixSrc:u(pMix,'uTex'),mixPrev:u(pMix,'uPrev'),mixPersist:u(pMix,'uPersist'),
+          crtTex:u(pCrt,'uTex'),crtSrc:u(pCrt,'uSrc'),crtOut:u(pCrt,'uOut'),crtMask:u(pCrt,'uMask'),
+          crtCurve:u(pCrt,'uCurve'),crtScan:u(pCrt,'uScan'),crtBloom:u(pCrt,'uBloom'),
+          crtChroma:u(pCrt,'uChroma'),crtTime:u(pCrt,'uTime'), t0:performance.now()};
+      GL.vsAttrs=true;
+      FB_U8=new Uint8Array(FB_D.buffer);
+      cv.addEventListener('webglcontextlost',e=>{ e.preventDefault(); if(HAS_DOM) toast('Contexte graphique perdu, reprise en cours'); },false);
+      cv.addEventListener('webglcontextrestored',()=>{ GL=null; gfxInit(cv); crtApply(); },false);
+      return true;
+    }catch(e){ GL=null; }
+  }
+  ctx2=cv.getContext('2d');
+  IMG=ctx2.createImageData(W,H);
+  IMG32=new Uint32Array(IMG.data.buffer);
+  return false;
+}
+function gfxResize(){
+  const gl=GL.gl;
+  const r=canvas.getBoundingClientRect();
+  if(!r.width||!r.height) return false;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  let w=Math.round(r.width*dpr), h=Math.round(r.height*dpr);
+  const CAP=1600000;
+  if(w*h>CAP){ const k=Math.sqrt(CAP/(w*h)); w=Math.round(w*k); h=Math.round(h*k); }
+  w=Math.max(384,w); h=Math.max(272,h);
+  if(canvas.width!==w||canvas.height!==h){ canvas.width=w; canvas.height=h; GL.ow=0; }
+  if(GL.ow!==w||GL.oh!==h){ gl.viewport(0,0,w,h); GL.ow=w; GL.oh=h; }
+  return true;
+}
+function gfxDraw(){
+  const gl=GL.gl;
+  if(!gfxResize()) return;
+  gl.useProgram(GL.pMix);
+  gl.bindTexture(gl.TEXTURE_2D,GL.tSrc);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,FB_U8);
+  let srcTex=GL.tSrc;
+  const persist=CRT.on?Math.max(0,Math.min(0.92,CRT.persist)):0;
+  if(persist>0.002){
+    const dstF=GL.cur?GL.fA:GL.fB, prevT=GL.cur?GL.tB:GL.tA;
+    gl.bindFramebuffer(gl.FRAMEBUFFER,dstF);
+    gl.viewport(0,0,W,H);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,GL.tSrc); gl.uniform1i(GL.mixSrc,0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,prevT);   gl.uniform1i(GL.mixPrev,1);
+    gl.uniform1f(GL.mixPersist,persist);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    srcTex=GL.cur?GL.tB:GL.tA;
+    GL.cur=GL.cur?0:1;
+  }
+  gl.useProgram(GL.pCrt);
+  gl.viewport(0,0,GL.ow,GL.oh);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,srcTex); gl.uniform1i(GL.crtTex,0);
+  gl.uniform2f(GL.crtSrc,W,H);
+  gl.uniform2f(GL.crtOut,GL.ow,GL.oh);
+  const on=CRT.on?1:0;
+  gl.uniform1f(GL.crtMask,on*CRT.mask);
+  gl.uniform1f(GL.crtCurve,on*CRT.curve);
+  gl.uniform1f(GL.crtScan,on*CRT.scan);
+  gl.uniform1f(GL.crtBloom,on*CRT.bloom);
+  gl.uniform1f(GL.crtChroma,on*CRT.chroma);
+  gl.uniform1f(GL.crtTime,(performance.now()-GL.t0)/1000);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+function crtApply(){
+  if(!HAS_DOM) return;
+  const tube=$('#tube'); if(!tube) return;
+  const glOn=!!GL;
+  const cssOn=CRT.on&&!glOn;
+  tube.classList.toggle('glcrt',CRT.on&&glOn);
+  tube.classList.toggle('crt',cssOn);
+  const sw=$('#sw-crt'); if(sw) sw.setAttribute('aria-pressed',String(!!CRT.on));
+  if(glOn) render();
+}
+/* ================= Écran : réglages CRT ================= */
+const CRT_FIELDS=[['mask','Masque RVB'],['curve','Courbure du tube'],['scan','Lignes de balayage'],['bloom','Halo phosphorique'],['persist','Rémanence'],['chroma','Bavure PAL']];
+function refCrt(){
+  if(!HAS_DOM) return;
+  for(const [k] of CRT_FIELDS){
+    const el=document.getElementById('crt-'+k); if(!el) continue;
+    el.value=String(Math.round((CRT[k]||0)*100));
+    const out=el.parentNode.querySelector('output');
+    if(out) out.textContent=el.value+' %';
+  }
+  const note=$('#crt-note');
+  if(note) note.textContent=GL
+    ? 'Rendu par la carte graphique (WebGL) : masque de trous aligné sur les pixels du C64, courbure du tube, balayage, halo du phosphore et bavure PAL. Le switch « Effet tube » du moniteur coupe l\u2019ensemble.'
+    : 'Carte graphique indisponible : le tube est simulé en CSS (masque, courbure et rémanence demandent WebGL).';
+  const box=$('#crt-ctrls'); if(box) box.style.opacity=GL?'':'0.5';
+}
+function crtPreset(name){
+  const p=CRT_PRESETS[name]; if(!p) return;
+  Object.assign(CRT,p); CRT.on=true; crtSave(); refCrt(); crtApply();
+  toast('Réglage écran « '+name+' » appliqué');
+}
+function crtBind(){
+  for(const [k] of CRT_FIELDS){
+    const el=document.getElementById('crt-'+k); if(!el) continue;
+    el.addEventListener('input',()=>{ CRT[k]=Math.max(0,Math.min(1,(+el.value||0)/100)); CRT.on=true; crtSave(); refCrt(); });
+    el.addEventListener('change',()=>{ crtSave(); crtApply(); });
+  }
+  document.querySelectorAll('[data-crt-preset]').forEach(b=>{
+    b.addEventListener('click',()=>crtPreset(b.getAttribute('data-crt-preset')));
+  });
+  const r=$('#crt-reset');
+  if(r) r.addEventListener('click',()=>{ Object.assign(CRT,CRT_DEF); crtSave(); refCrt(); crtApply(); toast('Réglages d\u2019origine de l\u2019écran'); });
+  refCrt();
+}
+function render(){ if(GL){ gfxDraw(); return; } if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
 const lineBrd=new Uint8Array(W);
 const gB=new Uint8Array(40), gS=new Uint8Array(40), gC=new Uint8Array(40), gD=new Uint8Array(40);
 function renderLine(L){
@@ -4257,7 +4542,8 @@ function vsfImport(buf){
 }
 
 function initUI(){
-  canvas=$('#screen'); ctx2=canvas.getContext('2d'); IMG=ctx2.createImageData(W,H); IMG32=new Uint32Array(IMG.data.buffer);
+  canvas=$('#screen');
+  gfxInit(canvas);
   const ta=$('#kbd');
   const focusKbd=()=>{ try{ ta.focus({preventScroll:true}); }catch(e){} };
   $('#tube').addEventListener('pointerdown',e=>{
@@ -4398,7 +4684,9 @@ function initUI(){
   });
   toggle('#sw-turbo',v=>{ turbo=v; toast(v?'Turbo : vitesse maximale':'Vitesse d\u2019origine'); });
   toggle('#sw-sound',v=>{ SID.on=v; audioInit(); sidVolume(); });
-  toggle('#sw-crt',v=>{ $('#tube').classList.toggle('crt',v); });
+  toggle('#sw-crt',v=>{ CRT.on=v; crtSave(); crtApply(); });
+  crtBind();
+  crtApply();
   $('#sw-joy').addEventListener('click',e=>{ joyPort=joyPort===2?1:2; e.currentTarget.textContent='Joystick '+joyPort; if($('#tjoy-port')) $('#tjoy-port').textContent='port '+joyPort; toast('Joystick branché sur le port '+joyPort); });
   $('#sw-reset').addEventListener('click',()=>{ if(romMode) romReset(); else coldReset(); toast('Machine redémarrée : mémoire effacée'); });
 
