@@ -2190,7 +2190,7 @@ const TM={lineCyc:63,lines:312,hz:985248};
 function applyTiming(){ const n=MODEL.ntsc; TM.lineCyc=n?65:63; TM.lines=n?263:312; TM.hz=n?1022727:985248; CPU_KHZ=TM.hz/1000; }
 function setModel(n){ MODEL=MODELS[n]||MODELS.c64; applyTiming(); try{ localStorage.setItem(MODEL_KEY,MODEL.name); }catch(e){} }
 try{ const m=typeof localStorage!=='undefined'&&localStorage.getItem(MODEL_KEY); if(m&&MODELS[m]) MODEL=MODELS[m]; }catch(e){}
-const SID={ctx:null,gain:null,on:true,next:0,sr:48000,worklet:null,workletOK:false,sab:null,sabW:null,head:0};
+const SID={ctx:null,gain:null,on:true,next:0,sr:48000};
 const ENV_RATE=[9,32,63,95,149,220,267,313,392,977,1954,3126,3907,11720,19532,31251];
 const mkVoice=()=>({acc:0,freq:0,pw:0,ctrl:0,ad:0,sr:0,env:0,state:3,ec:0,rc:0,lfsr:0x7FFFF8,rise:false});
 const mkSid=()=>({v:[mkVoice(),mkVoice(),mkVoice()],f:{fc:0,res:0,filt:0,mode:0,vol:0,low:0,band:0,dcx:0,dcy:0},q:[],cyc:0,on:true});
@@ -2201,49 +2201,10 @@ let sidCyc=0;
 /* adresse du 2e SID : 0 = désactivé */
 let SID2_ADDR=0;
 /* ring buffer audio (AudioWorklet) : cap échantillons + têtes d'écriture/lecture en cas 0/1 */
-function audioWorkletSetup(){
-  if(SID.worklet||!SID.ctx||!SID.ctx.audioWorklet) return;
-  const src=`class SidOut extends AudioWorkletProcessor{
-    /* tampon entrant borne : pas plus de 24 blocs en attente, le surplus est
-       remplace par le plus recent (la derive de latence est ainsi bornee) ;
-       stereo = blocs entrelaces [L0,R0,L1,R1...], mono = [y0,y1,...] */
-    constructor(){ super(); this.q=[]; this.pend=null; this.pi=0; this.frames=0; this.n=0;
-      this.port.onmessage=(e)=>{ this.q.push(e.data); if(this.q.length>24) this.q.splice(0,this.q.length-24); }; }
-    process(inputs,outputs){
-      this.frames++;
-      const out=outputs[0];
-      if(this.q.length>24) this.q.splice(0,this.q.length-24);
-      if(out.length>=2){
-        const L=out[0], R=out[1], m=L.length;
-        for(let i=0;i<m;i++){
-          while(!this.pend||this.pi>=this.pend.length){ this.pi=0; this.pend=this.q.shift()||null; if(!this.pend) break; }
-          if(!this.pend){ L[i]=0; R[i]=0; continue; }
-          L[i]=this.pend[this.pi++]; R[i]=this.pend[this.pi++]||0; this.n++;
-        }
-      } else {
-        const o=out[0];
-        for(let i=0;i<o.length;i++){
-          while(!this.pend||this.pi>=this.pend.length){ this.pi=0; this.pend=this.q.shift()||null; if(!this.pend) break; }
-          if(!this.pend){ o[i]=0; continue; }
-          o[i]=this.pend[this.pi++]; this.n++;
-        }
-      }
-
-      return true;
-    }}
-    registerProcessor('sid-out',SidOut);`;
-  try{
-    const blob=new Blob([src],{type:'application/javascript'});
-    const url=URL.createObjectURL(blob);
-    SID.ctx.audioWorklet.addModule(url).then(()=>{
-      URL.revokeObjectURL(url);
-      const node=new AudioWorkletNode(SID.ctx,'sid-out',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
-      node.port.onmessage=(e)=>{ if(e.data&&e.data.dbg) SID.wN=e.data.n; };
-      node.connect(SID.gain); SID.worklet=node; SID.workletOK=true;
-
-    }).catch(()=>{ URL.revokeObjectURL(url); });
-  }catch(e){}
-}
+/* sortie AudioWorklet abandonnée (V5.9c) : la file du worklet jetait les blocs
+   au-delà de 24 dès que le rAF tardait → grésillements. La sortie est le
+   scheduler AudioBuffer à SID.next (horloge du device, aucun jet). */
+function audioWorkletSetup(){}
 function sid2Of(a){
   if(!SID2_ADDR) return -1;
   if(SID2_ADDR===0xD420&&a>=0xD420&&a<0xD440) return 1;
@@ -2367,26 +2328,22 @@ function sidFlush(silent){
   if(total>TM.hz*0.3){ applyAll(); SID.next=0; return; }
   const n=Math.floor(total/cps); if(n<=0) return;
   const q2=SID2_ADDR?SI[1].q:null;
-  const buf=new Float32Array(q2?n*2:n); let qi=0, c=sidCyc, qi2=0;
+  /* toujours entrelacé [L,R] (le canal R vaut 0 sans 2e SID) */
+  const buf=new Float32Array(n*2); let qi=0, c=sidCyc, qi2=0;
   const cps2=cps;
   for(let k=0;k<n;k++){
     c+=cps;
     while(qi<q.length&&q[qi]<=c){ sidApply(0,q[qi+1],q[qi+2]); qi+=3; }
     let y=sidSampleInst(0,cps), y2=0;
     if(q2){ while(qi2<q2.length&&q2[qi2]<=c){ sidApply(1,q2[qi2+1],q2[qi2+2]); qi2+=3; } y2=sidSampleInst(1,cps2); }
-    if(q2){ buf[k*2]=y; buf[k*2+1]=y2; } else buf[k]=y;
+    buf[k*2]=y; buf[k*2+1]=q2?y2:0;
   }
   q.splice(0,qi); if(q2) q2.splice(0,qi2); sidCyc=c; inst.cyc=c;
-  /* sortie AudioWorklet : blocs postés au thread audio, file entrante bornée (24 blocs) */
-  if(SID.workletOK){
-    try{
-      SID.worklet.port.postMessage(buf,[buf.buffer]);
-      return;
-    }catch(e){ SID.workletOK=false; }
-  }
-  const ctx=SID.ctx, stereo=SID2_ADDR?1:0, ab=ctx.createBuffer(stereo?2:1,n,SID.sr);
-  if(stereo){ ab.copyToChannel(buf.subarray(0,n),0); ab.copyToChannel(buf.subarray(n,n*2),1); }
-  else ab.copyToChannel(buf,0);
+  /* sortie : AudioBuffer schedulé à SID.next — précision d'horloge du device,
+     aucun jet de bloc (le worklet borné à 24 grésillait dès que le rAF tardait) */
+  const ctx=SID.ctx, ab=ctx.createBuffer(2,n,SID.sr);
+  const Lc=ab.getChannelData(0), Rc=ab.getChannelData(1);
+  for(let i=0;i<n;i++){ Lc[i]=buf[i*2]; Rc[i]=buf[i*2+1]; }
   const src=ctx.createBufferSource(); src.buffer=ab; src.connect(SID.gain);
   const t=ctx.currentTime; if(SID.next<t+0.015||SID.next>t+0.35) SID.next=t+0.07;
   src.start(SID.next); SID.next+=n/SID.sr;
