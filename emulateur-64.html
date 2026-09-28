@@ -371,7 +371,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Cartouches .crt gérées : normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
-    <p>L'affichage est calculé au cycle près, sprites compris ; en revanche, les accès mémoire des caractères ne sont pas simulés un par un : les effets de démos du type VSP, FLI ou « line crunch », qui déclenchent des lignes de mauvaise qualité en milieu de ligne, ne sont pas reproduits. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
+    <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris ; seuls les tout derniers raffinements électriques (valeurs flottantes du bus lues pendant les cycles libres, couleurs intermédiaires du VIC récent) ne sont pas simulés. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
   </div>
 </dialog>
 
@@ -1463,7 +1463,7 @@ function ioRead(a){
 function ioWrite(a,v){
   if(a<0xD400){
     const r=a&63; mem[0xD000+r]=v; if(cpuActive) vlog.push(cyc,r,v);
-    if(r===0x11) rasterCmp=(rasterCmp&255)|((v&128)<<1);
+    if(r===0x11){ rasterCmp=(rasterCmp&255)|((v&128)<<1); vicMidBad(v); }
     else if(r===0x12) rasterCmp=(rasterCmp&256)|v;
     else if(r===0x19) d019&=~v;
     return;
@@ -1789,11 +1789,9 @@ function vicAdvance(){
       // fin de la ligne précédente : calcul au cycle près, puis cycle 58 (compteurs)
       const P=L===0?311:L-1;
       renderLine(P);
-      if(rc===7){ vcBase=vDisplay?(vc+40)&1023:vc; vDisplay=lineBad; }
-      if(vDisplay) rc=(rc+1)&7;
       if(cpuActive){ let n=0; for(const q of SPR) if(q.dma) n++; if(n) cyc+=2*n+3; }
       // début de la nouvelle ligne
-      vLineStart=vicNext; vicLineCur=L; lineBad=false;
+      vLineStart=vicNext; vicLineCur=L; lineBad=false; stall14=false;
       vstart.set(mem.subarray(0xD000,0xD040));
       if(L===0){ vcBase=0; frameFlip(); }
       if(L===rasterCmp) d019|=1;
@@ -1804,19 +1802,22 @@ function vicAdvance(){
     }
   }
 }
-let lineBad=false;
+let lineBad=false, stall14=false;
+function badCond(L,d011){ return den30&&L>=0x30&&L<=0xF7&&(L&7)===(d011&7); }
 function vicCycle14(L){
-  const d011=mem[53265], d018=mem[53272];
-  if(L===0x30) den30=(d011&16)!==0;
-  const bad=den30&&L>=0x30&&L<=0xF7&&(L&7)===(d011&7);
-  lineBad=bad; vc=vcBase;
-  if(bad){
-    rc=0; vDisplay=true;
-    const scr=vicBank()+((d018>>4)<<10);
-    const cur=!romMode&&cursorOn&&(state==='idle'||state==='input')&&!typeQueue.length&&scr===1024?crow*40+ccol:-1;
-    for(let i=0;i<40;i++){ const n=(vc+i)&1023; rowSC[i]=vread(scr+n); rowCol[i]=mem[CRAM+n]&15; if(n===cur){ rowSC[i]^=128; rowCol[i]=mem[646]&15; } }
-    if(cpuActive) cyc+=40;
-  }
+  const d011=mem[53265];
+  if(L===0x30&&(d011&16)) den30=true;
+  if(L===0) den30=false;
+  // vol de cycles d'une badline normale : le processeur est arrêté du cycle 15 au cycle 54
+  if(badCond(L,d011)){ lineBad=true; if(cpuActive){ cyc+=40; stall14=true; } }
+}
+// badline déclenchée en cours de ligne (FLI, VSP) : arrêt du processeur 3 cycles après
+function vicMidBad(v){
+  if(!cpuActive||stall14) return;
+  const pos=cyc-vLineStart, L=vicLineCur;
+  if(pos<15||pos>54||!badCond(L,v)) return;
+  const st=55-Math.max(15,pos+3); stall14=true;
+  if(st>0) cyc+=st;
 }
 function tick(){
   if(cyc>=vicNext) vicAdvance();
@@ -2998,6 +2999,7 @@ let vicFrameNo=0, skipDraw=false;
 function frameFlip(){ if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNow()&&(vicFrameNo&7)!==0; }
 function render(){ if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
 const lineBrd=new Uint8Array(W);
+const gB=new Uint8Array(40), gS=new Uint8Array(40), gC=new Uint8Array(40), gD=new Uint8Array(40);
 function renderLine(L){
   const y=L-15, draw=y>=0&&y<H&&!skipDraw, o=y*W, R=vwork, lg=vlog, ln=lg.length, ls=vLineStart, r8=L&255;
   R.set(vstart);
@@ -3007,11 +3009,14 @@ function renderLine(L){
   let lastC=-1, g=0, mc=false, k0=0, k1=0, k2=0, k3=0;
   let d011=R[0x11], d016=R[0x16], d018=R[0x18], brd=PAL[R[0x20]&15], b0=PAL[R[0x21]&15], b1=PAL[R[0x22]&15], b2=PAL[R[0x23]&15], b3=PAL[R[0x24]&15];
   let scr=bank+((d018>>4)<<10), cb=bank+(((d018>>1)&7)<<11), bmpB=bank+((d018&8)?0x2000:0);
-  let sprWork=false; for(let s=0;s<8;s++){ const q=SPR[s]; q.show=q.disp; if(q.disp||q.on) sprWork=true; if(!((R[0x17]>>s)&1)) q.ff=true; }
+  let sprWork=false; for(let s=0;s<8;s++){ const q=SPR[s]; q.show=q.disp; if(!((R[0x17]>>s)&1)) q.ff=true; }
   let ss=0, sb=0; const act=[], sxp=new Int16Array(8);
   const listAct=()=>{ act.length=0; for(let s=0;s<8;s++){ const q=SPR[s]; if(q.show||q.on){ act.push(s); } sxp[s]=R[2*s]|(((R[0x10]>>s)&1)<<8); } sprWork=act.length>0; };
   listAct();
   const fetch=s=>{ const q=SPR[s]; if(!q.dma) return; const ptr=bank+vread(scr+1016+s)*64; q.data=(vread(ptr+q.mc)<<16)|(vread(ptr+((q.mc+1)&63))<<8)|vread(ptr+((q.mc+2)&63)); q.mc=(q.mc+3)&63; };
+  // accès de la puce aux caractères
+  const cur=!romMode&&cursorOn&&(state==='idle'||state==='input')&&!typeQueue.length?crow*40+ccol:-1;
+  let vmli=0, baStart=-1;
   for(let cc=0;cc<63;cc++){
     const ct=ls+cc;
     if(li<ln&&lg[li]<=ct){
@@ -3023,6 +3028,24 @@ function renderLine(L){
       scr=bank+((d018>>4)<<10); cb=bank+(((d018>>1)&7)<<11); bmpB=bank+((d018&8)?0x2000:0); lastC=-1;
       if(sprWork) listAct();
     }
+    // condition de badline, évaluée à chaque cycle
+    const bad=badCond(L,d011);
+    if(bad){ if(baStart<0) baStart=cc; vDisplay=true; } else baStart=-1;
+    if(cc===14){ vc=vcBase; vmli=0; if(bad) rc=0; }
+    // accès « g » (graphismes) des cycles 16 à 55, puis accès « c » (caractères) des cycles 15 à 54
+    if(cc>=16&&cc<=55){
+      const k=cc-16;
+      if(vDisplay){
+        const sc=rowSC[vmli];
+        gB[k]=(d011&32)?vread(bmpB+((vc&1023)<<3)+rc):vread(cb+(((d011&64)?sc&63:sc)<<3)+rc);
+        gS[k]=sc; gC[k]=rowCol[vmli]; gD[k]=1;
+        vc=(vc+1)&1023; vmli=(vmli+1)%40;
+      } else { gB[k]=vread(bank+((d011&64)?0x39FF:0x3FFF)); gD[k]=0; }
+    }
+    if(bad&&cc>=15&&cc<=54){
+      if(cc<baStart+3&&baStart>=12){ rowSC[vmli]=0xFF; rowCol[vmli]=0x0F; }   // « bug FLI » : le bus n'est pas encore libéré
+      else { const n=vc&1023; rowSC[vmli]=vread(scr+n); rowCol[vmli]=mem[CRAM+n]&15; if(n===cur&&scr===1024){ rowSC[vmli]^=128; rowCol[vmli]=mem[646]&15; } }
+    }
     // --- mécanique des sprites, aux cycles de la vraie puce ---
     switch(cc){
       case 1: fetch(3); break; case 3: fetch(4); break; case 5: fetch(5); break; case 7: fetch(6); break; case 9: fetch(7); break;
@@ -3033,7 +3056,11 @@ function renderLine(L){
           if(cc===55&&ye) q.ff=!q.ff;
           if(!q.dma&&((R[0x15]>>s)&1)&&R[1+2*s]===r8){ q.dma=true; q.mcb=0; if(ye) q.ff=false; }
         } break;
-      case 58: for(let s=0;s<8;s++){ const q=SPR[s]; q.mc=q.mcb; if(q.dma&&R[1+2*s]===r8){ q.disp=true; sprWork=true; } } fetch(0); break;
+      case 58:
+        if(rc===7){ vcBase=vc; if(!bad) vDisplay=false; }
+        if(vDisplay) rc=(rc+1)&7;
+        for(let s=0;s<8;s++){ const q=SPR[s]; q.mc=q.mcb; if(q.dma&&R[1+2*s]===r8){ q.disp=true; } }
+        fetch(0); break;
       case 60: fetch(1); break;
       case 62: fetch(2); break;
     }
@@ -3045,31 +3072,25 @@ function renderLine(L){
       const x=x0+p;
       if(x===rcmp) mBorder=true;
       if(x===lcmp){ const rs=d011&8; if(L===(rs?251:247)) vBorder=true; else if(L===(rs?51:55)&&(d011&16)) vBorder=false; if(!vBorder) mBorder=false; }
-      // graphismes
       let gcol=b0, fg=0;
       if(inCanvas&&!mBorder){
         const rel=x-24-xs;
         if(rel>=0&&rel<320){
           const c=rel>>3;
           if(c!==lastC){
-            lastC=c; mc=false;
-            if(!vDisplay){ g=vread(bank+(ecm?0x39FF:0x3FFF)); k0=b0; k1=PAL[0]; }
+            lastC=c; mc=false; g=gB[c];
+            if(!gD[c]){ k0=b0; k1=PAL[0]; }
             else {
-              const sc=rowSC[c], cr=rowCol[c];
+              const sc=gS[c], cr=gC[c];
               if(bmm){
-                g=vread(bmpB+(((vc+c)&1023)<<3)+rc);
                 if(ecm){ g=0; k0=k1=PAL[0]; }
                 else if(mcm){ mc=true; k0=b0; k1=PAL[sc>>4]; k2=PAL[sc&15]; k3=PAL[cr]; }
                 else { k0=PAL[sc&15]; k1=PAL[sc>>4]; }
               } else if(ecm){
-                g=vread(cb+((sc&63)<<3)+rc); const s6=sc>>6;
-                k0=s6===0?b0:s6===1?b1:s6===2?b2:b3; k1=PAL[cr];
+                const s6=sc>>6; k0=s6===0?b0:s6===1?b1:s6===2?b2:b3; k1=PAL[cr];
                 if(mcm){ g=0; k0=k1=PAL[0]; }
-              } else {
-                g=vread(cb+(sc<<3)+rc);
-                if(mcm&&(cr&8)){ mc=true; k0=b0; k1=b1; k2=b2; k3=PAL[cr&7]; }
-                else { k0=b0; k1=PAL[cr]; }
-              }
+              } else if(mcm&&(cr&8)){ mc=true; k0=b0; k1=b1; k2=b2; k3=PAL[cr&7]; }
+              else { k0=b0; k1=PAL[cr]; }
             }
           }
           const bit=rel&7;
@@ -3077,7 +3098,6 @@ function renderLine(L){
           else if((g>>(7-bit))&1){ gcol=k1; fg=1; } else gcol=k0;
         }
       }
-      // sprites : registres à décalage déclenchés par la position X du balayage
       let spc=-1, behind=0, mask=0;
       if(sprWork){
         const vx=x<0?x+504:x;
@@ -3100,7 +3120,6 @@ function renderLine(L){
       FBW[o+x+8]=mBorder?brd:(spc>=0&&!(behind&&fg))?spc:gcol;
     }
   }
-  // fin de ligne (cycle 63) : bascule verticale
   { const rs=R[0x11]&8; if(L===(rs?251:247)) vBorder=true; else if(L===(rs?51:55)&&(R[0x11]&16)) vBorder=false; }
   if(ss){ if(!collSS) d019|=4; collSS|=ss; }
   if(sb){ if(!collSB) d019|=2; collSB|=sb; }
