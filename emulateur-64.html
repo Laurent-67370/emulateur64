@@ -107,6 +107,12 @@ button{font:inherit;color:inherit}
 .k.fn{background:linear-gradient(#e7b95a,#c48d2c);color:#2d1e08}
 .k.stop{background:linear-gradient(#c05241,var(--stop))}
 .k.wide{flex-grow:3}
+#tjoy{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 4px}
+#tjoy[hidden]{display:none}
+.stick{position:relative;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,#5a4a3e,#3a2f27);box-shadow:inset 0 3px 8px rgba(0,0,0,.6),0 2px 0 rgba(255,255,255,.3);touch-action:none;flex:none}
+.knob{position:absolute;left:45px;top:45px;width:50px;height:50px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#d9534f,#8e2a24);box-shadow:0 4px 8px rgba(0,0,0,.5);pointer-events:none;transition:transform .05s}
+.tjoy-info{text-align:center;font-family:"Press Start 2P",monospace;font-size:9px;color:#4a3b2a;line-height:1.8}
+.k.fire{width:110px;height:110px;border-radius:50%;flex:none;font-size:12px;background:radial-gradient(circle at 35% 30%,#e7b95a,#c48d2c);color:#2d1e08;touch-action:none}
 .swatches{display:grid;grid-template-columns:repeat(16,1fr);gap:4px}
 .swatch{height:26px;border:0;border-radius:4px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),0 2px 0 rgba(0,0,0,.25)}
 .hint{color:var(--muted);font-size:16px;margin:14px 2px 0;max-width:75ch}
@@ -217,8 +223,14 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <button class="k fn" data-p="136">F7</button>
       <button class="k" data-act="fire">FEU</button>
       <button class="k" data-act="kbd" aria-label="Afficher le clavier">⌨</button>
+      <button class="k" data-act="tjoy" aria-label="Joystick tactile">🕹</button>
     </div>
     <div class="swatches" id="swatches"></div>
+    <div id="tjoy" hidden>
+      <div class="stick" id="stick"><div class="knob" id="knob"></div></div>
+      <div class="tjoy-info">Joystick tactile<br><small id="tjoy-port">port 2</small></div>
+      <button class="k fire" id="tfire" aria-label="Feu">FEU</button>
+    </div>
   </section>
 
   <p class="hint">Touchez l'écran puis tapez comme sur la machine : <kbd>LIST</kbd>, <kbd>RUN</kbd>, <kbd>LOAD"$",8</kbd>… Échap = RUN/STOP, Page ↑ = RESTORE. Tapez en minuscules : Maj + lettre donne les caractères graphiques, comme à l'époque.</p>
@@ -263,10 +275,10 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 <dialog id="dlg-import">
   <div class="dh"><h2>Importer un programme</h2><button class="x" data-close aria-label="Fermer">×</button></div>
   <div class="db">
-    <p>Collez un listing BASIC (une instruction numérotée par ligne) ou choisissez un fichier <b>.d64</b>, <b>.g64</b>, <b>.t64</b>, <b>.tap</b>, <b>.crt</b>, <b>.prg</b>, <b>.bas</b> ou <b>.txt</b> : il est chargé dès sa sélection. Vous pouvez aussi glisser un fichier sur l'écran. Les codes entre accolades comme <b>{clr}</b>, <b>{wht}</b> ou <b>{rvon}</b> sont reconnus.</p>
+    <p>Collez un listing BASIC (une instruction numérotée par ligne) ou choisissez un fichier <b>.zip</b>, <b>.d64</b>, <b>.g64</b>, <b>.t64</b>, <b>.tap</b>, <b>.crt</b>, <b>.prg</b>, <b>.bas</b> ou <b>.txt</b> : il est chargé dès sa sélection. Vous pouvez aussi glisser un fichier sur l'écran. Les codes entre accolades comme <b>{clr}</b>, <b>{wht}</b> ou <b>{rvon}</b> sont reconnus.</p>
     <textarea class="code" id="imp-text" placeholder='10 PRINT "BONJOUR"&#10;20 GOTO 10'></textarea>
     <div class="bar">
-      <input type="file" id="imp-file" accept=".prg,.d64,.g64,.d71,.d81,.t64,.tap,.crt,.bas,.txt,.PRG,.D64,.G64,.D71,.D81,.T64,.TAP,.CRT,.BAS,.TXT">
+      <input type="file" id="imp-file" accept=".zip,.prg,.d64,.g64,.d71,.d81,.t64,.tap,.crt,.bas,.txt,.ZIP,.PRG,.D64,.G64,.D71,.D81,.T64,.TAP,.CRT,.BAS,.TXT">
       <label><input type="checkbox" id="imp-run" checked> Lancer après import</label>
       <button class="act" id="imp-go">Importer le listing</button>
     </div>
@@ -361,8 +373,8 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Tapez en minuscules : les lettres s'affichent en majuscules, comme sur la machine. Sur mobile, touchez l'écran ou la touche ⌨ pour faire apparaître le clavier.</p>
 
     <h3>Boutons et menus</h3>
-    <p>Sous l'écran : RUN/STOP, RESTORE, curseurs, inversion vidéo, C= ⇧ (majuscules/minuscules), F1 à F7, FEU (tir du joystick) et les 16 couleurs. Sur le moniteur : <b>Turbo</b> (vitesse maximale au lieu de celle d'origine), <b>Synchro écran</b> (voir ci-dessous), <b>Son</b>, <b>Effet tube</b> (lignes de balayage), <b>Joystick 2 / 1</b> (port utilisé) et <b>Reset</b> (redémarrage, mémoire effacée).</p>
-    <p><b>Programmes</b> : démonstrations prêtes à lancer. <b>Supports</b> : disquette .d64, cassette .tap ou .t64, cartouche .crt et disquette du navigateur. <b>Importer</b> : listing collé, ou fichier .d64, .t64, .tap, .crt, .prg, .bas, .txt (vous pouvez aussi le glisser sur l'écran). <b>Exporter</b> : programme en mémoire en .prg, en .txt ou copié. <b>Système</b> : BASIC intégré ou ROM d'origine.</p>
+    <p>Sous l'écran : 🕹 (joystick tactile, affiché d'office sur écran tactile), RUN/STOP, RESTORE, curseurs, inversion vidéo, C= ⇧ (majuscules/minuscules), F1 à F7, FEU (tir du joystick) et les 16 couleurs. Sur le moniteur : <b>Turbo</b> (vitesse maximale au lieu de celle d'origine), <b>Synchro écran</b> (voir ci-dessous), <b>Son</b>, <b>Effet tube</b> (lignes de balayage), <b>Joystick 2 / 1</b> (port utilisé) et <b>Reset</b> (redémarrage, mémoire effacée).</p>
+    <p><b>Programmes</b> : démonstrations prêtes à lancer. <b>Supports</b> : disquette .d64, cassette .tap ou .t64, cartouche .crt et disquette du navigateur. <b>Importer</b> : listing collé, ou fichier .zip (décompressé automatiquement ; les autres disquettes de l'archive restent disponibles dans Supports), .d64, .t64, .tap, .crt, .prg, .bas, .txt (vous pouvez aussi le glisser sur l'écran). <b>Exporter</b> : programme en mémoire en .prg, en .txt ou copié. <b>Système</b> : BASIC intégré ou ROM d'origine.</p>
 
     <h3>Modèle de machine</h3>
     <p>Menu Système : C64 d'origine (puce vidéo 6569, SID 6581) ou C64C (puce vidéo 8565, SID 8580). Le changement est immédiat. Le son diffère nettement (filtre, voix digitalisées), et le 8565 affiche un pixel gris à l'endroit où une couleur est changée en pleine ligne, comme la vraie puce.</p>
@@ -380,7 +392,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 
     <h3>Matériel simulé</h3>
     <p>Processeur 6510 complet (instructions officielles et non documentées, mode décimal, cycle supplémentaire au franchissement de page, double écriture des instructions lecture-modification-écriture) cadencé à 985 kHz. SYS lance du code machine, qui revient au BASIC par RTS.</p>
-    <p>Affichage calculé cycle par cycle pendant le balayage (8 pixels par cycle) : chaque écriture du processeur dans un registre vidéo prend effet à sa position exacte dans la ligne, ce qui permet les changements de couleur en milieu de ligne, les écrans partagés, le multiplexage des sprites et l'ouverture des bordures (latérales, haute et basse) grâce aux bascules internes de la puce, reproduites fidèlement. Modes texte, multicolore, couleur de fond étendue et bitmap ; défilement fin horizontal et vertical, modes 38 colonnes et 24 lignes ; changement de banque ; ouverture des bordures haute et basse. La puce vidéo vole 40 cycles au processeur toutes les 8 lignes et 2 cycles par sprite affiché. Sprites émulés avec la mécanique interne de la puce : compteur de données, bascule d'agrandissement vertical, accès mémoire aux cycles d'origine et registre à décalage déclenché par la position X du balayage. Cela reproduit le multiplexage vertical et horizontal (même sprite plusieurs fois sur une ligne), l'étirement et la compression (« sprite crunch »), les sprites dans les bordures ouvertes, la priorité, les collisions (y compris dans la bordure) et leurs interruptions.</p>
+    <p>Affichage calculé cycle par cycle pendant le balayage (8 pixels par cycle) : chaque écriture du processeur dans un registre vidéo prend effet à sa position exacte dans la ligne, ce qui permet les changements de couleur en milieu de ligne, les écrans partagés, le multiplexage des sprites et l'ouverture des bordures (latérales, haute et basse) grâce aux bascules internes de la puce, reproduites fidèlement. Modes texte, multicolore, couleur de fond étendue et bitmap ; défilement fin horizontal et vertical, modes 38 colonnes et 24 lignes ; changement de banque ; ouverture des bordures haute et basse. La puce vidéo prend le bus au processeur aux cycles exacts du vrai matériel : cycles 15 à 54 des lignes de caractères (avec les 3 cycles de préavis d'une badline déclenchée tardivement) et deux cycles par sprite affiché, aux positions d'origine (58 à 63 puis 0 à 10) ; le processeur attend alors son tour. Sprites émulés avec la mécanique interne de la puce : compteur de données, bascule d'agrandissement vertical, accès mémoire aux cycles d'origine et registre à décalage déclenché par la position X du balayage. Cela reproduit le multiplexage vertical et horizontal (même sprite plusieurs fois sur une ligne), l'étirement et la compression (« sprite crunch »), les sprites dans les bordures ouvertes, la priorité, les collisions (y compris dans la bordure) et leurs interruptions.</p>
     <p>SID synthétisé échantillon par échantillon, en version 6581 ou 8580 selon le modèle choisi (courbe de filtre, résonance, formes d'onde combinées et décalage continu propres à chacun), avec la vraie logique d'enveloppe (compteur 15 bits, d'où l'« ADSR bug » que certaines musiques exploitent) : trois voix (triangle, dent de scie, impulsion à largeur réglable, bruit, formes combinées), enveloppes ADSR, synchronisation et modulation en anneau, filtre passe-bas / passe-bande / passe-haut avec résonance, sons échantillonnés joués par le registre de volume. Le son est coupé en Turbo. Deux CIA complets : timers A et B (continu ou un seul coup, B pouvant compter les passages à zéro de A), horloge TOD, interruptions (IRQ pour le premier, NMI pour le second), matrice clavier dans les deux sens, joystick sur les ports 1 et 2. La mémoire vive cachée sous les E/S ($D000-$DFFF) et sous les ROM est accessible selon le registre $01 et les lignes de la cartouche.</p>
 
     <h3>ROM d'origine (menu Système)</h3>
@@ -399,7 +411,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 
     <h3>Cassettes et cartouches</h3>
     <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Pour enregistrer, choisissez « Enregistrer une cassette vierge » puis tapez SAVE"NOM" : la cassette obtenue se télécharge en .tap. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
-    <p>Cartouches .crt gérées : Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
+    <p>Cartouches .crt gérées : Epyx FastLoad (avec son condensateur qui la désactive toute seule), Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
     <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris, avec les points gris du VIC récent ; une adresse où rien n'est branché renvoie l'octet que la puce vidéo vient de lire (bus « flottant »). Les formes d'onde combinées du SID restent une approximation des tables mesurées sur les vraies puces. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
@@ -1937,7 +1949,7 @@ function vicAdvance(){
       // fin de la ligne précédente : calcul au cycle près, puis cycle 58 (compteurs)
       const P=L===0?TM.lines-1:L-1;
       renderLine(P);
-      if(cpuActive){ let n=0; for(const q of SPR) if(q.dma) n++; if(n) cyc+=2*n+3; }
+      sprBusMap(L);
       // début de la nouvelle ligne
       vLineStart=vicNext; vicLineCur=L; lineBad=false; stall14=false;
       vstart.set(mem.subarray(0xD000,0xD040));
@@ -1968,20 +1980,54 @@ function vicCycle14(L){
   if(L===0x30&&(d011&16)) den30=true;
   if(L===0) den30=false;
   // vol de cycles d'une badline normale : le processeur est arrêté du cycle 15 au cycle 54
-  if(badCond(L,d011)){ lineBad=true; if(cpuActive){ cyc+=40; stall14=true; } }
+  if(badCond(L,d011)){ lineBad=true; if(badSince<0||badSince>12) badSince=12; }
 }
 // badline déclenchée en cours de ligne (FLI, VSP) : arrêt du processeur 3 cycles après
 function vicMidBad(v){
-  if(!cpuActive||stall14) return;
-  const pos=cyc-vLineStart, L=vicLineCur;
-  if(pos<15||pos>54||!badCond(L,v)) return;
-  const st=55-Math.max(15,pos+3); stall14=true;
-  if(st>0) cyc+=st;
+  const pos=cyc-vLineStart;
+  if(badSince<0&&pos>=0&&pos<=54&&badCond(vicLineCur,v)) badSince=pos;
+}
+/* --- partage du bus : cycles où la puce vidéo prend le bus au processeur --- */
+const sprBlk=new Uint8Array(72); let sprCarry=false, badSince=-1;
+function sprBusMap(L){
+  // accès mémoire des sprites (PAL) : s0 58-59, s1 60-61, s2 62 + cycle 0 suivant, s3..s7 aux cycles 1 à 10
+  sprBlk.fill(0); badSince=-1;
+  if(sprCarry) sprBlk[0]=1;
+  for(let n=3;n<8;n++) if(SPR[n].dma){ sprBlk[2*n-5]=1; sprBlk[2*n-4]=1; }
+  const en=mem[53269], r8=L&255; sprCarry=false;
+  for(let n=0;n<3;n++){
+    const q=SPR[n], on=(q.dma&&!(q.ff&&q.mc===63))||(!q.dma&&((en>>n)&1)&&mem[53249+2*n]===r8);
+    if(!on) continue;
+    sprBlk[58+2*n]=1; if(n<2) sprBlk[59+2*n]=1; else sprCarry=true;
+  }
+}
+function busBlocked(pos,probe){
+  if(pos<0||pos>=TM.lineCyc) return false;
+  if(sprBlk[pos]===1) return true;
+  if(pos>=15&&pos<=54&&(lineBad||badCond(vicLineCur,mem[53265]))){ const bs=badSince<0?(probe?pos:12):badSince; return pos>=bs+3; }
+  return false;
+}
+function busStall(t0){
+  // cycles réservés à la puce vidéo pendant l'instruction : le processeur s'est arrêté d'autant
+  let n=0; for(let c=t0;c<cyc&&c<t0+8;c++) if(busBlocked(c-vLineStart,false)) n++;
+  if(n) cyc+=n;
+}
+function busWait(){
+  for(let g=0;g<130;g++){
+    const pos=cyc-vLineStart;
+    let blk=pos>=0&&pos<TM.lineCyc&&sprBlk[pos]===1;
+    if(!blk&&pos>=12&&pos<=54){
+      if(lineBad||badCond(vicLineCur,mem[53265])){ if(badSince<0) badSince=pos; if(pos>=15&&pos>=badSince+3) blk=true; }
+    }
+    if(!blk) return;
+    cyc++; tick();
+  }
 }
 function tick(){
   if(cyc>=vicNext) vicAdvance();
   if(DRV.on) drvRun(cyc);
   if(TAPE.run&&cyc>=TAPE.nextEdge) tapeEdges();
+  if(cart&&cart.type===10&&!cart.exrom&&cyc>cart.epyx){ cart.exrom=1; updRom(); }
   const n=cyc-ciaLast;
   if(n>0){ ciaLast=cyc; ciaAdvance(cia1,n); ciaAdvance(cia2,n);
     const lvl=(cia2.icr&cia2.mask&0x1F)!==0;
@@ -2003,7 +2049,7 @@ function runCpu(budget){
     while(state==='cpu'||(state==='rom'&&!romHalted)){
       if(stopReq){ stopReq=false; C.sp=0xFF; doBreak(); break; }
       if(!fastNow()&&cyc>=target) break;
-      cpuStep(); tick();
+      busWait(); { const t0=cyc; cpuStep(); busStall(t0); } tick();
       if(!C.i&&irqPending()) irqEnter();
       if((++n&2047)===0&&now()-t0>cpuSliceMs) break;
     }
@@ -2015,7 +2061,7 @@ function runIrqSync(){
   const lim=cyc+60000; inIrqSync=true; irqAbort=false; cpuActive=true;
   try{
     while(C.pc!==0xFFF8&&!irqAbort){
-      cpuStep(); tick();
+      busWait(); { const t0=cyc; cpuStep(); busStall(t0); } tick();
       if(cyc>lim){ setVectors(); mem[0xD01A]=0; C.sp=0xFF; C.i=0; break; }
     }
     if(C.pc===0xFFF8) C.pc=saved;
@@ -2265,7 +2311,7 @@ function refreshTapeUI(){ if(HAS_DOM&&document.querySelector('#dlg-disk[open]'))
 
 /* ================= Cartouches (.crt) ================= */
 let cart=null;
-const CART_TYPES={1:'Action Replay',3:'Final Cartridge III',0:'Normale',4:'Simons\u2019 BASIC',5:'Ocean',7:'Fun Play',8:'Super Games',15:'System 3',17:'Dinamic',19:'Magic Desk',32:'EasyFlash'};
+const CART_TYPES={10:'Epyx FastLoad',1:'Action Replay',3:'Final Cartridge III',0:'Normale',4:'Simons\u2019 BASIC',5:'Ocean',7:'Fun Play',8:'Super Games',15:'System 3',17:'Dinamic',19:'Magic Desk',32:'EasyFlash'};
 function parseCRT(b){
   if(String.fromCharCode(...b.subarray(0,16))!=='C64 CARTRIDGE   ') throw new Error('Ce fichier n\u2019est pas une cartouche .crt valide.');
   const be16=o=>(b[o]<<8)|b[o+1], be32=o=>((b[o]<<24)|(b[o+1]<<16)|(b[o+2]<<8)|b[o+3])>>>0;
@@ -2289,15 +2335,20 @@ function cartReset(){
   cart.bank=0; cart.ram.fill(0); cart.ramEn=false; cart.off=false;
   if(cart.type===32){ cart.exrom=1; cart.game=0; }
   else if(cart.type===1){ cart.exrom=0; cart.game=1; }
+  else if(cart.type===10){ cart.exrom=0; cart.game=1; cart.epyx=cyc+512; }
   else if(cart.type===3){ cart.exrom=0; cart.game=0; }
   else { cart.exrom=cart.exrom0?1:0; cart.game=cart.game0?1:0; }
 }
-function cartL(a){ if(cart&&cart.type===1&&cart.ramEn) return cart.aram[(a-0x8000)&0x1FFF]; const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.lo; return d?d[(a-0x8000)&(d.length-1)]:0xFF; }
+function cartL(a){ if(cart&&cart.type===10) cart.epyx=cyc+512; if(cart&&cart.type===1&&cart.ramEn) return cart.aram[(a-0x8000)&0x1FFF]; const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.lo; return d?d[(a-0x8000)&(d.length-1)]:0xFF; }
 function cartH(a){ const bk=cart&&cart.banks[cart.bank]; const d=bk&&(bk.hi||(cart.type===1?bk.lo:null)); return d?d[a&0x1FFF&(d.length-1)]:0xFF; }
 function cartIO(a,v,w){
   if(!cart) return 0;
   const io1=a<0xDF00, t=cart.type, lines=()=>updRom();
   switch(t){
+    case 10:
+      // le condensateur se recharge à chaque accès en $DE00 ; $DF00 montre la fin de la ROM
+      if(io1){ cart.epyx=cyc+512; if(cart.exrom){ cart.exrom=0; lines(); } return w?0:vicFloat(); }
+      { const bk=cart.banks[0]; return w?0:(bk&&bk.lo?bk.lo[0x1F00+(a&255)]:0xFF); }
     case 1:
       if(io1){ if(w&&!cart.off){ const m=v&3; cart.exrom=m&2?1:0; cart.game=m&1?0:1; if(m===3){ cart.exrom=1; cart.game=0; } if(m===2){ cart.exrom=1; cart.game=1; }
           cart.bank=(v>>3)&3; cart.ramEn=!!(v&0x20); if(v&4){ cart.off=true; cart.exrom=1; cart.game=1; } lines(); } return w?0:vicFloat(); }
@@ -3526,6 +3577,12 @@ function refreshDisk(){
     mkBtn('Redémarrer','ghost',()=>{ closeAll(); romReset(); }),
     mkBtn('Débrancher','ghost',()=>{ cartEject(); refreshDisk(); toast('Cartouche débranchée'); })],'disk'));
   else cbx.innerHTML='<div class="empty">Aucune cartouche. Brancher une cartouche redémarre la machine en mode ROM.</div>';
+  if(zipDisks.length>1){
+    const zl=document.createElement('div'); zl.className='list'; zl.style.margin='8px 0 0';
+    for(const z of zipDisks){ const cur=d64&&d64.file===z.name;
+      zl.append(mkItem(z.name,cur?'Dans le lecteur':'Disquette de la même archive',cur?[]:[mkBtn('Insérer','ghost',()=>{ if(/\.g64$/i.test(z.name)) g64Mount(z.data.slice(),z.name); else d64Mount(z.data.slice(),z.name); refreshDisk(); toast('Disquette changée : '+z.name); })],cur?'disk':'')); }
+    dbox.append(zl);
+  }
   const dev=webDev();
   $('#web-title').textContent='Disquette du navigateur · lecteur '+dev;
   $('#web-hint').innerHTML='Les programmes enregistrés avec <b>SAVE"NOM",'+dev+'</b> sont gardés dans ce navigateur.';
@@ -3600,7 +3657,43 @@ function refreshPeriph(){
   rl.append(it);
   refreshPrinter();
 }
+/* archives .zip : décompression par le navigateur (DecompressionStream) */
+async function unzip(buf){
+  const b=buf, dv=new DataView(b.buffer,b.byteOffset,b.byteLength), out=[];
+  let e=b.length-22; while(e>=0&&dv.getUint32(e,true)!==0x06054b50) e--;
+  if(e<0) throw new Error('Archive .zip illisible.');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true);
+  for(let i=0;i<n;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true), nlen=dv.getUint16(p+28,true), xlen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true), lho=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(b.subarray(p+46,p+46+nlen));
+    p+=46+nlen+xlen+clen;
+    if(name.endsWith('/')) continue;
+    const ds=lho+30+dv.getUint16(lho+26,true)+dv.getUint16(lho+28,true), raw=b.subarray(ds,ds+csize);
+    let data;
+    if(method===0) data=raw.slice();
+    else if(method===8){
+      if(typeof DecompressionStream==='undefined') throw new Error('Ce navigateur ne sait pas décompresser les .zip : décompressez l\u2019archive avant de l\u2019ouvrir.');
+      data=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    } else continue;
+    out.push({name:name.split('/').pop(),data});
+  }
+  return out;
+}
+const ZIP_KINDS=/\.(d64|g64|d71|d81|t64|tap|crt|prg|bas|txt)$/i;
+let zipDisks=[];      // autres disquettes d'une même archive, pour en changer d'un clic
+async function openZip(f,run){
+  const files=(await unzip(new Uint8Array(await f.arrayBuffer()))).filter(x=>ZIP_KINDS.test(x.name));
+  if(!files.length) throw new Error('Aucun fichier utilisable pour le C64 dans cette archive.');
+  const order=['crt','d64','g64','d71','d81','t64','tap','prg','bas','txt'], ext=x=>x.name.split('.').pop().toLowerCase();
+  files.sort((a,b)=>order.indexOf(ext(a))-order.indexOf(ext(b))||a.name.localeCompare(b.name,'fr',{numeric:true}));
+  zipDisks=files.filter(x=>/^(d64|g64|d71|d81)$/.test(ext(x)));
+  const first=files[0];
+  await openFile(new File([first.data],first.name),run);
+  if(zipDisks.length>1) toast(zipDisks.length+' disquettes dans l\u2019archive : changez de disque dans Supports');
+}
 async function openFile(f,run){
+  if(/\.zip$/i.test(f.name)) return openZip(f,run);
   const low=f.name.toLowerCase();
   if(low.endsWith('.crt')){ const c=parseCRT(new Uint8Array(await f.arrayBuffer())); closeAll(); cartInsert(c); refreshDisk(); toast('Cartouche « '+c.name+' » branchée'); return; }
   if(low.endsWith('.tap')){ const t=parseTAP(new Uint8Array(await f.arrayBuffer())); tapeInsert('tap',t,f.name); closeAll(); ensureRom(); refreshDisk(); if(run){ romAfter(300,()=>{}); typeQueue.push(...pet('LOAD"",1'),13); romAfter(1500,()=>tapePlay()); } toast('Cassette insérée'+(run?' : chargement lancé':'')); return; }
@@ -3713,10 +3806,27 @@ function initUI(){
       else if(act==='charset'){ if(romMode) pressKeys([61,15],120); else mem[53272]^=2; }
       else if(act==='fire') joy2&=~16;
       else if(act==='kbd') focusKbd();
+      else if(act==='tjoy'){ const t=$('#tjoy'); t.hidden=!t.hidden; $('#tjoy-port').textContent='port '+joyPort; }
     });
     const up=()=>{ b.classList.remove('down'); if(b.dataset.act==='fire') joy2|=16; };
     b.addEventListener('pointerup',up); b.addEventListener('pointerleave',up); b.addEventListener('pointercancel',up);
   });
+  // joystick tactile : 8 directions, zone morte au centre ; agit comme les flèches (port choisi)
+  { const st=$('#stick'), kn=$('#knob'); let id=null; const DIRS=15;
+    const setDir=(dx,dy)=>{ joy2|=DIRS; const d=Math.hypot(dx,dy); if(d>18){ const a=Math.atan2(dy,dx);
+        if(Math.abs(Math.cos(a))>0.38) joy2&=~(Math.cos(a)>0?8:4); if(Math.abs(Math.sin(a))>0.38) joy2&=~(Math.sin(a)>0?2:1); }
+      const k=Math.min(1,45/Math.max(d,1)); kn.style.transform='translate('+(dx*k)+'px,'+(dy*k)+'px)'; };
+    const mv=e=>{ if(e.pointerId!==id) return; const r=st.getBoundingClientRect(); setDir(e.clientX-r.left-r.width/2,e.clientY-r.top-r.height/2); e.preventDefault(); };
+    st.addEventListener('pointerdown',e=>{ id=e.pointerId; try{ st.setPointerCapture(id); }catch(ex){} audioInit(); mv(e); });
+    st.addEventListener('pointermove',mv);
+    const up=e=>{ if(e.pointerId!==id) return; id=null; joy2|=DIRS; kn.style.transform=''; };
+    st.addEventListener('pointerup',up); st.addEventListener('pointercancel',up);
+    const fb=$('#tfire');
+    fb.addEventListener('pointerdown',e=>{ e.preventDefault(); try{ fb.setPointerCapture(e.pointerId); }catch(ex){} joy2&=~16; fb.classList.add('down'); });
+    const fu=()=>{ joy2|=16; fb.classList.remove('down'); };
+    fb.addEventListener('pointerup',fu); fb.addEventListener('pointercancel',fu);
+    if(matchMedia('(pointer:coarse)').matches) $('#tjoy').hidden=false;
+  }
   const sw=$('#swatches');
   PAL_HEX.forEach((h,i)=>{
     const b=document.createElement('button'); b.className='swatch'; b.style.background=h;
@@ -3741,7 +3851,7 @@ function initUI(){
   toggle('#sw-turbo',v=>{ turbo=v; toast(v?'Turbo : vitesse maximale':'Vitesse d\u2019origine'); });
   toggle('#sw-sound',v=>{ SID.on=v; audioInit(); sidVolume(); });
   toggle('#sw-crt',v=>{ $('#tube').classList.toggle('crt',v); });
-  $('#sw-joy').addEventListener('click',e=>{ joyPort=joyPort===2?1:2; e.currentTarget.textContent='Joystick '+joyPort; toast('Joystick branché sur le port '+joyPort); });
+  $('#sw-joy').addEventListener('click',e=>{ joyPort=joyPort===2?1:2; e.currentTarget.textContent='Joystick '+joyPort; if($('#tjoy-port')) $('#tjoy-port').textContent='port '+joyPort; toast('Joystick branché sur le port '+joyPort); });
   $('#sw-reset').addEventListener('click',()=>{ if(romMode) romReset(); else coldReset(); toast('Machine redémarrée : mémoire effacée'); });
 
   document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{ const d=$('#'+b.dataset.open); if(b.dataset.open==='dlg-periph') refreshPeriph(); if(b.dataset.open==='dlg-state') refreshStates(); if(b.dataset.open==='dlg-disk') refreshDisk(); if(b.dataset.open==='dlg-rom') refreshRom(); d.showModal(); }));
@@ -3875,11 +3985,11 @@ async function start(){
   requestAnimationFrame(frame);
 }
 applyTiming();
-if(HAS_DOM){ start(); globalThis.EMU_DEBUG={frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0}; }
+if(HAS_DOM){ start(); globalThis.EMU_DEBUG={joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0}; }
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, unzip, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
