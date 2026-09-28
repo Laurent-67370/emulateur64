@@ -372,6 +372,8 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <div class="list" id="joy-list"></div>
     <h3 class="sub" style="margin-top:18px">Souris et paddles (port 1)</h3>
     <div class="list" id="mouse-list"></div>
+    <h3 class="sub" style="margin-top:18px">Deuxième SID (stéréo)</h3>
+    <div class="list" id="sid2-list"></div>
     <h3 class="sub" style="margin-top:18px">Extension mémoire REU</h3>
     <div class="list" id="reu-list"></div>
     <h3 class="sub" style="margin-top:18px">Imprimante (périphérique 4)</h3>
@@ -455,7 +457,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Avec la ROM du lecteur (16 Ko, ou ses deux moitiés de 8 Ko, chargées dans Système) et le mode ROM, le lecteur 8 peut être émulé au niveau matériel (Supports → Lecteur 1541 émulé → Activer). Son propre processeur 6502 fait tourner le vrai DOS, avec ses deux VIA, le bus série câblé fil par fil (ATN, CLOCK, DATA) et le disque lu et écrit bit par bit en codage GCR, zones de vitesse comprises. Les chargeurs rapides et la plupart des protections fonctionnent alors, et les images .g64 (disquettes protégées) sont acceptées. Les chargements sont accélérés pendant que le moteur tourne ; les écritures sont reportées dans l'image quand le moteur s'arrête. La disquette du navigateur passe sur le lecteur 9 (virtuel).</p>
 
     <h3>Périphériques</h3>
-    <p>Menu Périphériques : pavé numérique en second joystick, manettes USB/Bluetooth (jusqu'à deux), souris en paddles ou en souris 1351 (port 1), imprimante sur le périphérique 4 (texte téléchargeable), extension mémoire REU de 128 Ko à 16 Mo. Le modem RS-232 n'est pas disponible : un navigateur ne peut pas ouvrir de connexion réseau brute.</p>
+    <p>Menu Périphériques : pavé numérique en second joystick, manettes USB/Bluetooth (jusqu'à deux), souris en paddles ou en souris 1351 (port 1), deuxième SID en stéréo ($D420, $D500 ou $DE00), imprimante sur le périphérique 4 (texte téléchargeable), extension mémoire REU de 128 Ko à 16 Mo. Le modem RS-232 n'est pas disponible : un navigateur ne peut pas ouvrir de connexion réseau brute.</p>
 
     <h3>Cassettes et cartouches</h3>
     <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Pour enregistrer, choisissez « Enregistrer une cassette vierge » puis tapez SAVE"NOM" : la cassette obtenue se télécharge en .tap. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
@@ -507,7 +509,7 @@ let inputReq=null, inputRow=0, inputCol=0;
 let tiStart=now(), turbo=false, cost=0;
 let curKey=64, shiftFlags=0, joy2=255;
 const PERIPH_KEY='emu64.periph.v1';
-const PERIPH={numpadJoy:false,mouse:'none',reu:0};
+const PERIPH={numpadJoy:false,mouse:'none',reu:0,sid2:0};
 try{ if(typeof localStorage!=='undefined') Object.assign(PERIPH,JSON.parse(localStorage.getItem(PERIPH_KEY)||'{}')); }catch(e){}
 function periphSave(){ try{ localStorage.setItem(PERIPH_KEY,JSON.stringify(PERIPH)); }catch(e){} }
 let joyB=255;                        // second joystick (pavé numérique)
@@ -580,6 +582,15 @@ function reuExec(){
   else { REU.c64a=c; REU.reua=r; REU.len=(n-i)&0xFFFF||1; }
 }
 reuSetSize(PERIPH.reu|0);
+if(PERIPH.sid2){ SID2_ADDR=PERIPH.sid2; }
+function sid2Set(addr){ SID2_ADDR=addr; PERIPH.sid2=addr; periphSave(); try{ SI[1].q.length=0; }catch(e){} refreshSid2(); if(addr) toast('Deuxième SID à $'+addr.toString(16).toUpperCase()+' (stéréo)'); else toast('Deuxième SID désactivé'); }
+function refreshSid2(){
+  const box=$('#sid2-list'); if(!box) return; box.innerHTML='';
+  for(const [a,t] of [[0,'Aucun (mono)'],[0xD420,'$D420 (standard)'],[0xD500,'$D500'],[0xDE00,'$DE00 (cartouches)']]){
+    const on=SID2_ADDR===a;
+    box.append(mkItem(t,on?'En service':'Choisir',[mkBtn(on?'Choisi':'Choisir',on?'':'ghost',()=>{ sid2Set(a); })],on?'disk':''));
+  }
+}
 let rs=0x2545F491;
 
 class BErr{constructor(m,line){this.m=m;this.line=line;}}
@@ -1660,7 +1671,7 @@ function ioRead(a){
     if(r>=0x20) return mem[0xD000+r]|0xF0;
     return mem[0xD000+r];
   }
-  if(a<0xD800){ const r=a&31; if(r===0x1B) return sidOsc3(); if(r===0x1C) return SV[2].env; if(r===0x19) return potX; if(r===0x1A) return potY; return 0; }
+  if(a<0xD800){ const r=a&31; if(sid2Of(a)>=0){ return r===0x1B?sidOsc3(1):r===0x1C?SI[1].v[2].env:0; } if(r===0x1B) return sidOsc3(0); if(r===0x1C) return SI[0].v[2].env; if(r===0x19) return potX; if(r===0x1A) return potY; return 0; }
   if(a<0xDC00) return (mem[a]&15)|240;
   if(a<0xDD00) return ciaRead(cia1,a&15);
   if(a<0xDE00) return ciaRead(cia2,a&15);
@@ -1675,9 +1686,10 @@ function ioWrite(a,v){
     else if(r===0x19) d019&=~v;
     return;
   }
-  if(a<0xD800){ const r=a&31; mem[SIDB+r]=v; if(r<=24) sidWrite(SIDB+r); return; }
+  if(a<0xD800){ const r=a&31; if(sid2Of(a)>=0){ mem[a]=v; if(r<=24) { SI[1].q.push(cyc,a-(SID2_ADDR),v); if(SI[1].q.length>4000) SI[1].q.length=0; } return; } mem[SIDB+r]=v; if(r<=24) sidWrite(SIDB+r); return; }
   if(a<0xDC00){ mem[a]=v&15; return; }
   if(a<0xDD00){ ciaWrite(cia1,a&15,v); return; }
+  if(SID2_ADDR===0xDE00&&a>=0xDE00&&a<0xDE20){ mem[a]=v; if((a&31)<=24){ SI[1].q.push(cyc,a-0xDE00,v); if(SI[1].q.length>30000) SI[1].q.length=0; } return; }
   if(a<0xDE00){ ciaWrite(cia2,a&15,v); return; }
   if(REU.size&&a>=0xDF00){ reuWrite(a&31,v); return; }
   cartIO(a,v,true);
@@ -2145,12 +2157,50 @@ const TM={lineCyc:63,lines:312,hz:985248};
 function applyTiming(){ const n=MODEL.ntsc; TM.lineCyc=n?65:63; TM.lines=n?263:312; TM.hz=n?1022727:985248; CPU_KHZ=TM.hz/1000; }
 function setModel(n){ MODEL=MODELS[n]||MODELS.c64; applyTiming(); try{ localStorage.setItem(MODEL_KEY,MODEL.name); }catch(e){} }
 try{ const m=typeof localStorage!=='undefined'&&localStorage.getItem(MODEL_KEY); if(m&&MODELS[m]) MODEL=MODELS[m]; }catch(e){}
-const SID={ctx:null,gain:null,on:true,next:0,sr:48000,q:[]};
+const SID={ctx:null,gain:null,on:true,next:0,sr:48000,worklet:null,workletOK:false,sab:null,sabW:null,head:0};
 const ENV_RATE=[9,32,63,95,149,220,267,313,392,977,1954,3126,3907,11720,19532,31251];
 const mkVoice=()=>({acc:0,freq:0,pw:0,ctrl:0,ad:0,sr:0,env:0,state:3,ec:0,rc:0,lfsr:0x7FFFF8,rise:false});
-const SV=[mkVoice(),mkVoice(),mkVoice()];
-const SF={fc:0,res:0,filt:0,mode:0,vol:0,low:0,band:0,dcx:0,dcy:0};
+const mkSid=()=>({v:[mkVoice(),mkVoice(),mkVoice()],f:{fc:0,res:0,filt:0,mode:0,vol:0,low:0,band:0,dcx:0,dcy:0},q:[],cyc:0,on:true});
+/* deux SID : SI[0]=$D400 (toujours), SI[1]=2e SID à $D420/$D500/$DE00 (Périphériques) */
+const SI=[mkSid(),mkSid()];
+const SV=SI[0].v, SF=SI[0].f;
 let sidCyc=0;
+/* adresse du 2e SID : 0 = désactivé */
+let SID2_ADDR=0;
+/* ring buffer audio (AudioWorklet) : cap échantillons + têtes d'écriture/lecture en cas 0/1 */
+function audioWorkletSetup(){
+  if(SID.worklet||!SID.ctx||!SID.ctx.audioWorklet) return;
+  const src=`class SidOut extends AudioWorkletProcessor{
+    constructor(){ super(); this.q=[]; this.pend=null; this.pi=0; this.n=0; this.frames=0;
+      this.port.onmessage=(e)=>{ this.q.push(e.data); if(this.q.length>24) this.q.splice(0,this.q.length-24); };
+      this.port.onmessageerror=(e)=>{ console.error('aw msgerr'); }; }
+    process(inputs,outputs){ const o=outputs[0][0]; this.frames++;
+      for(let i=0;i<o.length;i++){
+        while(!this.pend||this.pi>=this.pend.length){ this.pi=0; this.pend=this.q.shift()||null; if(!this.pend) break; }
+        if(!this.pend){ o[i]=0; continue; }
+        o[i]=this.pend[this.pi++]; this.n++;
+      }
+      if(this.frames===128){ this.port.postMessage({dbg:1,n:this.n,q:this.q.length,frames:this.frames}); this.frames=0; }
+      return true; }}
+    registerProcessor('sid-out',SidOut);`;
+  try{
+    const blob=new Blob([src],{type:'application/javascript'});
+    const url=URL.createObjectURL(blob);
+    SID.ctx.audioWorklet.addModule(url).then(()=>{
+      URL.revokeObjectURL(url);
+      const node=new AudioWorkletNode(SID.ctx,'sid-out',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
+      node.connect(SID.gain); SID.worklet=node; SID.workletOK=true;
+    }).catch(()=>{ URL.revokeObjectURL(url); });
+  }catch(e){}
+}
+function sid2Of(a){
+  if(!SID2_ADDR) return -1;
+  if(SID2_ADDR===0xD420&&a>=0xD420&&a<0xD440) return 1;
+  if(SID2_ADDR===0xD500&&a>=0xD500&&a<0xD520&&ioPageOn()) return 1;
+  if(SID2_ADDR===0xDE00&&a>=0xDE00&&a<0xDF20&&ioPageOn()) return 1;
+  return -1;
+}
+function ioPageOn(){ return (mem[1]&7)>=4; }
 // décalage continu : fort sur le 6581 (les écritures dans le volume produisent des sons échantillonnés), quasi nul sur le 8580
 const SID_DC={'6581':1100,'8580':60};
 // courbes de coupure du filtre : non linéaire sur le 6581, quasi linéaire sur le 8580
@@ -2163,16 +2213,21 @@ function audioInit(){
   if(!HAS_DOM) return;
   if(!SID.ctx){
     const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
-    try{ SID.ctx=new AC(); SID.gain=SID.ctx.createGain(); SID.gain.gain.value=SID.on?0.32:0; SID.gain.connect(SID.ctx.destination); SID.sr=SID.ctx.sampleRate; sidCyc=cyc; }
+    try{ SID.ctx=new AC(); SID.gain=SID.ctx.createGain(); SID.gain.gain.value=SID.on?0.32:0; SID.gain.connect(SID.ctx.destination); SID.sr=SID.ctx.sampleRate; sidCyc=cyc; audioWorkletSetup(); }
     catch(e){ SID.ctx=null; return; }
   }
   if(SID.ctx.state==='suspended') SID.ctx.resume();
 }
 function sidVolume(){ if(SID.gain) SID.gain.gain.setTargetAtTime(SID.on?0.32:0,SID.ctx.currentTime,0.01); }
-function sidWrite(a){ SID.q.push(cyc,a-SIDB,mem[a]); if(SID.q.length>30000) sidFlush(true); }
-function sidApply(r,v){
+function sidWrite(a){
+  const inst=SI[0];
+  inst.q.push(cyc, a-SIDB, mem[a]);
+  if(inst.q.length>30000) sidFlush(true);
+}
+function sidApply(si,r,v){
+  const inst=SI[si], SV2=inst.v, SF2=inst.f;
   if(r<21){
-    const vo=SV[(r/7)|0];
+    const vo=SV2[(r/7)|0];
     switch(r%7){
       case 0: vo.freq=(vo.freq&0xFF00)|v; break;
       case 1: vo.freq=(vo.freq&255)|(v<<8); break;
@@ -2186,10 +2241,10 @@ function sidApply(r,v){
       case 6: vo.sr=v; break;
     }
   }
-  else if(r===21) SF.fc=(SF.fc&0x7F8)|(v&7);
-  else if(r===22) SF.fc=(SF.fc&7)|(v<<3);
-  else if(r===23){ SF.res=v>>4; SF.filt=v&15; }
-  else if(r===24){ SF.mode=v>>4; SF.vol=v&15; }
+  else if(r===21) SF2.fc=(SF2.fc&0x7F8)|(v&7);
+  else if(r===22) SF2.fc=(SF2.fc&7)|(v<<3);
+  else if(r===23){ SF2.res=v>>4; SF2.filt=v&15; }
+  else if(r===24){ SF2.mode=v>>4; SF2.vol=v&15; }
 }
 const EXP_PER=e=>e>=0x5D?1:e>=0x36?2:e>=0x1A?4:e>=0x0E?8:e>=0x06?16:e>0?30:1;
 function envStep(vo,cycles){
@@ -2209,20 +2264,21 @@ function envStep(vo,cycles){
     }
   }
 }
-function voiceWave(i){
-  const vo=SV[i], wf=vo.ctrl>>4, acc=vo.acc;
+function voiceWave(si,i){
+  const vo=SI[si].v[i], wf=vo.ctrl>>4, acc=vo.acc;
   let w=0xFFF;
-  if(wf&1){ const msb=(vo.ctrl&4)?((acc^SV[(i+2)%3].acc)&0x800000):(acc&0x800000); w&=((msb?(acc^0xFFFFFF):acc)>>11)&0xFFF; }
+  if(wf&1){ const msb=(vo.ctrl&4)?((acc^SI[si].v[(i+2)%3].acc)&0x800000):(acc&0x800000); w&=((msb?(acc^0xFFFFFF):acc)>>11)&0xFFF; }
   if(wf&2) w&=acc>>12;
   if(wf&4) w&=((vo.ctrl&8)||(acc>>12)>=vo.pw)?0xFFF:0;
-  if(((wf&1)+((wf>>1)&1)+((wf>>2)&1))>1&&MODEL.sid==='6581') w&=(w<<1)&(w>>1)&0xFFF;
+  if(((wf&1)+((wf>>1)&1)+((wf>>2)&1))>1&&(MODEL.sid==='6581'||SID2_ADDR&&(si===0?MODEL.sid==='6581':MODEL.sid==='6581'))) w&=(w<<1)&(w>>1)&0xFFF;
   if(wf&8){ const l=vo.lfsr; w&=(((l>>20)&1)<<11)|(((l>>18)&1)<<10)|(((l>>14)&1)<<9)|(((l>>11)&1)<<8)|(((l>>9)&1)<<7)|(((l>>5)&1)<<6)|(((l>>2)&1)<<5)|((l&1)<<4); }
   return w;
 }
-function sidOsc3(){ const vo=SV[2]; if((vo.ctrl&0x80)) return (Math.random()*256)|0; return (vo.ctrl>>4)?voiceWave(2)>>4:0; }
-function sidSample(d){
+function sidOsc3(si){ const vo=SI[si].v[2]; if((vo.ctrl&0x80)) return (Math.random()*256)|0; return (vo.ctrl>>4)?voiceWave(si,2)>>4:0; }
+function sidSampleInst(si,d){
+  const inst=SI[si], SV2=inst.v, SF2=inst.f;
   for(let i=0;i<3;i++){
-    const vo=SV[i];
+    const vo=SV2[i];
     if(vo.ctrl&8){ vo.rise=false; continue; }
     const prev=vo.acc, na=prev+Math.floor(vo.freq*d);
     const edges=Math.floor((na+0x80000)/0x100000)-Math.floor((prev+0x80000)/0x100000);
@@ -2230,47 +2286,66 @@ function sidSample(d){
     vo.rise=!(prev&0x800000)&&(na>=0x1000000||(na&0x800000)!==0);
     vo.acc=na&0xFFFFFF;
   }
-  for(let i=0;i<3;i++){ const vo=SV[i]; if((vo.ctrl&2)&&SV[(i+2)%3].rise) vo.acc=0; }
+  for(let i=0;i<3;i++){ const vo=SV2[i]; if((vo.ctrl&2)&&SV2[(i+2)%3].rise) vo.acc=0; }
   let mf=0, mu=0;
   for(let i=0;i<3;i++){
-    const vo=SV[i]; envStep(vo,d);
+    const vo=SV2[i]; envStep(vo,d);
     let out=0;
-    if(vo.ctrl>>4) out=(voiceWave(i)-2048)*vo.env/255;
-    if(SF.filt&(1<<i)) mf+=out; else if(!(i===2&&(SF.mode&8))) mu+=out;
+    if(vo.ctrl>>4) out=(voiceWave(si,i)-2048)*vo.env/255;
+    if(SF2.filt&(1<<i)) mf+=out; else if(!(i===2&&(SF2.mode&8))) mu+=out;
   }
-  const m6581=MODEL.sid==='6581', f=Math.min((m6581?FC6581:FC8580)[SF.fc],SID.sr*0.2), w=2*Math.sin(Math.PI*f/SID.sr), q=1/(0.707+SF.res*(m6581?0.08:0.14));
-  const hp=mf-SF.low-q*SF.band; SF.band+=w*hp; SF.low+=w*SF.band;
-  if(!isFinite(SF.low)||Math.abs(SF.low)>1e6){ SF.low=0; SF.band=0; }
-  let fo=0; if(SF.mode&1) fo+=SF.low; if(SF.mode&2) fo+=SF.band; if(SF.mode&4) fo+=hp;
-  const x=(mu+fo+SID_DC[MODEL.sid])*SF.vol/15;
-  const y=x-SF.dcx+0.9985*SF.dcy; SF.dcx=x; SF.dcy=y;
+  const m6581=MODEL.sid==='6581', f=Math.min((m6581?FC6581:FC8580)[SF2.fc],SID.sr*0.2), w=2*Math.sin(Math.PI*f/SID.sr), q=1/(0.707+SF2.res*(m6581?0.08:0.14));
+  const hp=mf-SF2.low-q*SF2.band; SF2.band+=w*hp; SF2.low+=w*SF2.band;
+  if(!isFinite(SF2.low)||Math.abs(SF2.low)>1e6){ SF2.low=0; SF2.band=0; }
+  let fo=0; if(SF2.mode&1) fo+=SF2.low; if(SF2.mode&2) fo+=SF2.band; if(SF2.mode&4) fo+=hp;
+  const x=(mu+fo+SID_DC[MODEL.sid])*SF2.vol/15;
+  const y=x-SF2.dcx+0.9985*SF2.dcy; SF2.dcx=x; SF2.dcy=y;
   return y/7000;
 }
+function sidSample(d){
+  let y=sidSampleInst(0,d);
+  if(SID2_ADDR) y=(y+sidSampleInst(1,d))/2;
+  return y;
+}
 function sidFlush(silent){
-  const q=SID.q;
-  const applyAll=()=>{ for(let i=0;i<q.length;i+=3) sidApply(q[i+1],q[i+2]); q.length=0; sidCyc=cyc; };
+  const inst=SI[0], q=inst.q;
+  const applyAll=()=>{ for(let i=0;i<q.length;i+=3) sidApply(0,q[i+1],q[i+2]); if(SI[1].q.length){ for(let i=0;i<SI[1].q.length;i+=3) sidApply(1,SI[1].q[i+1],SI[1].q[i+2]); SI[1].q.length=0; } q.length=0; sidCyc=cyc; inst.cyc=sidCyc; };
   if(!SID.ctx||silent||SID.ctx.state!=='running'){ applyAll(); return; }
   const cps=TM.hz*(SID.speed||1)/SID.sr, total=cyc-sidCyc;
   if(total<=0){ return; }
   if(total>TM.hz*0.3){ applyAll(); SID.next=0; return; }
   const n=Math.floor(total/cps); if(n<=0) return;
   const buf=new Float32Array(n); let qi=0, c=sidCyc;
+  const q2=SID2_ADDR?SI[1].q:null; let qi2=0;
+  const cps2=cps;
   for(let k=0;k<n;k++){
     c+=cps;
-    while(qi<q.length&&q[qi]<=c){ sidApply(q[qi+1],q[qi+2]); qi+=3; }
-    buf[k]=sidSample(cps);
+    while(qi<q.length&&q[qi]<=c){ sidApply(0,q[qi+1],q[qi+2]); qi+=3; }
+    let y=sidSampleInst(0,cps);
+    if(q2){ while(qi2<q2.length&&q2[qi2]<=c){ sidApply(1,q2[qi2+1],q2[qi2+2]); qi2+=3; } y=(y+sidSampleInst(1,cps2))/2; }
+    buf[k]=y;
   }
-  q.splice(0,qi); sidCyc=c;
+  q.splice(0,qi); if(q2) q2.splice(0,qi2); sidCyc=c; inst.cyc=c;
+  /* sort AudioWorklet : ring buffer SharedArrayBuffer (le thread audio consomme sans craquement) */
+  if(SID.workletOK){
+    try{
+      SID.worklet.port.postMessage(buf,[buf.buffer]);
+      return;
+    }catch(e){ SID.workletOK=false; }
+  }
   const ctx=SID.ctx, ab=ctx.createBuffer(1,n,SID.sr); ab.copyToChannel(buf,0);
   const src=ctx.createBufferSource(); src.buffer=ab; src.connect(SID.gain);
   const t=ctx.currentTime; if(SID.next<t+0.015||SID.next>t+0.35) SID.next=t+0.07;
   src.start(SID.next); SID.next+=n/SID.sr;
 }
 function sidReset(){
-  for(let a=SIDB;a<=SIDB+28;a++) mem[a]=0;
-  for(let i=0;i<3;i++) Object.assign(SV[i],mkVoice());
-  Object.assign(SF,{fc:0,res:0,filt:0,mode:0,vol:0,low:0,band:0,dcx:0,dcy:0});
-  SID.q.length=0; sidCyc=cyc;
+  for(let si=0;si<2;si++){
+    const inst=SI[si];
+    for(let i=0;i<3;i++) Object.assign(inst.v[i],mkVoice());
+    Object.assign(inst.f,{fc:0,res:0,filt:0,mode:0,vol:0,low:0,band:0,dcx:0,dcy:0});
+    inst.q.length=0;
+  }
+  sidCyc=cyc; SI[0].cyc=sidCyc; SI[1].cyc=sidCyc;
 }
 
 /* ================= Cassette (.tap, .t64) ================= */
@@ -3947,6 +4022,7 @@ function refreshPeriph(){
   const it=document.createElement('div'); it.className='item'; it.innerHTML='<div><b>Taille</b><small>La REU sert à GEOS, à certaines démos et utilitaires ; changer la taille la vide.</small></div><div class="bar" style="margin:0;flex-wrap:wrap"></div>';
   for(const [kb,t] of sizes) it.lastChild.append(mkBtn(t,PERIPH.reu===kb?'':'ghost',()=>{ reuSetSize(kb); periphSave(); refreshPeriph(); toast(kb?'REU de '+t+' branchée':'REU débranchée'); }));
   rl.append(it);
+  refreshSid2();
   refreshPrinter();
 }
 /* archives .zip : décompression par le navigateur (DecompressionStream) */
