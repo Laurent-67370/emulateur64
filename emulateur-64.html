@@ -2207,8 +2207,10 @@ function audioWorkletSetup(){
     /* tampon entrant borne : pas plus de 24 blocs en attente, le surplus est
        remplace par le plus recent (la derive de latence est ainsi bornee) ;
        stereo = blocs entrelaces [L0,R0,L1,R1...], mono = [y0,y1,...] */
-    constructor(){ super(); this.q=[]; this.pend=null; this.pi=0; this.frames=0; this.n=0; }
+    constructor(){ super(); this.q=[]; this.pend=null; this.pi=0; this.frames=0; this.n=0;
+      this.port.onmessage=(e)=>{ this.q.push(e.data); if(this.q.length>24) this.q.splice(0,this.q.length-24); }; }
     process(inputs,outputs){
+      this.frames++;
       const out=outputs[0];
       if(this.q.length>24) this.q.splice(0,this.q.length-24);
       if(out.length>=2){
@@ -2236,6 +2238,7 @@ function audioWorkletSetup(){
     SID.ctx.audioWorklet.addModule(url).then(()=>{
       URL.revokeObjectURL(url);
       const node=new AudioWorkletNode(SID.ctx,'sid-out',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
+      node.port.onmessage=(e)=>{ if(e.data&&e.data.dbg) SID.wN=e.data.n; };
       node.connect(SID.gain); SID.worklet=node; SID.workletOK=true;
 
     }).catch(()=>{ URL.revokeObjectURL(url); });
