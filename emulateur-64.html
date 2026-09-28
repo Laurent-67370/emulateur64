@@ -275,6 +275,8 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
         <button class="mb" data-mc="ret">Sortir (ret)</button>
         <button class="mb" id="mon-trace">Trace : non</button>
         <button class="mb" data-mc="io">Puces (io)</button>
+        <button class="mb" data-mc="vic">Sprites (vic)</button>
+        <label class="mb" style="cursor:pointer">Étiquettes .sym<input id="mon-sym" type="file" accept=".sym,.lbl,.txt" hidden></label>
         <button class="mb" id="mon-close">Fermer</button>
       </div>
     </div>
@@ -3177,6 +3179,24 @@ async function stateLoad(k){
 const MON={paused:false,armed:false,bps:[],wps:[],trace:false,tbuf:[],tmax:20000,skip:-1,out:null,outSp:0,tempBp:-1,
   wHit:null,inCpu:false,fetchLo:-1,fetchHi:-1,lastOp:0,bank:'cpu',dev:'c64',dis:-1,mem:0x0400,asm:-1,reason:'',wrapped:false,baseRD:null,baseWR:null,log:[]};
 const hx2=n=>(n&255).toString(16).toUpperCase().padStart(2,'0'), hx4=n=>(n&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
+/* ===== Étiquettes du moniteur (fichiers .sym/.lbl) =====
+   Formats acceptés : « add_label C: c000 nom » (VICE), « nom = $c000 » ou
+   « nom=$c000 » (Kick Assembler / ca65 / 64tass / DASM). Les noms commencent
+   par un point comme dans VICE ; un nom sans point est accepté à la lecture. */
+let LBL=new Map();
+function labelOf(a){ for(const [k,v] of LBL) if(v===(a&0xFFFF)) return k; return null; }
+function labelLoad(text){
+  let n=0; LBL=new Map();
+  for(const raw of text.split(/\r?\n/)){
+    const l=raw.trim(); if(!l||l.startsWith('#')||l.startsWith(';')) continue;
+    let m=/^add_label\s+(?:[c891011]:\s*)?\$?([0-9a-f]{1,4})\s+\.?(\S+)$/i.exec(l);
+    if(!m){ m=/^\.?([A-Za-z_]\w*)\s*=\s*\$?([0-9a-f]{1,4})\s*(?:;.*)?$/i.exec(l); }
+    if(!m) continue;
+    LBL.set('.'+m[1], parseInt(m[2],16)&0xFFFF); n++;
+  }
+  return n;
+}
+
 const OFFICIAL=new Set('LDA LDX LDY STA STX STY ADC SBC AND ORA EOR CMP CPX CPY BIT ASL LSR ROL ROR INC DEC INX INY DEX DEY TAX TAY TXA TYA TSX TXS BPL BMI BVC BVS BCC BCS BNE BEQ JMP JSR RTS RTI BRK PHA PHP PLA PLP CLC SEC CLI SEI CLV CLD SED NOP'.split(' '));
 const OPLEN=[1,1,2,2,2,2,3,3,3,2,2,2,3];
 function monRearm(){ MON.armed=MON.bps.length>0||MON.wps.length>0||MON.trace||MON.out!==null||MON.tempBp>=0; monWrap(); }
@@ -3221,11 +3241,17 @@ function disasm(a){
     case 11: t='$'+hx4(a+2+(b1<128?b1:b1-256)); break; case 12: t='($'+hx4(w)+')'; break;
   }
   const bytes=[op,b1,b2].slice(0,len).map(hx2).join(' ');
-  return {len,text:'.'+(MON.dev==='8'?'8':'C')+':'+hx4(a)+'  '+bytes.padEnd(9)+' '+(OFFICIAL.has(m)?' ':'*')+m+(t?' '+t:'')};
+  const lb=labelOf(a);
+  return {len,text:'.'+(MON.dev==='8'?'8':'C')+':'+hx4(a)+(lb?' ['+lb+']':'')+'  '+bytes.padEnd(9)+' '+(OFFICIAL.has(m)?' ':'*')+m+(t?' '+t:'')};
 }
 /* assembleur (une instruction) */
 const ASM=new Map(); for(let o=0;o<256;o++){ const k=OPM[o]+'/'+OPA[o]; if(!ASM.has(k)) ASM.set(k,o); } ASM.set('NOP/0',0xEA); ASM.set('SBC/2',0xE9);
-function mnum(t){ t=t.trim(); if(/^\+\d+$/.test(t)) return parseInt(t.slice(1),10); if(/^%[01]+$/.test(t)) return parseInt(t.slice(1),2); t=t.replace(/^\$/,''); if(!/^[0-9a-f]+$/i.test(t)) throw new Error('nombre invalide : '+t); return parseInt(t,16); }
+function mnum(t){ t=t.trim(); if(/^\+\d+$/.test(t)) return parseInt(t.slice(1),10); if(/^%[01]+$/.test(t)) return parseInt(t.slice(1),2);
+  let lk=t.startsWith('.')?t:('.'+t);
+  if(LBL.has(lk)) return LBL.get(lk);
+  const ll=lk.toLowerCase();
+  for(const [k,v] of LBL) if(k.toLowerCase()===ll) return v;
+  t=t.replace(/^\$/,''); if(!/^[0-9a-f]+$/i.test(t)) throw new Error('nombre invalide : '+t); return parseInt(t,16); }
 function assemble(a,src){
   const m=/^\s*([a-z]{3})\s*(.*)$/i.exec(src); if(!m) throw new Error('instruction illisible');
   const mn=m[1].toUpperCase(), op=m[2].trim().toUpperCase(); let md, v=0, r;
@@ -3332,7 +3358,15 @@ const MON_HELP=`Commandes (nombres en hexadécimal ; +12 = décimal, %101 = bina
   z · n · ret                        pas à pas · par-dessus un JSR · jusqu'au retour du sous-programme
   g [adresse] · until adresse · x    reprend (depuis l'adresse) · reprend jusqu'à l'adresse · quitte et reprend
   trace on|off|clear|save [n]        journal des instructions (save = télécharger ; n = afficher les n dernières)
-  io                                  état des puces      bank cpu|ram      dev c64|8 (lecteur 1541 émulé)`;
+  io                                  état des puces
+  vic                                 détail écran + 8 sprites (position, pointeur, priorité)      bank cpu|ram      dev c64|8 (lecteur 1541 émulé)
+  hunt début fin octets|"texte"       recherche en mémoire (12 résultats max)
+  al adresse nom                      définir une étiquette (ex. : al c000 .main)
+  dl nom                              supprimer une étiquette
+  ll "fichier"                        charger un .sym (Kick Assembler, ca65, VICE)
+  sl                                  télécharger les étiquettes (format VICE)
+  (les étiquettes s'utilisent partout à la place d'une adresse, et s'affichent
+  dans le désassemblage entre crochets)`;
 function monCmd(line){
   line=line.trim(); if(!line) return; monPrint('» '+line);
   const [c0,...rest]=line.split(/\s+/), c=c0.toLowerCase(), args=rest.join(' ');
@@ -3380,9 +3414,59 @@ function monCmd(line){
         else monPrint(traceText(Math.min(MON.tbuf.length,A[0]?parseInt(A[0],10)||30:30))||'Trace vide : « trace on » pour l\u2019activer.');
         monRefresh(); break; }
       case 'io': monPrint(ioSummary().join('\n')); break;
+      case 'vic': {
+        const v=[...Array(47)].map((_,i)=>mem[0xD000+i]);
+        const sx=i=>v[i*2]|((v[0x10]>>i)&1)*256;
+        const pt=i=>vread(vicBank()+(v[0x07]&15)*1024+1016+i);
+        monPrint('Écran  : écran à $'+hx4(((v[0x18]>>4)&15)*1024+vicBank())+'  caractères $'+hx4((v[0x18]&14)*512+vicBank())+'  raster $'+hx2(v[0x12])+'  sprites actifs $'+hx2(v[0x15]));
+        for(let i=0;i<8;i++){
+          monPrint('  Sprite '+(i+1)+' '+(((v[0x15]>>i)&1)?'actif ':'inactif')+'  X '+sx(i)+'  Y '+v[1+i]+'  pointeur '+pt(i)+'  coul '+hx2(v[0x27+i])+'  derrière '+(v[0x1B]&(1<<i)?'fond':'avant')+'  multicol '+(v[0x1C]&(1<<i)?'oui':'non')+(v[0x1D]&(1<<i)?'  étiré X':'')+(v[0x17]&(1<<i)?'  étiré Y':''));
+        }
+        monPrint('Collisions : sprites $'+hx2(v[0x1E])+'  fond $'+hx2(v[0x1F]));
+        break; }
+
       case 'bank': { if(/^(cpu|ram)$/i.test(A[0]||'')) MON.bank=A[0].toLowerCase(); monPrint('Vue mémoire : '+(MON.bank==='cpu'?'celle du processeur (ROM, E/S, cartouche selon $01)':'mémoire vive seule')); monRefresh(); break; }
       case 'dev': { if(A[0]==='8'){ if(!DRV.on) throw new Error('Le lecteur 1541 émulé n\u2019est pas actif (Supports).'); MON.dev='8'; } else MON.dev='c64'; MON.dis=-1; monPrint('Cible : '+(MON.dev==='8'?'lecteur 1541 (mémoire, code, registres)':'C64')); monRefresh(); break; }
-      default: monPrint('Commande inconnue : '+c+' (h pour l\u2019aide)');
+            /* étiquettes : al (add), dl (delete), ll (load), sl (show) */
+      case 'al': case 'add_label': {
+        let an=0;
+        if(A.length>=2&&/^(add_label|al)$/i.test(A[0])) { A.shift(); }   /* format fichier VICE : "add_label C: c000 nom" */
+        const rest=A[0]&&/^[cC]:$/.test(A[0])?A.slice(1):A;
+        if(rest.length<2) { monPrint('Usage : al adresse nom'); break; }
+        const addr=mnum(rest[0])&0xFFFF, name=rest[1].startsWith('.')?rest[1]:('.'+rest[1]);
+        LBL.set(name,addr); monPrint('Étiquette '+name+' = $'+hx4(addr)); monRefresh(); break; }
+      case 'dl': case 'delete_label': {
+        const name=(A[0]||'');
+        const had=LBL.delete(name.startsWith('.')?name:('.'+name));
+        monPrint(had?'Étiquette supprimée.':'Étiquette inconnue.'); monRefresh(); break; }
+      case 'll': case 'load_labels': {
+        const q=/^(?:[cC]:\s*)?"([^"]+)"$/.exec(args);
+        if(!q){ monPrint('Usage : ll "fichier"'); break; }
+        const nm=q[1].replace(/^\//,'');
+        fetch(nm).then(r=>r.ok?r.text():Promise.reject(0)).then(t=>{
+          const n=labelLoad(t); monPrint(n+' étiquettes chargées depuis '+nm); monRefresh();
+        }).catch(()=>monPrint('Fichier illisible : '+nm));
+        break; }
+      case 'sl': case 'save_labels': {
+        if(!LBL.size){ monPrint('Aucune étiquette.'); break; }
+        const txt=[...LBL.entries()].sort((x,y)=>x[1]-y[1]).map(([k,v])=>'add_label C: '+hx4(v)+' '+k).join('\n');
+        download(new Blob([txt]),'labels.sym','text/plain'); monPrint(LBL.size+' étiquettes enregistrées (labels.sym).'); break; }
+      case 'hunt': case 'ho': {
+        if(A.length<2){ monPrint('Usage : hunt début fin octets... (ou "texte")'); break; }
+        const f=mnum(A[0])&0xFFFF, t=mnum(A[1])&0xFFFF;
+        const pat=args.slice(args.indexOf(A[1])+A[1].length).trim();
+        let needle;
+        if(/"(.*)"/.test(pat)){ needle=textToPet(/"([^"]*)"/.exec(pat)[1]); }
+        else needle=pat.split(/\s+/).map(mnum);
+        const found=[];
+        for(let a=f;a<=t&&found.length<12;a++){
+          let ok=true;
+          for(let i=0;i<needle.length;i++){ if(monPeek(a+i)!==(needle[i]&255)){ ok=false; break; } }
+          if(needle.length&&ok) found.push('$'+hx4(a));
+        }
+        monPrint(found.length?found.join(' ')+(' ('+found.length+' résultat(s)'+(found.length>=12?', suite au-delà':'')+')'):'Séquence non trouvée.');
+        break; }
+default: monPrint('Commande inconnue : '+c+' (h pour l\u2019aide)');
     }
   }catch(e){ monPrint('?'+(e.message||e)); }
 }
@@ -4880,6 +4964,8 @@ function initUI(){
   $('#mon-pause').addEventListener('click',()=>{ if(MON.paused) monResume(); else monPause('Pause demandée'); });
   $('#mon-trace').addEventListener('click',()=>monCmd(MON.trace?'trace off':'trace on'));
   document.querySelectorAll('[data-mc]').forEach(b=>b.addEventListener('click',()=>monCmd(b.dataset.mc)));
+  $('#mon-sym').addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const rd=new FileReader(); rd.onload=()=>{ try{ const n=labelLoad(String(rd.result)); monCmd('h'); monPrint(n+' étiquettes chargées depuis '+f.name+'.'); monRefresh(); }catch(ex){ monPrint('Étiquettes illisibles : '+ex.message); } }; rd.readAsText(f); e.target.value=''; });
   $('#mon-cmd').addEventListener('keydown',e=>{ const t=e.target;
     if(e.key==='Enter'){ const v=t.value; MON.hist=MON.hist||[]; if(v.trim()) MON.hist.push(v); MON.hi=MON.hist.length; t.value=''; monCmd(v); }
     else if(e.key==='ArrowUp'&&MON.hist&&MON.hi>0){ t.value=MON.hist[--MON.hi]; e.preventDefault(); }
