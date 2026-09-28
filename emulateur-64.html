@@ -2202,25 +2202,40 @@ let SID2_ADDR=0;
 function audioWorkletSetup(){
   if(SID.worklet||!SID.ctx||!SID.ctx.audioWorklet) return;
   const src=`class SidOut extends AudioWorkletProcessor{
-    constructor(){ super(); this.q=[]; this.pend=null; this.pi=0; this.n=0; this.frames=0;
-      this.port.onmessage=(e)=>{ this.q.push(e.data); if(this.q.length>24) this.q.splice(0,this.q.length-24); };
-      this.port.onmessageerror=(e)=>{ console.error('aw msgerr'); }; }
-    process(inputs,outputs){ const o=outputs[0][0]; this.frames++;
-      for(let i=0;i<o.length;i++){
-        while(!this.pend||this.pi>=this.pend.length){ this.pi=0; this.pend=this.q.shift()||null; if(!this.pend) break; }
-        if(!this.pend){ o[i]=0; continue; }
-        o[i]=this.pend[this.pi++]; this.n++;
+    /* tampon entrant borne : pas plus de 24 blocs en attente, le surplus est
+       remplace par le plus recent (la derive de latence est ainsi bornee) ;
+       stereo = blocs entrelaces [L0,R0,L1,R1...], mono = [y0,y1,...] */
+    constructor(){ super(); this.q=[]; this.pend=null; this.pi=0; this.frames=0; this.n=0; }
+    process(inputs,outputs){
+      const out=outputs[0];
+      if(this.q.length>24) this.q.splice(0,this.q.length-24);
+      if(out.length>=2){
+        const L=out[0], R=out[1], m=L.length;
+        for(let i=0;i<m;i++){
+          while(!this.pend||this.pi>=this.pend.length){ this.pi=0; this.pend=this.q.shift()||null; if(!this.pend) break; }
+          if(!this.pend){ L[i]=0; R[i]=0; continue; }
+          L[i]=this.pend[this.pi++]; R[i]=this.pend[this.pi++]||0; this.n++;
+        }
+      } else {
+        const o=out[0];
+        for(let i=0;i<o.length;i++){
+          while(!this.pend||this.pi>=this.pend.length){ this.pi=0; this.pend=this.q.shift()||null; if(!this.pend) break; }
+          if(!this.pend){ o[i]=0; continue; }
+          o[i]=this.pend[this.pi++]; this.n++;
+        }
       }
-      if(this.frames===128){ this.port.postMessage({dbg:1,n:this.n,q:this.q.length,frames:this.frames}); this.frames=0; }
-      return true; }}
+
+      return true;
+    }}
     registerProcessor('sid-out',SidOut);`;
   try{
     const blob=new Blob([src],{type:'application/javascript'});
     const url=URL.createObjectURL(blob);
     SID.ctx.audioWorklet.addModule(url).then(()=>{
       URL.revokeObjectURL(url);
-      const node=new AudioWorkletNode(SID.ctx,'sid-out',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
+      const node=new AudioWorkletNode(SID.ctx,'sid-out',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
       node.connect(SID.gain); SID.worklet=node; SID.workletOK=true;
+
     }).catch(()=>{ URL.revokeObjectURL(url); });
   }catch(e){}
 }
@@ -2346,25 +2361,27 @@ function sidFlush(silent){
   if(total<=0){ return; }
   if(total>TM.hz*0.3){ applyAll(); SID.next=0; return; }
   const n=Math.floor(total/cps); if(n<=0) return;
-  const buf=new Float32Array(n); let qi=0, c=sidCyc;
-  const q2=SID2_ADDR?SI[1].q:null; let qi2=0;
+  const q2=SID2_ADDR?SI[1].q:null;
+  const buf=new Float32Array(q2?n*2:n); let qi=0, c=sidCyc, qi2=0;
   const cps2=cps;
   for(let k=0;k<n;k++){
     c+=cps;
     while(qi<q.length&&q[qi]<=c){ sidApply(0,q[qi+1],q[qi+2]); qi+=3; }
-    let y=sidSampleInst(0,cps);
-    if(q2){ while(qi2<q2.length&&q2[qi2]<=c){ sidApply(1,q2[qi2+1],q2[qi2+2]); qi2+=3; } y=(y+sidSampleInst(1,cps2))/2; }
-    buf[k]=y;
+    let y=sidSampleInst(0,cps), y2=0;
+    if(q2){ while(qi2<q2.length&&q2[qi2]<=c){ sidApply(1,q2[qi2+1],q2[qi2+2]); qi2+=3; } y2=sidSampleInst(1,cps2); }
+    if(q2){ buf[k*2]=y; buf[k*2+1]=y2; } else buf[k]=y;
   }
   q.splice(0,qi); if(q2) q2.splice(0,qi2); sidCyc=c; inst.cyc=c;
-  /* sort AudioWorklet : ring buffer SharedArrayBuffer (le thread audio consomme sans craquement) */
+  /* sortie AudioWorklet : blocs postés au thread audio, file entrante bornée (24 blocs) */
   if(SID.workletOK){
     try{
       SID.worklet.port.postMessage(buf,[buf.buffer]);
       return;
     }catch(e){ SID.workletOK=false; }
   }
-  const ctx=SID.ctx, ab=ctx.createBuffer(1,n,SID.sr); ab.copyToChannel(buf,0);
+  const ctx=SID.ctx, stereo=SID2_ADDR?1:0, ab=ctx.createBuffer(stereo?2:1,n,SID.sr);
+  if(stereo){ ab.copyToChannel(buf.subarray(0,n),0); ab.copyToChannel(buf.subarray(n,n*2),1); }
+  else ab.copyToChannel(buf,0);
   const src=ctx.createBufferSource(); src.buffer=ab; src.connect(SID.gain);
   const t=ctx.currentTime; if(SID.next<t+0.015||SID.next>t+0.35) SID.next=t+0.07;
   src.start(SID.next); SID.next+=n/SID.sr;
@@ -3072,7 +3089,7 @@ function saveState(){
     mem,ramD,cpu:Object.assign({},C),cyc,cycFrac,rasterCmp,d019,collSS,collSB,joyPort,nmiLvl,joy2,
     cia1,cia2,
     vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo,SPR},
-    sid:{SV,SF,sidCyc},
+    sid:{SV,SF,sidCyc,sid2:SID2_ADDR,si:[{f:SI[1].f},{f:SI[1].f}]},
     state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,reu:REU.size?REU:null,
     tape:TAPE,cart,d64,
     drv:DRV.on?{C:DRV.C,cyc:DRV.cyc,ram:DRV.ram,via1:DRV.via1,via2:DRV.via2,ht:DRV.ht,tracks:DRV.tracks,bitPos:DRV.bitPos,bitAcc:DRV.bitAcc,shift:DRV.shift,ones:DRV.ones,bitCnt:DRV.bitCnt,latch:DRV.latch,wshift:DRV.wshift,sync:DRV.sync,dirty:DRV.dirty,phase:DRV.phase,prevAtn:DRV.prevAtn,motor:DRV.motor,led:DRV.led,density:DRV.density,warp:DRV.warp}:null,
@@ -3101,7 +3118,10 @@ function loadState(json){
   cyc=o.cyc; cycFrac=o.cycFrac; rasterCmp=o.rasterCmp; d019=o.d019; collSS=o.collSS; collSB=o.collSB; joyPort=o.joyPort; nmiLvl=o.nmiLvl; joy2=255;
   Object.assign(cia1,makeCIA(),o.cia1); Object.assign(cia2,makeCIA(),o.cia2);
   const V=o.vic; vicNext=V.vicNext; vicLine=V.vicLine; vicPhase=V.vicPhase; vicLineCur=V.vicLineCur; vcBase=V.vcBase; vc=V.vc; rc=V.rc; vDisplay=V.vDisplay; vBorder=V.vBorder; mBorder=V.mBorder; den30=V.den30; ciaLast=V.ciaLast; vLineStart=V.vLineStart; rowSC.set(V.rowSC); rowCol.set(V.rowCol); vstart.set(V.vstart); vlog=V.vlog||[]; lineBad=V.lineBad; vicFrameNo=V.vicFrameNo; if(V.SPR) V.SPR.forEach((q,i)=>Object.assign(SPR[i],q)); else sprReset();
-  for(let i=0;i<3;i++) Object.assign(SV[i],o.sid.SV[i]); Object.assign(SF,o.sid.SF); SID.q.length=0; sidCyc=cyc; SID.next=0;
+  for(let i=0;i<3;i++) Object.assign(SV[i],o.sid.SV[i]); Object.assign(SF,o.sid.SF);
+  SID2_ADDR=o.sid.sid2||0; if(SID2_ADDR) Object.assign(SI[1].f,o.sid.si[0].f||{}); else { Object.assign(SI[1],mkSid()); }
+  if(o.sid.si){ for(let i=0;i<2;i++){ const s=o.sid.si[i]; if(s){ Object.assign(SI[i].f,s.f); SI[i].q.length=0; SI[i].cyc=cyc; } } }
+  SI[0].q.length=0; SI[1].q.length=0; sidCyc=cyc; SID.next=0;
   romHalted=o.romHalted; typeHoldUntil=o.typeHoldUntil; kbd=o.kbd||[]; kName=o.kern.kName; kDev=o.kern.kDev; kSa=o.kern.kSa;
   Object.assign(TAPE,o.tape); cart=o.cart; d64=o.d64;
   if(o.reu){ PERIPH.reu=o.reu.size/1024; Object.assign(REU,o.reu); } else if(REU.size) reuSetSize(PERIPH.reu);
