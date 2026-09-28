@@ -495,7 +495,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Cartouches .crt gérées : Epyx FastLoad (avec son condensateur qui la désactive toute seule), Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
-    <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris, avec les points gris du VIC récent ; une adresse où rien n'est branché renvoie l'octet que la puce vidéo vient de lire (bus « flottant »). Les formes d'onde combinées du SID restent une approximation des tables mesurées sur les vraies puces. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
+    <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris, avec les points gris du VIC récent ; une adresse où rien n'est branché renvoie l'octet que la puce vidéo vient de lire (bus « flottant »). Les formes d'onde combinées du SID restent une approximation des tables mesurées sur les vraies puces. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), et le processeur du lecteur 1541 exécute ses instructions d'un bloc, mais chacun de ses changements sur le bus série (ATN, CLOCK, DATA) est daté et n'est vu du C64 qu'à son instant réel, au demi-cycle près : les poignées de main des chargeurs rapides ne sont plus déphasées. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
   </div>
 </dialog>
 
@@ -2868,13 +2868,35 @@ function g64Mount(b,file){
   drvLoadDisk(); return d64;
 }
 function makeVIA(){ return {pra:0,prb:0,ddra:0,ddrb:0,t1c:0xFFFF,t1l:0xFFFF,t2c:0xFFFF,t2l:0xFF,t1on:false,t2on:false,acr:0,pcr:0,ifr:0,ier:0,sr:0}; }
-const DRV={on:false,warp:true,halted:false,C:{a:0,x:0,y:0,sp:0xFF,pc:0,n:0,v:0,d:0,i:1,z:0,c:0},cyc:0,ram:new Uint8Array(2048),rom:null,
+const DRV={on:false,warp:true,halted:false,C:{a:0,x:0,y:0,sp:0xFF,pc:0,n:0,v:0,d:0,i:1,z:0,c:0},cyc:0,ram:new Uint8Array(2048),rom:null,outBits:{clk:false,data:false,ack:false},pend:[],next:0,
   via1:makeVIA(),via2:makeVIA(),ht:36,tracks:[],bitPos:0,bitAcc:0,shift:0,ones:0,bitCnt:0,latch:0,wshift:0,sync:false,dirty:false,phase:0,prevAtn:false,motor:false,led:false,density:3};
 const BUS={atn:false,clk:false,data:false};
 const DRV_KEY='emu64.drive.v1';
+/* ---- bus IEC : les sorties du lecteur ne sont vues du C64 qu'à leur instant reel ----
+   Le processeur du 1541 est execute par instructions entieres : il peut donc avoir
+   quelques cycles d'avance sur le C64. Ses changements de lignes (CLOCK/DATA) sont
+   horodates et ne deviennent visibles qu'a l'instant ou le C64 les atteint, au
+   demi-cycle pres. Sans cela, le C64 lit un etat du futur : c'est ce dephasage qui
+   perd les poignees de main des chargeurs rapides serres (V-MAX!, Rapidlok). */
+const DRVT={inDrive:false,t64:0};
+function tC64Now(){ return DRVT.inDrive?DRVT.t64:cyc; }
+function iecDrvBits(){ const v=DRV.via1, q=v.prb&v.ddrb; return {clk:(q&8)!==0, data:(q&2)!==0, ack:(q&0x10)!==0}; }
+function iecDrvPush(){
+  const b=iecDrvBits(), n=DRV.pend.length, p=n?DRV.pend[n-1].b:DRV.outBits;
+  if(p&&p.clk===b.clk&&p.data===b.data&&p.ack===b.ack) return;
+  const t=(DRVT.inDrive?cyc:DRV.cyc)*TM.hz/1e6, T=tC64Now();
+  if(!n&&t<=T+0.5) DRV.outBits=b; else DRV.pend.push({t,b});
+}
+function iecDrvApply(){
+  if(!DRV.pend.length) return;
+  const T=tC64Now();
+  let i=0;
+  while(i<DRV.pend.length&&DRV.pend[i].t<=T+0.5){ DRV.outBits=DRV.pend[i].b; i++; }
+  if(i) DRV.pend.splice(0,i);
+}
 function busLines(){
   const o=cia2.pra&cia2.ddra, atn=(o&8)!==0; let clk=(o&0x10)!==0, data=(o&0x20)!==0;
-  if(DRV.on&&!DRV.halted){ const v=DRV.via1, q=v.prb&v.ddrb; if(q&8) clk=true; if((q&2)||(atn!==((q&0x10)!==0))) data=true; }
+  if(DRV.on&&!DRV.halted){ iecDrvApply(); const b=DRV.outBits; if(b.clk) clk=true; if(b.data||(atn!==b.ack)) data=true; }
   BUS.atn=atn; BUS.clk=clk; BUS.data=data;
 }
 function atnCheck(){
@@ -2934,7 +2956,7 @@ const drvRD=a=>{
 };
 const drvWR=(a,v)=>{
   if(a<0x1800){ DRV.ram[a&0x7FF]=v; return; }
-  if(a<0x1C00){ viaWrite(DRV.via1,a&15,v); return; }
+  if(a<0x1C00){ const r=a&15; viaWrite(DRV.via1,r,v); if(r===0||r===2) iecDrvPush(); return; }
   if(a<0x2000){ viaWrite(DRV.via2,a&15,v); const r=a&15; if(r===0||r===2) drvPB2(); }
 };
 function trackBits(h){ const tr=DRV.tracks[h]; return tr?tr.length*8:50000; }
@@ -2981,6 +3003,7 @@ function drvRun(t64){
   if(DRV.cyc>=target) return;
   const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive;
   C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false;
+  DRVT.inDrive=true; DRVT.t64=sCyc;
   const v1=DRV.via1, v2=DRV.via2;
   try{
     while(cyc<target){
@@ -2990,7 +3013,7 @@ function drvRun(t64){
       if(!C.i&&((v1.ifr&v1.ier&0x7F)||(v2.ifr&v2.ier&0x7F))) drvIrq();
     }
   }catch(e){ DRV.halted=true; console.warn('Lecteur 1541 bloqué',e); if(HAS_DOM) toast('Le lecteur 1541 émulé s\u2019est bloqué : désactivez-le puis réactivez-le'); }
-  DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA;
+  DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false;
 }
 function drvLoadDisk(){
   drvSync(); DRV.tracks=[]; DRV.dirty=false;
@@ -3009,6 +3032,7 @@ function drvSync(){
 function drvReset(){
   Object.assign(DRV.via1,makeVIA()); Object.assign(DRV.via2,makeVIA());
   DRV.ram.fill(0); DRV.halted=false; DRV.phase=0; DRV.motor=false; DRV.led=false; DRV.density=3; DRV.ht=36; DRV.bitAcc=0; DRV.bitCnt=0; DRV.ones=0; DRV.sync=false; DRV.prevAtn=false;
+  DRV.outBits={clk:false,data:false,ack:false}; DRV.pend=[]; DRV.next=0;
   Object.assign(DRV.C,{a:0,x:0,y:0,sp:0xFF,n:0,v:0,d:0,i:1,z:0,c:0}); DRV.C.pc=DRV.rom[0x3FFC]|(DRV.rom[0x3FFD]<<8);
   DRV.cyc=Math.floor(cyc*1e6/TM.hz);
 }
