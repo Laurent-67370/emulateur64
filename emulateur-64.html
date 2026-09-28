@@ -393,8 +393,11 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <div class="bar" style="margin-top:14px">
       <button class="act ghost" id="st-export">Exporter l'état actuel</button>
       <label class="act ghost" style="cursor:pointer">Importer un état<input type="file" id="st-import" accept=".c64s,.json" hidden></label>
+      <button class="act ghost" id="vsf-export">Exporter .VSF (VICE)</button>
+      <label class="act ghost" style="cursor:pointer">Importer .VSF (VICE)<input type="file" id="vsf-import" accept=".vsf" hidden></label>
     </div>
     <p style="margin-top:12px;font-size:15px;color:var(--muted)">Les ROM ne sont pas incluses dans les sauvegardes : un état fait avec vos ROM d'origine demande qu'elles soient chargées dans ce navigateur.</p>
+    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE : exportez-en depuis cet émulateur pour les ouvrir dans VICE sur PC, et importez un .VSF fait sous VICE pour reprendre la machine exactement où elle était.</p>
   </div>
 </dialog>
 
@@ -4091,6 +4094,168 @@ function loadLines(lines,run){
   restoreKey(); setProgram(lines,true);
   if(run) typeQueue.push(...textToPet('RUN\n'));
 }
+// ─── .VSF (instantanés VICE) — axe 3 ─────────────────────────────────
+const VSF_MAGIC='VICE Snapshot File\x1a', VSF_VERMAGIC='VICE Version\x1a';
+function vsfStr(b,s,n){ s=String(s); for(let i=0;i<n;i++) b.push(i<s.length?(s.charCodeAt(i)&255):0); }
+function vsfU32(b,v){ v=v>>>0; b.push(v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255); }
+function vsfU64(b,v){ v=Number(v)>>>0; const hi=Math.floor(Number(v)/4294967296)>>>0; vsfU32(b,v); vsfU32(b,hi); }
+function vsfMod(name,maj,min,payload){ const h=[]; vsfStr(h,name,16); h.push(maj&255,min&255); vsfU32(h,22+payload.length); return h.concat(Array.from(payload)); }
+function vsfClock(b,v){ vsfU64(b,v); }
+
+function sidRegsFromSI(inst){
+  const r=new Array(32).fill(0);
+  for(let i=0;i<3;i++){ const v=inst.v[i];
+    r[0+i*7]=v.freq&255; r[1+i*7]=(v.freq>>8)&255;
+    r[2+i*7]=v.pw&255;   r[3+i*7]=((v.pw>>8)&15)|(v.ctrl&240);
+    r[4+i*7]=v.ad&255;   r[5+i*7]=v.sr&255; }
+  r[21]=inst.f.fc&255; r[22]=((inst.f.res&15)<<4)|(inst.f.mode&15);
+  r[23]=inst.f.filt&255; r[24]=inst.f.vol&15;
+  return r;
+}
+
+function vsfExport(){
+  if(!romMode&&(state==='input'||state==='busy')) throw new Error('Terminez d\u2019abord la saisie ou le chargement en cours.');
+  if(state==='boot') throw new Error('La machine d\u00e9marre encore.');
+  sidFlush(true); drvSync();
+  if(state==='input'||state==='busy'||state==='boot'){
+    // mode BASIC : l'interpréteur JS gère l'écran ; figer le CPU sur la boucle READY du
+    // KERNAL pour que VICE reprenne au prompt.
+    C.a=0; C.x=0; C.y=0; C.sp=0xF6; C.pc=0xE5CD; C.n=C.v=C.d=0; C.z=C.c=0; C.i=1;
+    mem[0x01]=0x37; mem[0x00]=0x2F;
+  }
+  const out=[]; const mods=[];
+  vsfStr(out,VSF_MAGIC,19); out.push(2,0);
+  vsfStr(out,'C64',16); vsfStr(out,VSF_VERMAGIC,13);
+  out.push(3,8,0,0); vsfU32(out,0);
+  const CLK=cyc>>>0, rc=CLK%63, rl=Math.floor(CLK/63)%312;
+  { const p=[];
+    vsfClock(p,CLK);
+    p.push(C.a&255,C.x&255,C.y&255,C.sp&255);
+    p.push(C.pc&255,(C.pc>>8)&255);
+    p.push(((C.n?128:0)|(C.v?64:0)|(C.d?8:0)|(C.i?4:0)|(C.z?2:0)|(C.c?1:0))&255);
+    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);
+    for(let i=0;i<5;i++) vsfClock(p,CLK);
+    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);
+    mods.push(['MAINCPU',1,3,p]); }
+  { const p=[];
+    p.push(mem[1]&255,mem[0]&255, cart?cart.exrom:1, cart?cart.game:1);
+    for(let i=0;i<65536;i++) p.push(mem[i]&255);
+    p.push(mem[1]&255,mem[1]&255,mem[0]&255);
+    vsfU32(p,0); vsfU32(p,0); p.push(0,0,0,0);
+    mods.push(['C64MEM',0,1,p]); }
+  const ciaP=(c)=>{ const p=[];
+    p.push(c.pra&255,c.prb&255,c.ddra&255,c.ddrb&255);
+    p.push(c.ta&255,(c.ta>>8)&255, c.tb&255,(c.tb>>8)&255);
+    p.push(0,0,0,0);
+    p.push(c.sdr&255); p.push(c.icr&255, c.cra&255, c.crb&255);
+    p.push(c.la&255,(c.la>>8)&255, c.lb&255,(c.lb>>8)&255);
+    p.push(0); p.push((c.cra&1?0x40:0)|(c.crb&1?0x80:0)); p.push(0);
+    p.push(0,0,0,0); p.push(0);
+    p.push(0); p.push(0,0,0,0);
+    vsfClock(p,0);
+    p.push(0,0,0); p.push(0);
+    p.push(0,0,0);
+    p.push((c.cra&1)?2:0,0,(c.crb&1)?2:0,0);
+    return p; };
+  mods.push(['CIA1',2,5,ciaP(cia1)]); mods.push(['CIA2',2,5,ciaP(cia2)]);
+  { const p=[];
+    p.push(PERIPH.sid2?1:0, SID.on?1:0, 0, (MODEL.sid||0));
+    const r=sidRegsFromSI(SI[0]); for(let i=0;i<32;i++) p.push(r[i]&255);
+    mods.push(['SID',1,5,p]); }
+  if(PERIPH.sid2){ const p=[]; p.push(SID2_ADDR&255,(SID2_ADDR>>8)&255);
+    const r2=sidRegsFromSI(SI[1]); for(let i=0;i<32;i++) p.push(r2[i]&255);
+    mods.push(['SID2',1,5,p]); }
+  { const p=[]; p.push(0,1); mods.push(['DRIVE8',2,0,p]); }
+  { const p=[]; for(let i=0;i<256;i++) p.push(0); p.push(0,0); mods.push(['FSDRIVE',0,0,p]); }
+  { const p=[]; const W=384,H=272;
+    p.push(1,0,1);
+    for(let i=0;i<40;i++) p.push(0);
+    for(let i=0;i<1024;i++) p.push(mem[0xD800+i]&15);
+    p.push(0,0,0,0);
+    for(let i=0;i<40;i++) p.push(0);
+    p.push(0);
+    vsfU32(p,0);
+    p.push(rc&255); p.push(rl&255,(rl>>8)&255);
+    for(let i=0;i<64;i++) p.push(mem[0xD000+i]&255);
+    p.push(0,0,0);
+    p.push(0,0); p.push(0); p.push(0,0); p.push(0);
+    for(let i=0;i<8;i++) p.push(0,0,0);
+    vsfClock(p,0); p.push(0);
+    vsfU32(p,rl); vsfU32(p,W); vsfU32(p,H); vsfU32(p,W);
+    for(let i=0;i<W*(H+4);i++) p.push(0);
+    mods.push(['VIC-II',1,1,p]); }
+  mods.push(['C64CART',0,1,[0]]);
+  mods.push(['GLUE',1,0,[cart&&cart.type?cart.type&255:0,0,0]]);
+  mods.push(['C64GLUE',1,1,[cart&&cart.type?cart.type&255:0,0,0]]);
+  mods.push(['C64MEMHACKS',0,0,[0]]);
+  mods.push(['TAPEPORT',1,0,[0,0]]);
+  mods.push(['KEYBOARD',1,1,(function(){const p=[];for(let i=0;i<96;i++)p.push(0);return p;})()]);
+  mods.push(['JOYPORT0',0,0,[0]]); mods.push(['JOYPORT1',0,0,[0]]);
+  mods.push(['USERPORT',1,0,[0,0]]);
+  for(const [n,ma,mi,p] of mods) out.push(...vsfMod(n,ma,mi,Uint8Array.from(p)));
+  return new Uint8Array(out);
+}
+
+function vsfImport(buf){
+  const d=new Uint8Array(buf);
+  const magic=String.fromCharCode(...d.slice(0,19));
+  if(magic!==VSF_MAGIC) throw new Error('Ce fichier n\u2019est pas un instantan\u00e9 VICE.');
+  const fMaj=d[19], fMin=d[20];
+  if(fMaj!==2) throw new Error('Version de snapshot non support\u00e9e ('+fMaj+'.'+fMin+').');
+  const machine=String.fromCharCode(...d.slice(21,37)).replace(/\0+$/,'');
+  if(!machine.startsWith('C64')) throw new Error('Ce snapshot n\u2019est pas un C64 ('+machine+').');
+  let off=58; const mods={};
+  while(off+22<=d.length){
+    const nm=String.fromCharCode(...d.slice(off,off+16)).replace(/\0+$/,'');
+    const sz=(d[off+18]|(d[off+19]<<8)|(d[off+20]<<16)|(d[off+21]<<24))>>>0;
+    if(sz<22||off+sz>d.length) break;
+    if(!mods[nm]) mods[nm]={maj:d[off+16],min:d[off+17],p:d.slice(off+22,off+sz)};
+    off+=sz;
+  }
+  if(!mods.MAINCPU&&!mods.C64MEM) throw new Error('Instantan\u00e9 VICE sans modules CPU/m\u00e9moire.');
+  const warn=[];
+  const P=(m)=>mods[m]?mods[m].p:null;
+  if(mods.C64MEM){ const p=P('C64MEM');
+    for(let i=0;i<65536;i++) mem[i]=p[4+i];
+    mem[0]=p[1]; mem[1]=p[0];
+  }
+  if(mods.MAINCPU){ const p=P('MAINCPU');
+    let q=0; let clk=0; for(let i=7;i>=0;i--) clk=clk*256+p[q+i]; q+=8;
+    cyc=clk>>>0;
+    C.a=p[q++]; C.x=p[q++]; C.y=p[q++]; C.sp=p[q++];
+    C.pc=p[q]|(p[q+1]<<8); q+=2;
+    const st=p[q++];
+    C.n=!!(st&128); C.v=!!(st&64); C.d=!!(st&8); C.i=!!(st&4); C.z=!!(st&2); C.c=!!(st&1);
+  }
+  const ciaAp=(c,p)=>{ c.pra=p[0]; c.prb=p[1]; c.ddra=p[2]; c.ddrb=p[3];
+    c.ta=p[4]|(p[5]<<8); c.tb=p[6]|(p[7]<<8);
+    c.icr=p[12]; c.cra=p[13]; c.crb=p[14];
+    c.la=p[15]|(p[16]<<8); c.lb=p[17]|(p[18]<<8); };
+  if(mods.CIA1) ciaAp(cia1,P('CIA1'));
+  if(mods.CIA2) ciaAp(cia2,P('CIA2'));
+  const sidAp=(inst,r)=>{ for(let i=0;i<3;i++){ const v=inst.v[i];
+      v.freq=r[0+i*7]|(r[1+i*7]<<8);
+      v.pw=r[2+i*7]|((r[3+i*7]&15)<<8);
+      v.ctrl=r[3+i*7]&240; v.ad=r[4+i*7]; v.sr=r[5+i*7];
+      v.state=0; v.env=0; v.ec=cyc; }
+    inst.f.fc=r[21]; inst.f.res=r[22]>>4; inst.f.mode=r[22]&15; inst.f.filt=r[23]; inst.f.vol=r[24]&15; };
+  if(mods.SID){ const p=P('SID'); const sids=p[0]||0;
+    sidAp(SI[0],Array.from(p.slice(4,36)));
+    if(sids>0&&mods.SID2){ const p2=P('SID2'); const addr=p2[0]|(p2[1]<<8);
+      if([0xD420,0xD500,0xDE00].includes(addr)){ PERIPH.sid2=true; SID2_ADDR=addr; refreshSid2&&refreshSid2(); }
+      sidAp(SI[1],Array.from(p2.slice(2,34))); }
+    else if(sids>0&&!mods.SID2){ warn.push('Le snapshot contient un 2e SID non restauré.'); }
+  } else if(mods.SID2){ const p2=P('SID2'); sidAp(SI[1],Array.from(p2.slice(2,34))); }
+  if(mods['VIC-II']){ const p=P('VIC-II');
+    for(let i=0;i<64;i++) mem[0xD000+i]=p[1119+i]&255;
+    for(let i=0;i<1024;i++) mem[0xD800+i]=p[43+i]&15;
+    rasterCmp=(mem[0xD012]|((mem[0xD011]&128)<<1))>>>0;
+  }
+  pending=null; stopReq=false; d019=0;
+  state='run'; romHalted=false;
+  return warn.join(' ');
+}
+
 function initUI(){
   canvas=$('#screen'); ctx2=canvas.getContext('2d'); IMG=ctx2.createImageData(W,H); IMG32=new Uint32Array(IMG.data.buffer);
   const ta=$('#kbd');
@@ -4222,6 +4387,8 @@ function initUI(){
   setInterval(()=>{ if(!MON.paused) monRefresh(); },300);
   $('#st-export').addEventListener('click',()=>{ try{ download(saveState(),'etat-c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.c64s','application/json'); toast('État exporté'); }catch(ex){ toast(ex.message); } });
   $('#st-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=loadState(await f.text()); closeAll(); toast(w||'État importé et restauré'); }catch(ex){ toast(ex.message); } });
+  $('#vsf-export').addEventListener('click',()=>{ try{ const b=vsfExport(); download(new Blob([b]),'c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.vsf','application/octet-stream'); toast('Instantané .VSF exporté (VICE)'); }catch(ex){ toast(ex.message); } });
+  $('#vsf-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=vsfImport(await f.arrayBuffer()); closeAll(); toast(w||'Instantané VICE restauré'); }catch(ex){ toast(ex.message); } });
   $('#sw-sync').addEventListener('click',()=>{
     if(syncAuto){ toast('Écran à '+Math.round(dispHz)+' Hz : la synchro est automatique et la vitesse exacte'); return; }
     syncForced=!syncForced; try{ localStorage.setItem(SYNC_KEY,syncForced?'1':'0'); }catch(e){}
@@ -4366,7 +4533,7 @@ async function start(){
   requestAnimationFrame(frame);
 }
 applyTiming();
-if(HAS_DOM){ start(); globalThis.EMU_DEBUG={joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0}; }
+if(HAS_DOM){ start(); globalThis.EMU_DEBUG={joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
