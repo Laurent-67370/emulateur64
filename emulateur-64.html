@@ -107,6 +107,27 @@ button{font:inherit;color:inherit}
 .k.fn{background:linear-gradient(#e7b95a,#c48d2c);color:#2d1e08}
 .k.stop{background:linear-gradient(#c05241,var(--stop))}
 .k.wide{flex-grow:3}
+.monp{margin-top:18px;background:#10130f;color:#b8f5a0;border-radius:14px;padding:12px;box-shadow:0 20px 40px -18px rgba(0,0,0,.7),inset 0 0 0 1px #2b3a27}
+.monp[hidden]{display:none}
+.mon-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px}
+.mon-top b{font-family:"Press Start 2P",monospace;font-size:11px;color:#e7f7c8}
+#mon-state{color:#f2c14e;font-size:16px;flex:1 1 200px}
+.mon-btns{display:flex;flex-wrap:wrap;gap:6px}
+.mb{background:#223020;color:#d6ffc4;border:1px solid #3b5234;border-radius:6px;padding:4px 9px;font:600 14px ui-monospace,Menlo,Consolas,monospace;cursor:pointer}
+.mb:hover{background:#2f4229}
+.mpre{margin:0;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto;color:#b8f5a0}
+.mpre.small{font-size:12px;white-space:pre-wrap;color:#9fd98a}
+.mon-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:12px;margin:8px 0}
+@media (max-width:760px){.mon-grid{grid-template-columns:1fr}}
+.mcap{font-size:14px;color:#7fae70;margin:6px 0 3px;display:flex;align-items:center;gap:8px}
+.mcap input{width:5em;background:#0b0d0a;color:#d6ffc4;border:1px solid #3b5234;border-radius:4px;font:13px ui-monospace,monospace;padding:1px 4px}
+.mdis .dl{cursor:pointer;padding:0 2px;border-radius:3px}
+.mdis .dl:hover{background:#1c261a}
+.mdis .dl.cur{background:#34462b;color:#ffffff}
+.mdis .dl.bp{color:#ff8a7a}
+.mdis .dl.bpoff{color:#8a6a64}
+.mout{background:#0b0d0a;border-radius:8px;padding:8px;max-height:220px;min-height:80px;overflow:auto;margin-top:6px}
+.mcmd{width:100%;margin-top:8px;background:#0b0d0a;color:#e7ffd8;border:1px solid #3b5234;border-radius:8px;padding:8px;font:14px ui-monospace,Menlo,Consolas,monospace}
 #tjoy{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 4px}
 #tjoy[hidden]{display:none}
 .stick{position:relative;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,#5a4a3e,#3a2f27);box-shadow:inset 0 3px 8px rgba(0,0,0,.6),0 2px 0 rgba(255,255,255,.3);touch-action:none;flex:none}
@@ -171,6 +192,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <button data-open="dlg-disk">Supports</button>
       <button data-open="dlg-import">Importer</button>
       <button id="btn-export">Exporter</button>
+      <button id="btn-mon">Moniteur</button>
       <button data-open="dlg-periph">Périphériques</button>
       <button data-open="dlg-state">États</button>
       <button data-open="dlg-rom">Système</button>
@@ -231,6 +253,29 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <div class="tjoy-info">Joystick tactile<br><small id="tjoy-port">port 2</small></div>
       <button class="k fire" id="tfire" aria-label="Feu">FEU</button>
     </div>
+  </section>
+
+  <section id="monp" class="monp" hidden aria-label="Moniteur">
+    <div class="mon-top">
+      <b>Moniteur</b><span id="mon-state"></span>
+      <div class="mon-btns">
+        <button class="mb" id="mon-pause">⏸ Pause</button>
+        <button class="mb" data-mc="z">Pas (z)</button>
+        <button class="mb" data-mc="n">Par-dessus (n)</button>
+        <button class="mb" data-mc="ret">Sortir (ret)</button>
+        <button class="mb" id="mon-trace">Trace : non</button>
+        <button class="mb" data-mc="io">Puces (io)</button>
+        <button class="mb" id="mon-close">Fermer</button>
+      </div>
+    </div>
+    <pre id="mon-regs" class="mpre"></pre>
+    <div class="mon-grid">
+      <div><div class="mcap">Désassemblage — cliquez une ligne pour un point d'arrêt</div><div id="mon-dis" class="mpre mdis"></div></div>
+      <div><div class="mcap">Mémoire <input id="mon-maddr" value="0400" maxlength="4" aria-label="Adresse"></div><pre id="mon-mem" class="mpre"></pre>
+        <div class="mcap">Points d'arrêt et watchpoints</div><div id="mon-bps" class="mpre small"></div></div>
+    </div>
+    <pre id="mon-out" class="mpre mout"></pre>
+    <input id="mon-cmd" class="mcmd" placeholder="commande — h pour l'aide (ex. : break c000 · watch store d020 · m 0400 · d · z)" autocomplete="off" spellcheck="false">
   </section>
 
   <p class="hint">Touchez l'écran puis tapez comme sur la machine : <kbd>LIST</kbd>, <kbd>RUN</kbd>, <kbd>LOAD"$",8</kbd>… Échap = RUN/STOP, Page ↑ = RESTORE. Tapez en minuscules : Maj + lettre donne les caractères graphiques, comme à l'époque.</p>
@@ -378,6 +423,9 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 
     <h3>Modèle de machine</h3>
     <p>Menu Système : C64 d'origine (puce vidéo 6569, SID 6581) ou C64C (puce vidéo 8565, SID 8580). Le changement est immédiat. Le son diffère nettement (filtre, voix digitalisées), et le 8565 affiche un pixel gris à l'endroit où une couleur est changée en pleine ligne, comme la vraie puce.</p>
+
+    <h3>Moniteur (débogueur)</h3>
+    <p>Bouton Moniteur : panneau façon VICE sous le clavier. Pause, pas à pas (z), pas par-dessus un JSR (n), sortie du sous-programme (ret), reprise (g) ou jusqu'à une adresse (until). Points d'arrêt, éventuellement conditionnels (break c000 if a == 05, ou sur une case mémoire : if @d012 >= 80), watchpoints en lecture ou écriture sur une plage (watch store d020), trace des 20 000 dernières instructions avec registres, ligne et cycle de balayage (trace on, trace save pour la télécharger). Désassembleur, affichage et modification de la mémoire (m, >, f), assembleur ligne à ligne (a c000 lda #$05), registres (r pc=c000), état des puces (io), vue de la mémoire vive seule (bank ram) et du lecteur 1541 émulé (dev 8). La lecture depuis le moniteur n'a aucun effet de bord sur les puces. Tapez h dans le moniteur pour la liste complète.</p>
 
     <h3>Sauvegardes d'état</h3>
     <p>Menu États : cinq emplacements (dont la sauvegarde rapide, F9 pour sauver, F10 pour revenir), avec miniature et date, gardés dans ce navigateur. Un état peut aussi être exporté dans un fichier .c64s et réimporté ailleurs. En BASIC intégré, la sauvegarde n'est pas possible pendant un INPUT ou un chargement en cours.</p>
@@ -2049,8 +2097,10 @@ function runCpu(budget){
     while(state==='cpu'||(state==='rom'&&!romHalted)){
       if(stopReq){ stopReq=false; C.sp=0xFF; doBreak(); break; }
       if(!fastNow()&&cyc>=target) break;
-      busWait(); { const t0=cyc; cpuStep(); busStall(t0); } tick();
+      if(MON.armed&&monBefore()) break;
+      busWait(); { const t0=cyc; MON.inCpu=true; cpuStep(); MON.inCpu=false; busStall(t0); } tick();
       if(!C.i&&irqPending()) irqEnter();
+      if(MON.armed&&monAfter()) break;
       if((++n&2047)===0&&now()-t0>cpuSliceMs) break;
     }
   }catch(e){ cpuFault(e); }
@@ -2965,6 +3015,247 @@ async function stateLoad(k){
   return loadState(v.json);
 }
 
+/* ================= Moniteur (débogueur façon VICE) ================= */
+const MON={paused:false,armed:false,bps:[],wps:[],trace:false,tbuf:[],tmax:20000,skip:-1,out:null,outSp:0,tempBp:-1,
+  wHit:null,inCpu:false,fetchLo:-1,fetchHi:-1,lastOp:0,bank:'cpu',dev:'c64',dis:-1,mem:0x0400,asm:-1,reason:'',wrapped:false,baseRD:null,baseWR:null,log:[]};
+const hx2=n=>(n&255).toString(16).toUpperCase().padStart(2,'0'), hx4=n=>(n&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
+const OFFICIAL=new Set('LDA LDX LDY STA STX STY ADC SBC AND ORA EOR CMP CPX CPY BIT ASL LSR ROL ROR INC DEC INX INY DEX DEY TAX TAY TXA TYA TSX TXS BPL BMI BVC BVS BCC BCS BNE BEQ JMP JSR RTS RTI BRK PHA PHP PLA PLP CLC SEC CLI SEI CLV CLD SED NOP'.split(' '));
+const OPLEN=[1,1,2,2,2,2,3,3,3,2,2,2,3];
+function monRearm(){ MON.armed=MON.bps.length>0||MON.wps.length>0||MON.trace||MON.out!==null||MON.tempBp>=0; monWrap(); }
+/* lecture sans effet de bord (le moniteur ne doit rien acquitter ni déclencher) */
+function ciaPeekQuiet(c,r){ if(r===13) return (c.icr&0x1F)|((c.icr&c.mask&0x1F)?0x80:0); if(r>=8&&r<=11) return (c.todLatch||todRegs(todNow(c)))[r-8]; return ciaRead(c,r); }
+function monPeek(a){
+  a&=0xFFFF;
+  if(MON.dev==='8'){ if(a<0x1800) return DRV.ram[a&0x7FF]; if(a<0x1C00||a<0x2000){ const v=a<0x1C00?DRV.via1:DRV.via2, r=a&15; return r===13?v.ifr|((v.ifr&v.ier&0x7F)?0x80:0):r===1||r===15?viaPortA(v):r===0?viaPortB(v):viaRead(Object.assign({},v),r); } return a>=0x8000&&DRV.rom?DRV.rom[a&0x3FFF]:a>>8; }
+  if(MON.bank==='ram') return a>=0xD000&&a<0xE000?ramD[a-0xD000]:mem[a];
+  if(a===1) return portRead();
+  switch(pageR[a>>12]){
+    case 0: return a>=0xD000&&a<0xE000?ramD[a-0xD000]:mem[a];
+    case 1: return ROM.basic[a-0xA000];
+    case 2: return ROM.kernal[a-0xE000];
+    case 4: { const bk=cart&&cart.banks[cart.bank]; return bk&&bk.lo?bk.lo[(a-0x8000)&(bk.lo.length-1)]:0xFF; }
+    case 5: { const bk=cart&&cart.banks[cart.bank]; const d=bk&&(bk.hi||bk.lo); return d?d[a&0x1FFF&(d.length-1)]:0xFF; }
+    case 6: return 0xFF;
+  }
+  if(!ioVis) return charVis?CHARROM[a-0xD000]:ramD[a-0xD000];
+  if(a<0xD400) return mem[0xD000+(a&63)];
+  if(a<0xD800) return mem[SIDB+(a&31)];
+  if(a<0xDC00) return mem[a]&15;
+  if(a<0xDD00) return ciaPeekQuiet(cia1,a&15);
+  if(a<0xDE00) return ciaPeekQuiet(cia2,a&15);
+  return 0xFF;
+}
+function monPoke(a,v){
+  a&=0xFFFF; v&=255;
+  if(MON.dev==='8'){ if(a<0x1800) DRV.ram[a&0x7FF]=v; return; }
+  if(MON.bank==='ram'){ if(a>=0xD000&&a<0xE000) ramD[a-0xD000]=v; else mem[a]=v; return; }
+  (MON.baseWR||WR)(a,v);
+}
+function cpuOf(){ return MON.dev==='8'?DRV.C:C; }
+/* désassembleur */
+function disasm(a){
+  const op=monPeek(a), m=OPM[op], md=OPA[op], len=OPLEN[md], b1=monPeek(a+1), b2=monPeek(a+2), w=b1|(b2<<8);
+  let t='';
+  switch(md){
+    case 2: t='#$'+hx2(b1); break; case 3: t='$'+hx2(b1); break; case 4: t='$'+hx2(b1)+',X'; break; case 5: t='$'+hx2(b1)+',Y'; break;
+    case 6: t='$'+hx4(w); break; case 7: t='$'+hx4(w)+',X'; break; case 8: t='$'+hx4(w)+',Y'; break;
+    case 9: t='($'+hx2(b1)+',X)'; break; case 10: t='($'+hx2(b1)+'),Y'; break;
+    case 11: t='$'+hx4(a+2+(b1<128?b1:b1-256)); break; case 12: t='($'+hx4(w)+')'; break;
+  }
+  const bytes=[op,b1,b2].slice(0,len).map(hx2).join(' ');
+  return {len,text:'.'+(MON.dev==='8'?'8':'C')+':'+hx4(a)+'  '+bytes.padEnd(9)+' '+(OFFICIAL.has(m)?' ':'*')+m+(t?' '+t:'')};
+}
+/* assembleur (une instruction) */
+const ASM=new Map(); for(let o=0;o<256;o++){ const k=OPM[o]+'/'+OPA[o]; if(!ASM.has(k)) ASM.set(k,o); } ASM.set('NOP/0',0xEA); ASM.set('SBC/2',0xE9);
+function mnum(t){ t=t.trim(); if(/^\+\d+$/.test(t)) return parseInt(t.slice(1),10); if(/^%[01]+$/.test(t)) return parseInt(t.slice(1),2); t=t.replace(/^\$/,''); if(!/^[0-9a-f]+$/i.test(t)) throw new Error('nombre invalide : '+t); return parseInt(t,16); }
+function assemble(a,src){
+  const m=/^\s*([a-z]{3})\s*(.*)$/i.exec(src); if(!m) throw new Error('instruction illisible');
+  const mn=m[1].toUpperCase(), op=m[2].trim().toUpperCase(); let md, v=0, r;
+  const has=k=>ASM.has(mn+'/'+k);
+  if(!op||op==='A') md=has(1)?1:0;
+  else if(r=/^#(.+)$/.exec(op)){ md=2; v=mnum(r[1]); }
+  else if(r=/^\((.+),X\)$/.exec(op)){ md=9; v=mnum(r[1]); }
+  else if(r=/^\((.+)\),Y$/.exec(op)){ md=10; v=mnum(r[1]); }
+  else if(r=/^\((.+)\)$/.exec(op)){ md=12; v=mnum(r[1]); }
+  else if(r=/^(.+),([XY])$/.exec(op)){ v=mnum(r[1]); const zp=v<256; md=r[2]==='X'?(zp&&has(4)?4:7):(zp&&has(5)?5:8); }
+  else { v=mnum(op); if(has(11)) md=11; else md=v<256&&has(3)?3:6; }
+  const code=ASM.get(mn+'/'+md); if(code===undefined) throw new Error(mn+' : mode d\u2019adressage impossible');
+  const out=[code];
+  if(md===11){ const d=v-(a+2); if(d<-128||d>127) throw new Error('branchement trop loin'); out.push(d&255); }
+  else if(OPLEN[md]===2) out.push(v&255); else if(OPLEN[md]===3) out.push(v&255,(v>>8)&255);
+  out.forEach((b,i)=>monPoke(a+i,b));
+  return out.length;
+}
+/* registres */
+function flagsStr(p){ return 'NV-BDIZC'.split('').map((f,i)=>(p>>(7-i))&1?f:'.').join(''); }
+function regsLine(){
+  const c=cpuOf(), p=(c.n<<7)|(c.v<<6)|0x20|(c.d<<3)|(c.i<<2)|(c.z<<1)|c.c;
+  if(MON.dev==='8') return '  ADDR A  X  Y  SP NV-BDIZC   lecteur 1541 · piste '+(DRV.ht/2)+'\n.;'+hx4(c.pc)+' '+hx2(c.a)+' '+hx2(c.x)+' '+hx2(c.y)+' '+hx2(c.sp)+' '+flagsStr(p);
+  return '  ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH\n.;'+hx4(c.pc)+' '+hx2(c.a)+' '+hx2(c.x)+' '+hx2(c.y)+' '+hx2(c.sp)+' '+hx2(mem[0])+' '+hx2(mem[1])+' '+flagsStr(p)+' '+String(vicLineCur).padStart(3,'0')+' '+String(Math.max(0,cyc-vLineStart)).padStart(3,'0')+'  '+String(cyc).padStart(10);
+}
+/* points d'arrêt, watchpoints, trace */
+function condOk(bp){
+  if(!bp.cond) return true;
+  const c=C, {l,op,r}=bp.cond, lv=l==='A'?c.a:l==='X'?c.x:l==='Y'?c.y:l==='SP'?c.sp:l==='PC'?c.pc:monPeek(parseInt(l.slice(1),16));
+  switch(op){ case '==': return lv===r; case '!=': return lv!==r; case '<': return lv<r; case '>': return lv>r; case '<=': return lv<=r; case '>=': return lv>=r; }
+  return false;
+}
+function monPause(reason){ MON.paused=true; MON.reason=reason||''; MON.out=null; if(MON.tempBp>=0){ MON.tempBp=-1; } monRearm(); MON.dis=-1; if(HAS_DOM){ monOpen(true); if(reason) monPrint(reason); monRefresh(); } }
+function monBefore(){
+  const pc=C.pc;
+  if(MON.trace){ const t=MON.tbuf; t.push([pc,C.a,C.x,C.y,C.sp,getP(),vicLineCur,cyc-vLineStart,cyc]); if(t.length>MON.tmax) t.splice(0,t.length-MON.tmax); }
+  MON.fetchLo=pc; MON.fetchHi=pc+2; MON.lastOp=monPeek(pc);
+  if(MON.skip===pc){ MON.skip=-1; return false; }
+  MON.skip=-1;
+  if(MON.tempBp===pc){ monPause('Arrêt en $'+hx4(pc)); return true; }
+  for(const bp of MON.bps) if(bp.on&&bp.a===pc&&condOk(bp)){ bp.hits++; monPause('Point d\u2019arrêt n°'+bp.n+' en $'+hx4(pc)+(bp.cond?' (condition vraie)':'')); return true; }
+  return false;
+}
+function monAfter(){
+  if(MON.wHit){ const w=MON.wHit; MON.wHit=null; monPause('Watchpoint n°'+w.n+' : '+(w.kind==='store'?'écriture':'lecture')+' de $'+hx2(w.v)+' en $'+hx4(w.a)+' par l\u2019instruction en $'+hx4(w.pc)); return true; }
+  if(MON.out!==null&&(MON.lastOp===0x60||MON.lastOp===0x40)&&C.sp>MON.out){ monPause('Sortie du sous-programme : retour en $'+hx4(C.pc)); return true; }
+  return false;
+}
+function monWatch(a,v,kind){
+  if(MON.wHit||(kind==='load'&&a>=MON.fetchLo&&a<=MON.fetchHi)) return;
+  for(const w of MON.wps) if(w.on&&a>=w.from&&a<=w.to&&(w.kind==='both'||w.kind===kind)){ w.hits++; MON.wHit={n:w.n,a,v,kind,pc:MON.fetchLo}; return; }
+}
+function monWrap(){
+  if(MON.wps.length&&!MON.wrapped){
+    MON.baseRD=RD; MON.baseWR=WR; MON.wrapped=true;
+    RD=a=>{ const v=MON.baseRD(a); if(MON.inCpu) monWatch(a,v,'load'); return v; };
+    WR=(a,v)=>{ if(MON.inCpu) monWatch(a,v,'store'); MON.baseWR(a,v); };
+  } else if(!MON.wps.length&&MON.wrapped){ RD=MON.baseRD; WR=MON.baseWR; MON.wrapped=false; MON.baseRD=MON.baseWR=null; }
+}
+/* exécution contrôlée */
+function monCanStep(){ return state==='cpu'||(state==='rom'&&!romHalted); }
+function monStep(){
+  if(!monCanStep()) throw new Error('La machine exécute le BASIC intégré, pas du code machine : démarrez avec les ROM (Système) ou lancez un SYS.');
+  if(MON.dev==='8'){ const t=DRV.cyc; drvRun(Math.ceil((t+8)*TM.hz/1e6)); return; }
+  if(MON.trace){ MON.tbuf.push([C.pc,C.a,C.x,C.y,C.sp,getP(),vicLineCur,cyc-vLineStart,cyc]); }
+  MON.lastOp=monPeek(C.pc); cpuActive=true;
+  try{ busWait(); const t0=cyc; MON.inCpu=true; cpuStep(); MON.inCpu=false; busStall(t0); tick(); if(!C.i&&irqPending()) irqEnter(); }
+  catch(e){ cpuFault(e); }
+  MON.inCpu=false; cpuActive=false; MON.wHit=null;
+  if(state==='cpu'&&C.pc===0xFFF6) sysReturn();
+}
+function monResume(){ if(!MON.paused) return; MON.skip=C.pc; MON.paused=false; MON.reason=''; monRearm(); monRefresh(); }
+function monNext(){
+  if(!monCanStep()) throw new Error('Pas de code machine en cours d\u2019exécution.');
+  const op=monPeek(C.pc);
+  if(op===0x20){ MON.tempBp=(C.pc+3)&0xFFFF; monResume(); } else { monStep(); MON.reason='Pas à pas'; monPrint(disasm(C.pc).text); monRefresh(); }
+}
+function monReturn(){ if(!monCanStep()) throw new Error('Pas de code machine en cours d\u2019exécution.'); MON.out=C.sp; monResume(); }
+/* sortie texte */
+function monPrint(t){ MON.log.push(t); if(MON.log.length>400) MON.log.splice(0,MON.log.length-400); if(HAS_DOM){ const o=$('#mon-out'); if(o){ o.textContent=MON.log.join('\n'); o.scrollTop=o.scrollHeight; } } }
+function memLines(from,n){
+  const out=[]; let a=from&0xFFFF;
+  for(let l=0;l<n;l++){ let hx='', tx=''; for(let i=0;i<16;i++){ const v=monPeek(a+i); hx+=hx2(v)+(i===7?'  ':' '); tx+=v>=32&&v<127?String.fromCharCode(v):v>=0xC1&&v<=0xDA?String.fromCharCode(v-0x80):'.'; }
+    out.push('>'+(MON.dev==='8'?'8':'C')+':'+hx4(a)+'  '+hx+' '+tx); a=(a+16)&0xFFFF; }
+  return out;
+}
+function ioSummary(){
+  const v=[...Array(47)].map((_,i)=>mem[0xD000+i]);
+  return ['VIC-II : ligne '+vicLineCur+' (comparaison '+rasterCmp+')  $D011='+hx2(v[0x11])+' $D016='+hx2(v[0x16])+' $D018='+hx2(v[0x18])+' $D019='+hx2(d019)+' $D01A='+hx2(v[0x1A])+'  banque $'+hx4(vicBank())+'  sprites actifs $'+hx2(v[0x15]),
+    'CIA 1  : timer A '+hx4(cia1.ta)+(cia1.cra&1?' (marche)':' (arrêt)')+'  timer B '+hx4(cia1.tb)+(cia1.crb&1?' (marche)':' (arrêt)')+'  ICR $'+hx2(cia1.icr)+' masque $'+hx2(cia1.mask),
+    'CIA 2  : timer A '+hx4(cia2.ta)+'  timer B '+hx4(cia2.tb)+'  port A $'+hx2(cia2.pra)+' (sens $'+hx2(cia2.ddra)+')  ICR $'+hx2(cia2.icr)+' masque $'+hx2(cia2.mask),
+    'SID    : volume '+(mem[SIDB+24]&15)+'  filtre $'+hx4(SF.fc)+' résonance '+SF.res+'  voix : '+[0,1,2].map(i=>'$'+hx4(SV[i].freq)+(SV[i].ctrl&1?'♪':'·')).join(' '),
+    'Carte  : $01=$'+hx2(mem[1])+'  pages '+Array.from(pageR).map(x=>'RBKIlhx'[x]).join('')+' (R RAM, B BASIC, K KERNAL, I E/S, l/h cartouche)'];
+}
+const MON_HELP=`Commandes (nombres en hexadécimal ; +12 = décimal, %101 = binaire) :
+  r [a=05 x=.. y=.. sp=.. pc=c000]   registres (affichage ou modification)
+  m [début [fin]]                    mémoire (hexa + texte)
+  d [début [fin]]                    désassemblage
+  a adresse instruction              assemble, ex. : a c000 lda #$05 (puis « a instruction » continue)
+  > adresse octets…                   écrit des octets ;   f début fin octet : remplit
+  break [adresse [if a == 05]]       points d'arrêt (conditions sur A X Y SP PC ou @adresse)
+  watch [load|store] début [fin]     watchpoint en lecture, écriture ou les deux
+  del [n] · enable n · disable n     supprime / active / désactive (sans n : tout)
+  z · n · ret                        pas à pas · par-dessus un JSR · jusqu'au retour du sous-programme
+  g [adresse] · until adresse · x    reprend (depuis l'adresse) · reprend jusqu'à l'adresse · quitte et reprend
+  trace on|off|clear|save [n]        journal des instructions (save = télécharger ; n = afficher les n dernières)
+  io                                  état des puces      bank cpu|ram      dev c64|8 (lecteur 1541 émulé)`;
+function monCmd(line){
+  line=line.trim(); if(!line) return; monPrint('» '+line);
+  const [c0,...rest]=line.split(/\s+/), c=c0.toLowerCase(), args=rest.join(' ');
+  const A=rest.map(x=>x.replace(/,$/,''));
+  try{
+    switch(c){
+      case 'h': case 'help': case '?': monPrint(MON_HELP); break;
+      case 'r': {
+        const cp=cpuOf();
+        for(const kv of A){ const [k,v]=kv.split('='); if(v===undefined) continue; const n=mnum(v), K=k.toLowerCase();
+          if(K==='a') cp.a=n&255; else if(K==='x') cp.x=n&255; else if(K==='y') cp.y=n&255; else if(K==='sp') cp.sp=n&255; else if(K==='pc') cp.pc=n&0xFFFF; else if(K==='p'){ if(cp===C) setP(n); } }
+        monPrint(regsLine()); break; }
+      case 'm': { const f=A[0]?mnum(A[0]):MON.mem, t=A[1]?mnum(A[1]):f+0x7F; MON.mem=f; monPrint(memLines(f,Math.min(64,Math.max(1,Math.ceil((t-f+1)/16)))).join('\n')); MON.mem=(f+Math.ceil((t-f+1)/16)*16)&0xFFFF; break; }
+      case 'd': { let a=A[0]?mnum(A[0]):(MON.dis>=0?MON.dis:cpuOf().pc); const t=A[1]?mnum(A[1]):-1; const out=[];
+        for(let i=0;i<(t>=0?400:20);i++){ const d=disasm(a); out.push(d.text); a=(a+d.len)&0xFFFF; if(t>=0&&a>t) break; }
+        MON.dis=a; monPrint(out.join('\n')); break; }
+      case 'a': { let a, src; if(/^[0-9a-f$]+$/i.test(A[0]||'')&&A.length>1){ a=mnum(A[0]); src=A.slice(1).join(' '); } else { a=MON.asm; src=args; } if(a<0) throw new Error('adresse manquante');
+        const n=assemble(a,src); monPrint(disasm(a).text); MON.asm=(a+n)&0xFFFF; break; }
+      case '>': { let a=mnum(A[0]); for(const b of A.slice(1)){ monPoke(a,mnum(b)); a=(a+1)&0xFFFF; } monPrint(memLines(mnum(A[0]),1)[0]); break; }
+      case 'f': { const f=mnum(A[0]), t=mnum(A[1]), v=mnum(A[2]); for(let a=f;a<=t;a++) monPoke(a,v); monPrint('Rempli $'+hx4(f)+'-$'+hx4(t)+' avec $'+hx2(v)); break; }
+      case 'break': case 'bk': {
+        if(!A.length){ monPrint(MON.bps.length?MON.bps.map(b=>'n°'+b.n+' exec $'+hx4(b.a)+(b.cond?' if '+b.cond.l+' '+b.cond.op+' $'+hx2(b.cond.r):'')+(b.on?'':' (désactivé)')+'  — '+b.hits+' arrêt(s)').join('\n'):'Aucun point d\u2019arrêt.'); break; }
+        const bp={n:++monSeq,a:mnum(A[0]),cond:null,on:true,hits:0};
+        const m=/\bif\s+(a|x|y|sp|pc|@[0-9a-f]+)\s*(==|!=|<=|>=|<|>)\s*(\S+)/i.exec(args); if(m) bp.cond={l:m[1].toUpperCase().replace(/^@/,'@'),op:m[2],r:mnum(m[3])};
+        MON.bps.push(bp); monRearm(); monPrint('Point d\u2019arrêt n°'+bp.n+' en $'+hx4(bp.a)+(bp.cond?' si '+bp.cond.l+' '+bp.cond.op+' $'+hx2(bp.cond.r):'')); monRefresh(); break; }
+      case 'watch': case 'w': {
+        if(!A.length){ monPrint(MON.wps.length?MON.wps.map(w=>'n°'+w.n+' '+({load:'lecture',store:'écriture',both:'lecture+écriture'})[w.kind]+' $'+hx4(w.from)+(w.to!==w.from?'-$'+hx4(w.to):'')+(w.on?'':' (désactivé)')+'  — '+w.hits+' arrêt(s)').join('\n'):'Aucun watchpoint.'); break; }
+        let kind='both', i=0; if(/^(load|store)$/i.test(A[0])){ kind=A[0].toLowerCase(); i=1; }
+        const from=mnum(A[i]), to=A[i+1]?mnum(A[i+1]):from; const w={n:++monSeq,kind,from,to,on:true,hits:0};
+        MON.wps.push(w); monRearm(); monPrint('Watchpoint n°'+w.n+' ('+({load:'lecture',store:'écriture',both:'lecture+écriture'})[kind]+') sur $'+hx4(from)+(to!==from?'-$'+hx4(to):'')); break; }
+      case 'del': case 'delete': { if(A[0]){ const n=mnum('+'+A[0].replace(/^\+/,'')); MON.bps=MON.bps.filter(b=>b.n!==n); MON.wps=MON.wps.filter(w=>w.n!==n); } else { MON.bps=[]; MON.wps=[]; } monRearm(); monPrint(A[0]?'Supprimé.':'Tous les points d\u2019arrêt et watchpoints supprimés.'); monRefresh(); break; }
+      case 'enable': case 'disable': { const on=c==='enable'; for(const x of [...MON.bps,...MON.wps]) if(!A[0]||x.n===parseInt(A[0],10)) x.on=on; monPrint(on?'Activé.':'Désactivé.'); monRefresh(); break; }
+      case 'z': case 'step': { if(!MON.paused) monPause('Pause'); monStep(); MON.reason='Pas à pas'; monPrint(disasm(cpuOf().pc).text); monRefresh(); break; }
+      case 'n': case 'next': { if(!MON.paused) monPause('Pause'); monNext(); break; }
+      case 'ret': { if(!MON.paused) monPause('Pause'); monReturn(); break; }
+      case 'g': case 'goto': { if(A[0]){ cpuOf().pc=mnum(A[0]); } monResume(); monPrint('Reprise'+(A[0]?' en $'+hx4(mnum(A[0])):'')+'.'); break; }
+      case 'until': case 'un': { MON.tempBp=mnum(A[0]); monResume(); monPrint('Reprise jusqu\u2019à $'+hx4(MON.tempBp)+'.'); break; }
+      case 'x': case 'exit': monResume(); monOpen(false); break;
+      case 'trace': case 'tr': {
+        const sub=(A[0]||'').toLowerCase();
+        if(sub==='on'){ MON.trace=true; monRearm(); monPrint('Trace activée (20 000 dernières instructions gardées).'); }
+        else if(sub==='off'){ MON.trace=false; monRearm(); monPrint('Trace arrêtée ('+MON.tbuf.length+' instructions en mémoire).'); }
+        else if(sub==='clear'){ MON.tbuf=[]; monPrint('Trace vidée.'); }
+        else if(sub==='save'){ download(traceText(MON.tbuf.length),'trace-c64.txt','text/plain;charset=utf-8'); }
+        else monPrint(traceText(Math.min(MON.tbuf.length,A[0]?parseInt(A[0],10)||30:30))||'Trace vide : « trace on » pour l\u2019activer.');
+        monRefresh(); break; }
+      case 'io': monPrint(ioSummary().join('\n')); break;
+      case 'bank': { if(/^(cpu|ram)$/i.test(A[0]||'')) MON.bank=A[0].toLowerCase(); monPrint('Vue mémoire : '+(MON.bank==='cpu'?'celle du processeur (ROM, E/S, cartouche selon $01)':'mémoire vive seule')); monRefresh(); break; }
+      case 'dev': { if(A[0]==='8'){ if(!DRV.on) throw new Error('Le lecteur 1541 émulé n\u2019est pas actif (Supports).'); MON.dev='8'; } else MON.dev='c64'; MON.dis=-1; monPrint('Cible : '+(MON.dev==='8'?'lecteur 1541 (mémoire, code, registres)':'C64')); monRefresh(); break; }
+      default: monPrint('Commande inconnue : '+c+' (h pour l\u2019aide)');
+    }
+  }catch(e){ monPrint('?'+(e.message||e)); }
+}
+let monSeq=0;
+function traceText(n){
+  const t=MON.tbuf, out=[];
+  for(const r of t.slice(-n)){ const [pc,a,x,y,sp,p,ln,cl,cy]=r; const d=disasm(pc).text;
+    out.push(d.padEnd(34)+' A:'+hx2(a)+' X:'+hx2(x)+' Y:'+hx2(y)+' SP:'+hx2(sp)+' '+flagsStr(p)+'  L:'+String(ln).padStart(3,'0')+' C:'+String(cl).padStart(2,'0')+'  '+cy); }
+  return out.join('\n');
+}
+/* affichage */
+let monTimer=0;
+function monOpen(on){ if(!HAS_DOM) return; const p=$('#monp'); if(!p) return; p.hidden=!on; if(on){ monRefresh(); } }
+function monRefresh(){
+  if(!HAS_DOM) return; const p=$('#monp'); if(!p||p.hidden) return;
+  $('#mon-state').textContent=MON.paused?('Pause'+(MON.reason?' — '+MON.reason:'')):'En marche';
+  $('#mon-pause').textContent=MON.paused?'▶ Reprendre (g)':'⏸ Pause';
+  $('#mon-trace').textContent=MON.trace?'Trace : oui':'Trace : non';
+  $('#mon-regs').textContent=regsLine();
+  const pc=cpuOf().pc; let a=MON.dis>=0&&!MON.paused?MON.dis:pc;
+  const box=$('#mon-dis'); box.innerHTML='';
+  for(let i=0;i<18;i++){
+    const d=disasm(a), bp=MON.dev==='c64'&&MON.bps.find(b=>b.a===a), line=document.createElement('div');
+    line.className='dl'+(a===pc?' cur':'')+(bp?(bp.on?' bp':' bpoff'):''); line.textContent=(bp?'●':' ')+(a===pc?'▶':' ')+d.text; line.dataset.a=a;
+    box.append(line); a=(a+d.len)&0xFFFF;
+  }
+  $('#mon-mem').textContent=memLines(MON.mem,8).join('\n');
+  const bl=$('#mon-bps'); const items=[...MON.bps.map(b=>'● n°'+b.n+' $'+hx4(b.a)+(b.cond?' si '+b.cond.l+b.cond.op+'$'+hx2(b.cond.r):'')+' ('+b.hits+')'+(b.on?'':' off')),...MON.wps.map(w=>'◆ n°'+w.n+' '+({load:'L',store:'S',both:'LS'})[w.kind]+' $'+hx4(w.from)+(w.to!==w.from?'-'+hx4(w.to):'')+' ('+w.hits+')'+(w.on?'':' off'))];
+  bl.textContent=items.length?items.join('   '):'Aucun point d\u2019arrêt : cliquez une ligne du désassemblage ou tapez « break c000 ».';
+}
+
 /* ================= Système ================= */
 function coldReset(){
   pending=null; stopReq=false; typeQueue.length=0; kbd=[]; inputReq=null;
@@ -3007,6 +3298,7 @@ function runSlice(budget,ms){
 let credit=0;
 let CPU_KHZ=985.248;
 function update(dt){
+  if(MON.paused){ sidFlush(true); return; }
   if(pending&&now()>=pending.at){ const f=pending.fn; pending=null; guard(f); }
   let n=0;
   while(typeQueue.length&&(state==='idle'||state==='input')&&n<600){ editKey(typeQueue.shift()); n++; }
@@ -3839,6 +4131,19 @@ function initUI(){
   $('#prn-dl').addEventListener('click',()=>{ if(!PRN.text){ toast('Rien à télécharger'); return; } download(PRN.text,'impression-c64.txt','text/plain;charset=utf-8'); });
   $('#prn-clear').addEventListener('click',()=>{ PRN.text=''; PRN.col=0; refreshPrinter(); });
   window.addEventListener('gamepadconnected',e=>{ toast('Manette connectée : '+(e.gamepad.id||'').slice(0,40)); if(document.querySelector('#dlg-periph[open]')) refreshPeriph(); });
+  $('#btn-mon').addEventListener('click',()=>{ const p=$('#monp'); monOpen(p.hidden); if(!p.hidden){ if(!MON.log.length) monPrint('Moniteur prêt. h pour l\u2019aide. La machine continue de tourner : ⏸ Pause pour l\u2019arrêter.'); p.scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>$('#mon-cmd').focus(),200); } });
+  $('#mon-close').addEventListener('click',()=>{ monResume(); monOpen(false); });
+  $('#mon-pause').addEventListener('click',()=>{ if(MON.paused) monResume(); else monPause('Pause demandée'); });
+  $('#mon-trace').addEventListener('click',()=>monCmd(MON.trace?'trace off':'trace on'));
+  document.querySelectorAll('[data-mc]').forEach(b=>b.addEventListener('click',()=>monCmd(b.dataset.mc)));
+  $('#mon-cmd').addEventListener('keydown',e=>{ const t=e.target;
+    if(e.key==='Enter'){ const v=t.value; MON.hist=MON.hist||[]; if(v.trim()) MON.hist.push(v); MON.hi=MON.hist.length; t.value=''; monCmd(v); }
+    else if(e.key==='ArrowUp'&&MON.hist&&MON.hi>0){ t.value=MON.hist[--MON.hi]; e.preventDefault(); }
+    else if(e.key==='ArrowDown'&&MON.hist&&MON.hi<MON.hist.length){ MON.hi++; t.value=MON.hist[MON.hi]||''; e.preventDefault(); } });
+  $('#mon-dis').addEventListener('click',e=>{ const l=e.target.closest('.dl'); if(!l||MON.dev!=='c64') return; const a=+l.dataset.a, b=MON.bps.find(x=>x.a===a);
+    if(b){ MON.bps=MON.bps.filter(x=>x!==b); monPrint('Point d\u2019arrêt en $'+hx4(a)+' supprimé.'); } else monCmd('break '+hx4(a)); monRearm(); monRefresh(); });
+  $('#mon-maddr').addEventListener('change',e=>{ try{ MON.mem=mnum(e.target.value); monRefresh(); }catch(ex){ toast(ex.message); } });
+  setInterval(()=>{ if(!MON.paused) monRefresh(); },300);
   $('#st-export').addEventListener('click',()=>{ try{ download(saveState(),'etat-c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.c64s','application/json'); toast('État exporté'); }catch(ex){ toast(ex.message); } });
   $('#st-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=loadState(await f.text()); closeAll(); toast(w||'État importé et restauré'); }catch(ex){ toast(ex.message); } });
   $('#sw-sync').addEventListener('click',()=>{
@@ -3966,7 +4271,7 @@ function frame(t){
   else { SID.speed=1; syncCount=0; update(dt); }
   blinkT+=dt; if(blinkT>=320){ blinkT=0; cursorOn=!cursorOn; }
   render();
-  const st=state==='rom'?(romHalted?'Processeur bloqué':DRV.on&&DRV.motor?'1541 · piste '+(DRV.ht>>1)+(DRV.warp?' (accéléré)':''):TAPE.run?'Cassette '+Math.round(100*(TAPE.pos-20)/Math.max(1,TAPE.end-20))+' %'+(TAPE.warp?' (accéléré)':''):(cart?cart.name:romSource==='open'?'Open ROMs':'ROM d\u2019origine')+(turbo?' (turbo)':'')):state==='cpu'?(turbo?'Langage machine (turbo)':'Langage machine'):state==='running'?(turbo?'Exécution (turbo)':'Exécution'):state==='input'?'Attente de saisie':state==='busy'?'Lecteur en activité':'Prêt';
+  const st=MON.paused?'Pause (moniteur)':state==='rom'?(romHalted?'Processeur bloqué':DRV.on&&DRV.motor?'1541 · piste '+(DRV.ht>>1)+(DRV.warp?' (accéléré)':''):TAPE.run?'Cassette '+Math.round(100*(TAPE.pos-20)/Math.max(1,TAPE.end-20))+' %'+(TAPE.warp?' (accéléré)':''):(cart?cart.name:romSource==='open'?'Open ROMs':'ROM d\u2019origine')+(turbo?' (turbo)':'')):state==='cpu'?(turbo?'Langage machine (turbo)':'Langage machine'):state==='running'?(turbo?'Exécution (turbo)':'Exécution'):state==='input'?'Attente de saisie':state==='busy'?'Lecteur en activité':'Prêt';
   if(st!==lastStat){ lastStat=st; $('#stat').textContent=st; $('#led').className='led '+(state==='busy'?'busy':'on'); }
   const ledOn=state==='busy'||(DRV.on&&DRV.led); if(ledOn!==frame.led){ frame.led=ledOn; $('#led').className='led '+(ledOn?'busy':'on'); }
   requestAnimationFrame(frame);
@@ -3989,7 +4294,7 @@ if(HAS_DOM){ start(); globalThis.EMU_DEBUG={joy:()=>joy2, frames:()=>vicFrameNo,
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, unzip, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, MON, monCmd, monPeek, unzip, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
