@@ -423,7 +423,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <label class="act ghost" style="cursor:pointer">Importer .VSF (VICE)<input type="file" id="vsf-import" accept=".vsf" hidden></label>
     </div>
     <p style="margin-top:12px;font-size:15px;color:var(--muted)">Les ROM ne sont pas incluses dans les sauvegardes : un état fait avec vos ROM d'origine demande qu'elles soient chargées dans ce navigateur.</p>
-    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE : exportez-en depuis cet émulateur pour les ouvrir dans VICE sur PC, et importez un .VSF fait sous VICE pour reprendre la machine exactement où elle était.</p>
+    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE : l'export est vérifié compatible VICE 3.7 (structure calée sur un instantané réel, 23 modules) et l'import lit les .VSF faits sous VICE, y compris l'état interne du SID. Deux limites : le modèle choisi (C64/C64C, PAL/NTSC) doit correspondre à celui de VICE, et l'état du lecteur 1541 n'est pas transféré — VICE reprend avec son lecteur (relancez LOAD si un chargement était en cours).</p>
   </div>
 </dialog>
 
@@ -4432,8 +4432,13 @@ function loadLines(lines,run){
 const VSF_MAGIC='VICE Snapshot File\x1a', VSF_VERMAGIC='VICE Version\x1a';
 function vsfStr(b,s,n){ s=String(s); for(let i=0;i<n;i++) b.push(i<s.length?(s.charCodeAt(i)&255):0); }
 function vsfU32(b,v){ v=v>>>0; b.push(v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255); }
-function vsfU64(b,v){ v=Number(v)>>>0; const hi=Math.floor(Number(v)/4294967296)>>>0; vsfU32(b,v); vsfU32(b,hi); }
+function vsfU64(b,v){ let hi,lo;
+  if(typeof v==='bigint'){ lo=Number(v&0xFFFFFFFFn); hi=Number((v>>32n)&0xFFFFFFFFn); }
+  else { lo=v>>>0; hi=Math.floor(v/4294967296)>>>0; }
+  vsfU32(b,lo); vsfU32(b,hi); }
 function vsfMod(name,maj,min,payload){ const h=[]; vsfStr(h,name,16); h.push(maj&255,min&255); vsfU32(h,22+payload.length); return h.concat(Array.from(payload)); }
+/* VICE stocke les modules avec une taille ENTÊTE INCLUSE (22 octets) ; les valeurs
+   ci-dessous sont calées sur un instantané réel écrit par x64 3.7.1 (référence du banc). */
 function vsfClock(b,v){ vsfU64(b,v); }
 
 function sidRegsFromSI(inst){
@@ -4447,9 +4452,38 @@ function sidRegsFromSI(inst){
   return r;
 }
 
+/* état reSID interne (module SIDEXTENDED v1.4, 133 octets) : les champs que
+   l'émulateur ne reproduit pas sont écrits aux valeurs de reprise propre. */
+function sidExtFromSI(inst){
+  const p=[], D3=(v)=>{ vsfU32(p,v>>>0); };
+  const regs=sidRegsFromSI(inst);
+  for(let i=0;i<32;i++) p.push(regs[i]&255);          /* registres            */
+  p.push(0);                                          /* bus_value            */
+  vsfU32(p,0);                                        /* bus_value_ttl        */
+  for(let i=0;i<3;i++) D3(inst.v[i].acc>>>0);         /* accumulator          */
+  for(let i=0;i<3;i++) D3(inst.v[i].lfsr>>>0);        /* shift_register       */
+  for(let i=0;i<3;i++){ p.push(inst.v[i].rc&255,(inst.v[i].rc>>8)&255); }        /* rate_counter (W) */
+  for(let i=0;i<3;i++){ p.push(inst.v[i].ec&255,(inst.v[i].ec>>8)&255); }        /* exponential_counter */
+  for(let i=0;i<3;i++) p.push(inst.v[i].env&255);     /* envelope_counter     */
+  for(let i=0;i<3;i++) p.push(inst.v[i].state&255);   /* envelope_state       */
+  for(let i=0;i<3;i++) p.push(0);                     /* hold_zero           */
+  /* périodes : recopiées depuis ENV_RATE (reSID les recalcule à la moindre écriture) */
+  for(let i=0;i<3;i++){ const per=ENV_RATE[inst.v[i].ad&15]|0; p.push(per&255,(per>>8)&255); }
+  for(let i=0;i<3;i++){ p.push(9,0); }                /* exponential_counter_period */
+  for(let i=0;i<3;i++) p.push(0);                     /* envelope_pipeline    */
+  for(let i=0;i<3;i++) p.push(0);                     /* shift_pipeline       */
+  for(let i=0;i<3;i++) D3(0);                         /* shift_register_reset */
+  for(let i=0;i<3;i++) D3(0);                         /* floating_output_ttl  */
+  for(let i=0;i<3;i++){ p.push(0,0); }                /* pulse_output */
+  p.push(0);                                          /* write_pipeline       */
+  p.push(0);                                          /* write_address        */
+  p.push(0xF7);                                       /* voice_mask (valeur initiale reSID) */
+  return p;
+}
+
 function vsfExport(){
   if(!romMode&&(state==='input'||state==='busy')) throw new Error('Terminez d\u2019abord la saisie ou le chargement en cours.');
-  if(state==='boot') throw new Error('La machine d\u00e9marre encore.');
+  if(state==='boot') throw new Error('La machine démarre encore.');
   sidFlush(true); drvSync();
   if(state==='input'||state==='busy'||state==='boot'){
     // mode BASIC : l'interpréteur JS gère l'écran ; figer le CPU sur la boucle READY du
@@ -4458,75 +4492,181 @@ function vsfExport(){
     mem[0x01]=0x37; mem[0x00]=0x2F;
   }
   const out=[]; const mods=[];
+  /* entête : identique à x64 3.7.1 */
   vsfStr(out,VSF_MAGIC,19); out.push(2,0);
   vsfStr(out,'C64',16); vsfStr(out,VSF_VERMAGIC,13);
-  out.push(3,8,0,0); vsfU32(out,0);
-  const CLK=cyc>>>0, rc=CLK%63, rl=Math.floor(CLK/63)%312;
-  { const p=[];
+  out.push(3,7,1,0); vsfU32(out,0);
+  const CLK=cyc>>>0;
+  /* raster : cycle/ligne déduits de l'horloge (63 cycles par ligne en PAL) */
+  const rc=CLK%63, rl=Math.floor(CLK/63)%312;
+  { /* MAINCPU v1.2 (71 octets) : registres + horloge + 3 blocs d'interruption */
+    const p=[];
     vsfClock(p,CLK);
     p.push(C.a&255,C.x&255,C.y&255,C.sp&255);
     p.push(C.pc&255,(C.pc>>8)&255);
     p.push(((C.n?128:0)|(C.v?64:0)|(C.d?8:0)|(C.i?4:0)|(C.z?2:0)|(C.c?1:0))&255);
-    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);
-    for(let i=0;i<5;i++) vsfClock(p,CLK);
-    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);
-    mods.push(['MAINCPU',1,3,p]); }
-  { const p=[];
-    p.push(mem[1]&255,mem[0]&255, cart?cart.exrom:1, cart?cart.game:1);
+    vsfU32(p,0);                          /* last_opcode_info */
+    /* interrupt_write_snapshot : irq_clk, nmi_clk, irq_pending_clk (jamais =
+       CLOCK_MAX 0xFFFF...), num_last_stolen, last_stolen_clk */
+    vsfClock(p,CLK); vsfClock(p,CLK);
+    vsfU64(p,0xFFFFFFFFFFFFFFFFn);
+    vsfU64(p,0); vsfClock(p,0);
+    /* interrupt_write_new_snapshot : nirq, nnmi, global_pending (IK_INT=8) */
+    vsfU32(p,0); vsfU32(p,0); vsfU32(p,8);
+    mods.push(['MAINCPU',1,2,p]); }
+  { /* C64MEM v0.1 (65555) */
+    const p=[];
+    p.push(mem[1]&255,mem[0]&255, cart?cart.exrom&255:0, cart?cart.game&255:0);
     for(let i=0;i<65536;i++) p.push(mem[i]&255);
-    p.push(mem[1]&255,mem[1]&255,mem[0]&255);
-    vsfU32(p,0); vsfU32(p,0); p.push(0,0,0,0);
+    p.push(mem[1]&255,mem[1]&255,mem[0]&255);   /* data_out, data_read, dir_read */
+    vsfU32(p,0); vsfU32(p,0);                   /* data_set_clk_bit6/7 */
+    p.push(0,0,0,0);                            /* set/falloff bits */
     mods.push(['C64MEM',0,1,p]); }
-  const ciaP=(c)=>{ const p=[];
+  mods.push(['C64CART',0,1,[0]]);           /* pas de cartouche (ordre VICE : après C64MEM) */
+  const ciaP=(c)=>{ /* CIA v2.3 (52 octets), ordre exact ciacore.c */
+    const p=[];
     p.push(c.pra&255,c.prb&255,c.ddra&255,c.ddrb&255);
     p.push(c.ta&255,(c.ta>>8)&255, c.tb&255,(c.tb>>8)&255);
-    p.push(0,0,0,0);
+    /* TOD : dixièmes/sec/min/heure — horloge TOD de l'émulateur, figée à la reprise */
+    const t=(c.todLatch!==null&&c.todLatch!==undefined)?c.todLatch:c.tod|0;
+    p.push((t>>20)&15,(t>>16)&15,(t>>8)&255,t&255);
     p.push(c.sdr&255); p.push(c.icr&255, c.cra&255, c.crb&255);
     p.push(c.la&255,(c.la>>8)&255, c.lb&255,(c.lb>>8)&255);
-    p.push(0); p.push((c.cra&1?0x40:0)|(c.crb&1?0x80:0)); p.push(0);
-    p.push(0,0,0,0); p.push(0);
-    p.push(0); p.push(0,0,0,0);
-    vsfClock(p,0);
-    p.push(0,0,0); p.push(0);
-    p.push(0,0,0);
+    p.push(c.icr&255);                       /* ICR peek */
+    p.push((c.cra&1?0x40:0)|(c.crb&1?0x80:0)); /* tat/tbt (+ compat v1.0 bits 2-3) */
+    p.push(0);                               /* sr_bits */
+    p.push(0,0,0,0);                         /* todalarm */
+    p.push(0);                               /* rdi byte */
+    p.push(0);                               /* todlatched/stopped */
+    p.push(0,0,0,0);                         /* todlatch */
+    vsfClock(p,0);                           /* todclk-rclk */
+    /* ciat_save_snapshot ta/tb : W state (reprise à l'arrêt, comme un timer au repos) */
     p.push((c.cra&1)?2:0,0,(c.crb&1)?2:0,0);
+    p.push(0,0);                             /* shifter lo/hi */
+    p.push(0);                               /* sdr_valid */
+    p.push(0);                               /* irq_enabled */
+    p.push(0);                               /* todtickcounter */
+    p.push(0);                               /* sdr_alarm */
+    p.push(0);                               /* sp_cnt_in */
     return p; };
-  mods.push(['CIA1',2,5,ciaP(cia1)]); mods.push(['CIA2',2,5,ciaP(cia2)]);
-  { const p=[];
-    p.push(PERIPH.sid2?1:0, SID.on?1:0, 0, (MODEL.sid||0));
+  mods.push(['CIA1',2,3,ciaP(cia1)]); mods.push(['CIA2',2,3,ciaP(cia2)]);
+  { /* SID v1.5 (36) : sids, sound, engine(1=reSID), model + 32 registres */
+    const p=[];
+    p.push(PERIPH.sid2?1:0, 1, 1, (MODEL.sid==='8580')?1:0);
     const r=sidRegsFromSI(SI[0]); for(let i=0;i<32;i++) p.push(r[i]&255);
     mods.push(['SID',1,5,p]); }
-  if(PERIPH.sid2){ const p=[]; p.push(SID2_ADDR&255,(SID2_ADDR>>8)&255);
+  { /* SIDEXTENDED v1.4 (133) : état interne reSID */
+    const p=sidExtFromSI(SI[0]);
+    mods.push(['SIDEXTENDED',1,4,p]); }
+  if(PERIPH.sid2){
+    /* 2e SID : module simple v1.5 (34 : W adresse + 32 registres) puis extended */
+    const p=[]; p.push(SID2_ADDR&255,(SID2_ADDR>>8)&255);
     const r2=sidRegsFromSI(SI[1]); for(let i=0;i<32;i++) p.push(r2[i]&255);
-    mods.push(['SID2',1,5,p]); }
-  { const p=[]; p.push(0,1); mods.push(['DRIVE8',2,0,p]); }
-  { const p=[]; for(let i=0;i<256;i++) p.push(0); p.push(0,0); mods.push(['FSDRIVE',0,0,p]); }
-  { const p=[]; const W=384,H=272;
-    p.push(1,0,1);
-    for(let i=0;i<40;i++) p.push(0);
-    for(let i=0;i<1024;i++) p.push(mem[0xD800+i]&15);
-    p.push(0,0,0,0);
-    for(let i=0;i<40;i++) p.push(0);
-    p.push(0);
-    vsfU32(p,0);
-    p.push(rc&255); p.push(rl&255,(rl>>8)&255);
-    for(let i=0;i<64;i++) p.push(mem[0xD000+i]&255);
-    p.push(0,0,0);
-    p.push(0,0); p.push(0); p.push(0,0); p.push(0);
-    for(let i=0;i<8;i++) p.push(0,0,0);
-    vsfClock(p,0); p.push(0);
-    vsfU32(p,rl); vsfU32(p,W); vsfU32(p,H); vsfU32(p,W);
-    for(let i=0;i<W*(H+4);i++) p.push(0);
-    mods.push(['VIC-II',1,1,p]); }
-  mods.push(['C64CART',0,1,[0]]);
-  mods.push(['GLUE',1,0,[cart&&cart.type?cart.type&255:0,0,0]]);
-  mods.push(['C64GLUE',1,1,[cart&&cart.type?cart.type&255:0,0,0]]);
+    mods.push(['SID2',1,5,p]);
+    const p2=sidExtFromSI(SI[1]);
+    mods.push(['SIDEXTENDED2',1,4,p2]); }
+  const driveP=()=>{ /* DRIVE v2.0 (145) : TDE actif, 1 lecteur sans image
+       (l'état correspond à ce que VICE écrit lui-même sans ROM 1541) */
+    const p=[];
+    p.push(1,1);                             /* has_tde, has_drives */
+    vsfU32(p,1);                             /* sync_factor = MACHINE_SYNC_PAL */
+    vsfClock(p,0);                           /* attach_clk */
+    p.push(1);                               /* byte_ready_level */
+    p.push(1);                               /* clock_frequency */
+    { const ht=36; p.push(ht&255,(ht>>8)&255); }  /* half_track */
+    vsfClock(p,0);                           /* detach_clk */
+    p.push(1);                               /* extend_image_policy */
+    vsfU32(p,0);                             /* GCR_head_offset */
+    p.push(0);                               /* GCR_read */
+    p.push(0x55);                            /* GCR_write_value */
+    p.push(0,0,0);                           /* idling, parallel_cable, read_only */
+    vsfU32(p,0);                             /* rotation_table_ptr */
+    vsfU32(p,0);                             /* unit_type (0 = pas de lecteur matériel) */
+    vsfU32(p,0);                             /* snap_accum */
+    vsfClock(p,0);                           /* snap_rotation_last_clk */
+    vsfU32(p,0); vsfU32(p,0);                /* bit_counter, zero_count */
+    p.push(0,0);                             /* last_read_data (W) */
+    p.push(0);                               /* last_write_data */
+    vsfU32(p,0);                             /* snap_seed */
+    vsfU32(p,0);                             /* speed_zone */
+    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);   /* ue7_dcba, ue7_counter, uf4_counter */
+    vsfU32(p,0);                             /* fr_randcount */
+    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);   /* filter_counter/state/last_state */
+    vsfU32(p,0); vsfU32(p,0);                /* write_flux, PulseHeadPosition */
+    vsfU32(p,0x1234abcd);                    /* xorShift32 (valeur initiale VICE) */
+    vsfU32(p,0);                             /* so_delay */
+    vsfU32(p,0);                             /* cycle_index */
+    vsfClock(p,0);                           /* ref_advance */
+    vsfU32(p,0);                             /* req_ref_cycles */
+    vsfClock(p,0);                           /* attach_detach_clk */
+    p.push(1);                               /* byte_ready_edge */
+    p.push(0);                               /* byte_ready_active */
+    return p; };
+  mods.push(['DRIVE8',2,0,driveP()]); mods.push(['DRIVE9',2,0,driveP()]);
+  mods.push(['DRIVE10',2,0,driveP()]); mods.push(['DRIVE11',2,0,driveP()]);
+  { /* FSDRIVE v0.0 (258) : buffer série + pointeur */
+    const p=[]; for(let i=0;i<256;i++) p.push(0); p.push(0,0);
+    mods.push(['FSDRIVE',0,0,p]); }
+  { /* VIC-II v1.3 (160513) : ordre exact vicii-snapshot.c, framebuffer 504×312 */
+    const W=504,H=312;
+    const p=[];
+    p.push(1,0,1);                           /* allow_bad_lines, bad_line, blank */
+    for(let i=0;i<40;i++) p.push(0);         /* cbuf */
+    for(let i=0;i<1024;i++) p.push(mem[0xD800+i]&15);  /* color RAM */
+    p.push(0);                               /* idle_state */
+    p.push(0,0,0);                           /* light pen */
+    for(let i=0;i<40;i++) p.push(0);         /* vbuf */
+    p.push(0);                               /* new_dma_msk */
+    vsfU32(p,0);                             /* ram_base_phi1 */
+    p.push(rc&255); p.push(rl&255,(rl>>8)&255);        /* cycle, raster_y */
+    for(let i=0;i<64;i++) p.push(mem[0xD000+i]&255);   /* 64 registres */
+    p.push(0,0,0);                           /* sbcoll, dma_msk, sscoll */
+    p.push(0,0);                             /* vbank_phi1 (W) */
+    p.push(0,0);                             /* vc (W) */
+    p.push(0);                               /* vcinc */
+    p.push(0,0);                             /* vcbase (W) */
+    p.push(0);                               /* irq_status */
+    for(let i=0;i<8;i++) p.push(0,0,0);      /* sprites : memptr, inc, exp */
+    vsfClock(p,0); p.push(0);                /* fetch_clk, fetch_idx */
+    vsfU32(p,0);                             /* ram_base_phi2 */
+    p.push(0,0);                             /* vbank_phi2 (W) */
+    vsfU32(p,rl); vsfU32(p,W); vsfU32(p,H); vsfU32(p,W); /* line, width, height, pitch */
+    for(let i=0;i<W*(H+4);i++) p.push(0);    /* framebuffer paddé (VICE redessine) */
+    mods.push(['VIC-II',1,3,p]); }
+  { const t=cart&&cart.type?cart.type&255:0;
+    mods.push(['GLUE',1,0,[t,0,0]]); }      /* GLUE v1.0 seul (VICE 3.7 n'a pas C64GLUE) */
   mods.push(['C64MEMHACKS',0,0,[0]]);
-  mods.push(['TAPEPORT',1,0,[0,0]]);
-  mods.push(['KEYBOARD',1,1,(function(){const p=[];for(let i=0;i<96;i++)p.push(0);return p;})()]);
-  mods.push(['JOYPORT0',0,0,[0]]); mods.push(['JOYPORT1',0,0,[0]]);
-  mods.push(['USERPORT',1,0,[0,0]]);
-  for(const [n,ma,mi,p] of mods) out.push(...vsfMod(n,ma,mi,Uint8Array.from(p)));
+  mods.push(['TAPEPORT',1,0,[1,1]]);
+  { /* DATASETTE v1.05 (78) : valeurs par défaut VICE */
+    const p=[];
+    p.push(0,0);                             /* motor, notape */
+    vsfClock(p,0); vsfClock(p,0);            /* last_write_clk, motor_stop_clk */
+    p.push(0);                               /* alarm_pending */
+    vsfClock(p,0xFFFFFFFFFFFFFFFFn);          /* alarm_clk */
+    vsfClock(p,0xFFFFFFFFFFFFFFFFn);          /* long_gap_pending (valeur VICE) */
+    vsfClock(p,0);                           /* long_gap_elapsed */
+    p.push(0);                               /* last_direction */
+    vsfU32(p,0);                             /* counter_offset */
+    p.push(1);                               /* reset_with_maincpu */
+    vsfU32(p,20000);                         /* zero_gap_delay */
+    vsfU32(p,1);                             /* speed_tuning */
+    vsfU32(p,1000); vsfU32(p,1000);          /* wobble freq/amplitude */
+    vsfU32(p,0);                             /* azimuth_error */
+    p.push(0);                               /* fullwave */
+    vsfClock(p,0);                           /* fullwave_gap */
+    mods.push(['DATASETTE',1,5,p]); }
+  { /* KEYBOARD v1.1 (96) : 16 dwords keyarr + 8 dwords rev_keyarr */
+    const p=[]; for(let i=0;i<24;i++) vsfU32(p,0);
+    mods.push(['KEYBOARD',1,1,p]); }
+  mods.push(['JOYPORT0',0,0,[1]]);
+  { const p=[]; p.push(0,0); mods.push(['JOYSTICK0',1,2,p]); }
+  mods.push(['JOYPORT1',0,0,[1]]);
+  { const p=[]; p.push(0,0); mods.push(['JOYSTICK1',1,2,p]); }
+  mods.push(['USERPORT',1,0,[1,0]]);
+  for(const [n,ma,mi,p] of mods){
+    const blk=vsfMod(n,ma,mi,Uint8Array.from(p));
+    for(let i=0;i<blk.length;i++) out.push(blk[i]);
+  }
   return new Uint8Array(out);
 }
 
@@ -4576,10 +4716,38 @@ function vsfImport(buf){
   if(mods.SID){ const p=P('SID'); const sids=p[0]||0;
     sidAp(SI[0],Array.from(p.slice(4,36)));
     if(sids>0&&mods.SID2){ const p2=P('SID2'); const addr=p2[0]|(p2[1]<<8);
-      if([0xD420,0xD500,0xDE00].includes(addr)){ PERIPH.sid2=true; SID2_ADDR=addr; refreshSid2&&refreshSid2(); }
-      sidAp(SI[1],Array.from(p2.slice(2,34))); }
+      if([0xD420,0xD500,0xDE00].includes(addr)){
+        PERIPH.sid2=true; SID2_ADDR=addr; refreshSid2&&refreshSid2();
+        sidAp(SI[1],Array.from(p2.slice(2,34)));
+      } else {
+        /* adresse invalide : ne pas activer ni écraser le second SID (bug d'import signalé) */
+        warn.push('Adresse du second SID invalide ('+addr.toString(16)+') : second SID ignoré.');
+      } }
     else if(sids>0&&!mods.SID2){ warn.push('Le snapshot contient un 2e SID non restauré.'); }
-  } else if(mods.SID2){ const p2=P('SID2'); sidAp(SI[1],Array.from(p2.slice(2,34))); }
+  } else if(mods.SID2){ const p2=P('SID2'); const addr=p2[0]|(p2[1]<<8);
+    if([0xD420,0xD500,0xDE00].includes(addr)){
+      PERIPH.sid2=true; SID2_ADDR=addr; refreshSid2&&refreshSid2();
+      sidAp(SI[1],Array.from(p2.slice(2,34)));
+    } else { warn.push('Adresse du second SID invalide ('+addr.toString(16)+') : second SID ignoré.'); } }
+  const extAp=(inst,p)=>{ /* SIDEXTENDED v1.4 (état reSID) : registres + interne */
+    if(!p) return;
+    sidAp(inst,Array.from(p.slice(0,32)));
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=38+i*4;
+      v.acc=((p[o]|(p[o+1]<<8)|((p[o+2]&255)<<16))>>>0); }
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=50+i*4;
+      v.lfsr=((p[o]|(p[o+1]<<8)|((p[o+2]&255)<<16))>>>0)|0; }
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=62+i*2;
+      v.rc=p[o]|(p[o+1]<<8); }
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=68+i*2;
+      v.ec=p[o]|(p[o+1]<<8); }
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=74+i;
+      v.env=p[o]&255; }
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=77+i;
+      v.state=p[o]&3; }
+    /* hold_zero à 0 : la reprise repositionne l'enveloppe proprement */
+  };
+  if(mods.SIDEXTENDED){ extAp(SI[0],P('SIDEXTENDED')); }
+  if(mods.SIDEXTENDED2&&PERIPH.sid2){ extAp(SI[1],P('SIDEXTENDED2')); }
   if(mods['VIC-II']){ const p=P('VIC-II');
     for(let i=0;i<64;i++) mem[0xD000+i]=p[1119+i]&255;
     for(let i=0;i<1024;i++) mem[0xD800+i]=p[43+i]&15;
