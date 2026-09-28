@@ -165,6 +165,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <button data-open="dlg-disk">Supports</button>
       <button data-open="dlg-import">Importer</button>
       <button id="btn-export">Exporter</button>
+      <button data-open="dlg-periph">Périphériques</button>
       <button data-open="dlg-state">États</button>
       <button data-open="dlg-rom">Système</button>
       <button data-open="dlg-help">Aide</button>
@@ -233,17 +234,19 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 <dialog id="dlg-disk">
   <div class="dh"><h2>Supports</h2><button class="x" data-close aria-label="Fermer">×</button></div>
   <div class="db">
-    <h3 class="sub">Lecteur 8 · image .d64 ou .g64</h3>
+    <h3 class="sub">Lecteur 8 · image .d64, .g64, .d71 ou .d81</h3>
     <div id="drv-box"></div>
     <div id="d64-box"></div>
     <div class="bar" style="margin:10px 0 22px">
-      <label class="act ghost" style="cursor:pointer">Insérer une image .d64 / .g64<input type="file" id="d64-file" accept=".d64,.g64,.D64,.G64" hidden></label>
+      <label class="act ghost" style="cursor:pointer">Insérer une image disque<input type="file" id="d64-file" accept=".d64,.g64,.d71,.d81,.D64,.G64,.D71,.D81" hidden></label>
       <button class="act ghost" id="d64-blank">Créer une disquette vierge</button>
     </div>
     <h3 class="sub">Cassette · .tap ou .t64</h3>
     <div id="tape-box"></div>
     <div class="bar" style="margin:10px 0 22px">
       <label class="act ghost" style="cursor:pointer">Insérer une cassette<input type="file" id="tape-file" accept=".tap,.t64,.TAP,.T64" hidden></label>
+      <button class="act ghost" id="tape-rec">Enregistrer une cassette vierge</button>
+      <button class="act ghost" id="tape-dl">Télécharger la cassette .tap</button>
     </div>
     <h3 class="sub">Cartouche · .crt</h3>
     <div id="cart-box"></div>
@@ -263,7 +266,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Collez un listing BASIC (une instruction numérotée par ligne) ou choisissez un fichier <b>.d64</b>, <b>.g64</b>, <b>.t64</b>, <b>.tap</b>, <b>.crt</b>, <b>.prg</b>, <b>.bas</b> ou <b>.txt</b> : il est chargé dès sa sélection. Vous pouvez aussi glisser un fichier sur l'écran. Les codes entre accolades comme <b>{clr}</b>, <b>{wht}</b> ou <b>{rvon}</b> sont reconnus.</p>
     <textarea class="code" id="imp-text" placeholder='10 PRINT "BONJOUR"&#10;20 GOTO 10'></textarea>
     <div class="bar">
-      <input type="file" id="imp-file" accept=".prg,.d64,.g64,.t64,.tap,.crt,.bas,.txt,.PRG,.D64,.G64,.T64,.TAP,.CRT,.BAS,.TXT">
+      <input type="file" id="imp-file" accept=".prg,.d64,.g64,.d71,.d81,.t64,.tap,.crt,.bas,.txt,.PRG,.D64,.G64,.D71,.D81,.T64,.TAP,.CRT,.BAS,.TXT">
       <label><input type="checkbox" id="imp-run" checked> Lancer après import</label>
       <button class="act" id="imp-go">Importer le listing</button>
     </div>
@@ -301,6 +304,25 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <button class="act ghost" id="rom-builtin">Revenir au BASIC intégré</button>
     </div>
     <p style="margin-top:14px;font-size:15px;color:var(--muted)">Open ROMs © Paul Gardner-Stephen et Roman Standzikowski, licence GNU LGPL v3. Code source : github.com/MEGA65/open-roms.</p>
+  </div>
+</dialog>
+
+<dialog id="dlg-periph">
+  <div class="dh"><h2>Périphériques</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+  <div class="db">
+    <h3 class="sub">Joysticks</h3>
+    <p>Flèches + Tab : joystick sur le port choisi par le bouton du moniteur. Les manettes USB ou Bluetooth sont reconnues automatiquement (la 1re sur le port 2, la 2e sur le port 1) ; appuyez sur un bouton de la manette pour l'activer.</p>
+    <div class="list" id="joy-list"></div>
+    <h3 class="sub" style="margin-top:18px">Souris et paddles (port 1)</h3>
+    <div class="list" id="mouse-list"></div>
+    <h3 class="sub" style="margin-top:18px">Extension mémoire REU</h3>
+    <div class="list" id="reu-list"></div>
+    <h3 class="sub" style="margin-top:18px">Imprimante (périphérique 4)</h3>
+    <p>Tout ce qui est envoyé au périphérique 4 s'affiche ici : par exemple <b>OPEN4,4:CMD4:LIST</b> puis <b>PRINT#4:CLOSE4</b>, ou un programme qui imprime.</p>
+    <textarea class="code" id="prn-text" readonly style="min-height:160px"></textarea>
+    <div class="bar"><button class="act ghost" id="prn-dl">Télécharger .txt</button><button class="act ghost" id="prn-clear">Effacer</button></div>
+    <h3 class="sub" style="margin-top:18px">Modem (RS-232)</h3>
+    <p style="color:var(--muted)">Un navigateur ne peut pas ouvrir de connexion réseau brute : pour appeler un serveur BBS, il faudrait un petit relais WebSocket sur un serveur. Non disponible pour l'instant.</p>
   </div>
 </dialog>
 
@@ -366,18 +388,21 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Open ROMs, inclus, est expérimental : son BASIC est très incomplet, et seuls LOAD et SAVE fonctionnent avec le lecteur virtuel (pas d'OPEN ni de canal de commande). Même limite avec un KERNAL modifié, comme JiffyDOS.</p>
 
     <h3>Disquettes</h3>
-    <p>Une image .d64 (35 ou 40 pistes) insérée va dans le lecteur 8 ; elle est lisible et modifiable (SAVE écrit dans l'image, téléchargeable ensuite). La disquette du navigateur est alors sur le lecteur 9 ; sans image, elle est sur le lecteur 8. LOAD"$",8 affiche le répertoire ; LOAD"NOM",8 charge au début du BASIC, LOAD"NOM",8,1 à l'adresse du fichier ; LOAD"*",8,1 charge le premier programme. Sans numéro de lecteur, LOAD et SAVE simulent la cassette sur la disquette du navigateur (mode BASIC intégré uniquement).</p>
+    <p>Formats de disquette : .d64 (1541, 35 ou 40 pistes, avec ou sans octets d'erreur, reproduits par le 1541 émulé pour les protections), .g64, .d71 (1571, double face) et .d81 (1581, 3,5 pouces), lus et écrits par le lecteur virtuel. Une image .d64 (35 ou 40 pistes) insérée va dans le lecteur 8 ; elle est lisible et modifiable (SAVE écrit dans l'image, téléchargeable ensuite). La disquette du navigateur est alors sur le lecteur 9 ; sans image, elle est sur le lecteur 8. LOAD"$",8 affiche le répertoire ; LOAD"NOM",8 charge au début du BASIC, LOAD"NOM",8,1 à l'adresse du fichier ; LOAD"*",8,1 charge le premier programme. Sans numéro de lecteur, LOAD et SAVE simulent la cassette sur la disquette du navigateur (mode BASIC intégré uniquement).</p>
     <p>Tout fichier .prg importé est chargé en mémoire et copié sur la disquette du navigateur : pour le recharger plus tard, LOAD"NOM",8,1 (ou ,9,1 si une image .d64 est insérée). Un programme en langage machine peut charger la suite d'un jeu par la routine système LOAD.</p>
 
     <h3>Lecteur 1541 émulé</h3>
     <p>Avec la ROM du lecteur (16 Ko, ou ses deux moitiés de 8 Ko, chargées dans Système) et le mode ROM, le lecteur 8 peut être émulé au niveau matériel (Supports → Lecteur 1541 émulé → Activer). Son propre processeur 6502 fait tourner le vrai DOS, avec ses deux VIA, le bus série câblé fil par fil (ATN, CLOCK, DATA) et le disque lu et écrit bit par bit en codage GCR, zones de vitesse comprises. Les chargeurs rapides et la plupart des protections fonctionnent alors, et les images .g64 (disquettes protégées) sont acceptées. Les chargements sont accélérés pendant que le moteur tourne ; les écritures sont reportées dans l'image quand le moteur s'arrête. La disquette du navigateur passe sur le lecteur 9 (virtuel).</p>
 
+    <h3>Périphériques</h3>
+    <p>Menu Périphériques : pavé numérique en second joystick, manettes USB/Bluetooth (jusqu'à deux), souris en paddles ou en souris 1351 (port 1), imprimante sur le périphérique 4 (texte téléchargeable), extension mémoire REU de 128 Ko à 16 Mo. Le modem RS-232 n'est pas disponible : un navigateur ne peut pas ouvrir de connexion réseau brute.</p>
+
     <h3>Cassettes et cartouches</h3>
-    <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
-    <p>Cartouches .crt gérées : normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
+    <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Pour enregistrer, choisissez « Enregistrer une cassette vierge » puis tapez SAVE"NOM" : la cassette obtenue se télécharge en .tap. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
+    <p>Cartouches .crt gérées : Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
-    <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris, avec les points gris du VIC récent ; une adresse où rien n'est branché renvoie l'octet que la puce vidéo vient de lire (bus « flottant »). Les formes d'onde combinées du SID restent une approximation des tables mesurées sur les vraies puces. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), l'enregistrement sur cassette n'est pas possible, et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
+    <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris, avec les points gris du VIC récent ; une adresse où rien n'est branché renvoie l'octet que la puce vidéo vient de lire (bus « flottant »). Les formes d'onde combinées du SID restent une approximation des tables mesurées sur les vraies puces. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), et le lecteur 1541 émulé est synchronisé à l'instruction près (pas au cycle) : quelques chargeurs rapides très serrés peuvent échouer. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
   </div>
 </dialog>
 
@@ -421,6 +446,80 @@ let charsetLower=false;
 let inputReq=null, inputRow=0, inputCol=0;
 let tiStart=now(), turbo=false, cost=0;
 let curKey=64, shiftFlags=0, joy2=255;
+const PERIPH_KEY='emu64.periph.v1';
+const PERIPH={numpadJoy:false,mouse:'none',reu:0};
+try{ if(typeof localStorage!=='undefined') Object.assign(PERIPH,JSON.parse(localStorage.getItem(PERIPH_KEY)||'{}')); }catch(e){}
+function periphSave(){ try{ localStorage.setItem(PERIPH_KEY,JSON.stringify(PERIPH)); }catch(e){} }
+let joyB=255;                        // second joystick (pavé numérique)
+const padBits=[255,255,255];         // manettes : index = port
+let mouseBits=255, potX=0xFF, potY=0xFF, mouseX=0, mouseY=0;
+function portJoy(n){
+  let v=(joyPort===n?joy2:joyB)&padBits[n];
+  if(n===1&&PERIPH.mouse!=='none') v&=mouseBits;
+  return v;
+}
+/* imprimante (périphérique 4) */
+const PRN={text:'',lower:false,col:0,count:0};
+function printerPut(c){
+  PRN.count++;
+  if(c===13){ PRN.text+='\n'; PRN.col=0; return; }
+  if(c===10) return;
+  if(c===17){ PRN.lower=true; return; } if(c===145){ PRN.lower=false; return; }
+  let ch=null;
+  if(c>=65&&c<=90) ch=String.fromCharCode(PRN.lower?c+32:c);
+  else if(c>=193&&c<=218) ch=String.fromCharCode(c-128);
+  else if(c>=32&&c<=64||c===91||c===93) ch=String.fromCharCode(c);
+  else if(c===92) ch='£'; else if(c===94) ch='↑'; else if(c===95) ch='←'; else if(c===160) ch=' ';
+  else if(c>=161&&c<=191||c>=96&&c<=127) ch='▒';
+  if(ch){ PRN.text+=ch; PRN.col++; if(PRN.col>=80){ PRN.text+='\n'; PRN.col=0; } }
+  if(PRN.text.length>200000) PRN.text=PRN.text.slice(-150000);
+  printerDirty=true;
+}
+let printerDirty=false;
+/* extension mémoire REU (1700/1764/1750 et au-delà) */
+const REU={mem:null,size:0,st:0,cmd:0x10,c64a:0,reua:0,len:0xFFFF,imr:0x1F,acr:0x3F,sh:null,armed:false};
+function reuSetSize(kb){
+  PERIPH.reu=kb; REU.size=kb*1024; REU.mem=kb?new Uint8Array(REU.size):null;
+  Object.assign(REU,{st:kb>=256?0x10:0,cmd:0x10,c64a:0,reua:0,len:0xFFFF,imr:0x1F,acr:0x3F,sh:null,armed:false});
+}
+function reuRead(r){
+  switch(r){
+    case 0: { const v=REU.st; REU.st&=0x1F; return v; }
+    case 1: return REU.cmd; case 2: return REU.c64a&255; case 3: return REU.c64a>>8;
+    case 4: return REU.reua&255; case 5: return (REU.reua>>8)&255; case 6: return ((REU.reua>>16)&255)|(REU.size<=524288?0xF8:0);
+    case 7: return REU.len&255; case 8: return REU.len>>8; case 9: return REU.imr|0x1F; case 10: return REU.acr|0x3F;
+  }
+  return 0xFF;
+}
+function reuWrite(r,v){
+  switch(r){
+    case 1: REU.cmd=v; if(v&0x80){ if(v&0x10) reuExec(); else REU.armed=true; } break;
+    case 2: REU.c64a=(REU.c64a&0xFF00)|v; break; case 3: REU.c64a=(REU.c64a&255)|(v<<8); break;
+    case 4: REU.reua=(REU.reua&0xFFFF00)|v; break; case 5: REU.reua=(REU.reua&0xFF00FF)|(v<<8); break; case 6: REU.reua=(REU.reua&0xFFFF)|(v<<16); break;
+    case 7: REU.len=(REU.len&0xFF00)|v; break; case 8: REU.len=(REU.len&255)|(v<<8); break;
+    case 9: REU.imr=v; break; case 10: REU.acr=v; break;
+  }
+}
+function reuExec(){
+  REU.armed=false;
+  const type=REU.cmd&3, fixC=REU.acr&0x80, fixR=REU.acr&0x40, n=REU.len||0x10000, mask=REU.size-1;
+  const save={c:REU.c64a,r:REU.reua,l:REU.len};
+  let c=REU.c64a, r=REU.reua&mask, err=false, i=0;
+  for(;i<n;i++){
+    if(type===0) REU.mem[r]=RD(c);
+    else if(type===1) WR(c,REU.mem[r]);
+    else if(type===2){ const t=RD(c); WR(c,REU.mem[r]); REU.mem[r]=t; }
+    else if(RD(c)!==REU.mem[r]){ err=true; i++; break; }
+    if(!fixC) c=(c+1)&0xFFFF; if(!fixR) r=(r+1)&mask;
+  }
+  cyc+=i*(type===2?2:1);
+  REU.st|=err?0x20:0x40;
+  if((REU.imr&0x80)&&((err&&(REU.imr&0x20))||(!err&&(REU.imr&0x40)))) REU.st|=0x80;
+  REU.cmd=(REU.cmd&0x7F)|0x10;
+  if(REU.cmd&0x20){ REU.c64a=save.c; REU.reua=save.r; REU.len=save.l; }
+  else { REU.c64a=c; REU.reua=r; REU.len=(n-i)&0xFFFF||1; }
+}
+reuSetSize(PERIPH.reu|0);
 let rs=0x2545F491;
 
 class BErr{constructor(m,line){this.m=m;this.line=line;}}
@@ -570,7 +669,7 @@ function setProgram(lines,sort){
   reindex(); clearVars(); cont=null;
 }
 function snapshot(){return prog.map(l=>[l.num,l.bytes.slice()]);}
-function clearVars(){vars.clear();arrays.clear();fns.clear();stack.length=0;dataIdx=0;dataPos=0;dataIn=false;}
+function clearVars(){FILES.clear();cmdLfn=-1;vars.clear();arrays.clear();fns.clear();stack.length=0;dataIdx=0;dataPos=0;dataIn=false;}
 
 /* ================= Messages ================= */
 function ready(){
@@ -649,7 +748,10 @@ function step(){
     case T.VERIFY: doVerify(); return;
     case T.DEF: doDef(); break;
     case T.POKE: { const a=addrArg(evalExpr()); expect(44); const v=byteArg(evalExpr()); poke(a,v); break; }
-    case T['PRINT#']: case T.CMD: case T.OPEN: case T.CLOSE: skipStmt(); break;
+    case T.OPEN: doOpen(); break;
+    case T.CLOSE: { const l=byteArg(evalExpr()); FILES.delete(l); if(cmdLfn===l) cmdLfn=-1; break; }
+    case T.CMD: { const l=byteArg(evalExpr()); if(!FILES.has(l)) err('FILE NOT OPEN'); cmdLfn=l; if(skip()===44){ P++; doPrint(sinkFor(l)); } break; }
+    case T['PRINT#']: { const l=byteArg(evalExpr()); if(!FILES.has(l)) err('FILE NOT OPEN'); if(skip()===44) P++; doPrint(sinkFor(l)); if(cmdLfn===l) cmdLfn=-1; break; }
     case T.PRINT: doPrint(); break;
     case T.CONT:
       if(!cont||curIdx>=0) err("CAN'T CONTINUE");
@@ -962,7 +1064,19 @@ function doRun(){
   if(!prog.length){ finish(); return; }
   curIdx=0; B=prog[0].bytes; P=0; jumped=true;
 }
-function doPrint(){
+const FILES=new Map(); let cmdLfn=-1;
+function doOpen(){
+  const l=byteArg(evalExpr()); let dev=1, sa=0;
+  if(skip()===44){ P++; dev=byteArg(evalExpr()); if(skip()===44){ P++; sa=byteArg(evalExpr()); if(skip()===44){ P++; evalExpr(); } } }
+  FILES.set(l,{dev,sa});
+}
+const SCREEN_SINK={put:c=>printChar(c),col:()=>logicalCol()};
+const PRINTER_SINK={put:c=>printerPut(c),col:()=>PRN.col};
+const NULL_SINK={put:()=>{},col:()=>0};
+function sinkFor(l){ const f=FILES.get(l); return f&&f.dev===4?PRINTER_SINK:NULL_SINK; }
+function doPrint(sink){
+  if(!sink) sink=cmdLfn>=0&&FILES.has(cmdLfn)?sinkFor(cmdLfn):SCREEN_SINK;
+  if(sink!==SCREEN_SINK) return doPrintTo(sink);
   let nl=true;
   for(;;){
     const c=skip();
@@ -976,6 +1090,22 @@ function doPrint(){
     nl=true;
   }
   if(nl) printChar(13);
+}
+function doPrintTo(sink){
+  const out=s=>{ for(let i=0;i<s.length;i++) sink.put(s.charCodeAt(i)); };
+  let nl=true;
+  for(;;){
+    const c=skip();
+    if(c===undefined||c===58) break;
+    if(c===59){P++;nl=false;continue;}
+    if(c===44){P++;nl=false;const n=10-(sink.col()%10);for(let k=0;k<n;k++)sink.put(32);continue;}
+    if(c===T['TAB(']){P++;const n=byteArg(evalExpr());expect(41);for(let k=sink.col();k<n;k++)sink.put(32);nl=false;continue;}
+    if(c===T['SPC(']){P++;const n=byteArg(evalExpr());expect(41);for(let k=0;k<n;k++)sink.put(32);nl=false;continue;}
+    const v=evalExpr();
+    if(typeof v==='string') out(v); else out(fmtNum(v)+' ');
+    nl=true;
+  }
+  if(nl) sink.put(13);
 }
 function doInput(){
   if(curIdx<0) err('ILLEGAL DIRECT');
@@ -1075,7 +1205,10 @@ function doList(){
   if(isD(c)){ from=lineNum(); to=from; if(skip()===T['-']){P++;to=isD(skip())?lineNum():63999;} }
   else if(c===T['-']){ P++; to=isD(skip())?lineNum():63999; }
   if(!atStmtEnd()) SYN();
-  for(const l of prog){ if(l.num>=from&&l.num<=to) listLine(l); }
+  const psink=cmdLfn>=0&&FILES.has(cmdLfn)&&FILES.get(cmdLfn).dev===4;
+  for(const l of prog){ if(l.num<from||l.num>to) continue;
+    if(psink){ for(const ch of String(l.num)+' ') printerPut(ch.charCodeAt(0)); let q=false; for(const b of l.bytes){ if(b===34) q=!q; if(!q&&b>=128&&b<=0xCB) for(const ch of KW[b-128]) printerPut(ch.charCodeAt(0)); else printerPut(b); } printerPut(13); }
+    else listLine(l); }
   if(curIdx>=0) finish();
 }
 function listLine(l){
@@ -1122,48 +1255,54 @@ function webLookup(name,disk){
   return {name:f,bytes:e.p?Uint8Array.from(e.p):buildPRG(e.l)};
 }
 
-/* --- images disque .d64 (lecteur 1541) --- */
+/* --- images disque : .d64 (1541), .d71 (1571), .d81 (1581) --- */
 const TRACK_OFF=[0,0]; for(let t=1;t<=40;t++) TRACK_OFF[t+1]=TRACK_OFF[t]+(t<=17?21:t<=24?19:t<=30?18:17);
 const SPT=t=>t<=17?21:t<=24?19:t<=30?18:17;
 const tsOff=(t,s)=>(TRACK_OFF[t]+s)*256;
 const D64_KEY='emu64.d64.v1';
 let d64=null;
-const FTYPES=['DEL','SEQ','PRG','USR','REL'];
+const FTYPES=['DEL','SEQ','PRG','USR','REL','CBM','DIR'];
+const IMG_SIZES={174848:['d64',35,0],175531:['d64',35,683],196608:['d64',40,0],197376:['d64',40,768],349696:['d71',70,0],351062:['d71',70,1366],819200:['d81',80,0],822400:['d81',80,3200]};
+function geo(){
+  const k=(d64&&d64.kind)||'d64';
+  if(k==='d81') return {k, maxT:80, spt:()=>40, off:(t,s)=>((t-1)*40+s)*256, dirT:40, dirS:3, hdr:[40,0], nameOff:0x04, idOff:0x16, dosOff:0x19, sysT:[40],
+    bam:t=>{ const b=((39)*40+(t<=40?1:2))*256+0x10+((t-1)%40)*6; return {free:b,map:b+1,n:5}; }};
+  if(k==='d71') return {k, maxT:70, spt:t=>SPT(t>35?t-35:t), off:(t,s)=>t>35?174848+tsOff(t-35,s):tsOff(t,s), dirT:18, dirS:1, hdr:[18,0], nameOff:0x90, idOff:0xA2, dosOff:0xA5, sysT:[18,53],
+    bam:t=>t<=35?{free:tsOff(18,0)+4*t,map:tsOff(18,0)+4*t+1,n:3}:{free:tsOff(18,0)+0xDD+(t-36),map:174848+tsOff(18,0)+3*(t-36),n:3}};
+  return {k, maxT:d64?d64.tracks:35, spt:SPT, off:tsOff, dirT:18, dirS:1, hdr:[18,0], nameOff:0x90, idOff:0xA2, dosOff:0xA5, sysT:[18],
+    bam:t=>t<=35?{free:tsOff(18,0)+4*t,map:tsOff(18,0)+4*t+1,n:3}:null};
+}
 function d64Mount(buf,file){
-  const n=buf.length; let tracks;
-  if(n===174848||n===175531) tracks=35; else if(n===196608||n===197376) tracks=40;
-  else throw new Error('Ce fichier n\u2019est pas une image .d64 valide ('+n+' octets).');
-  d64={img:new Uint8Array(buf.subarray(0,tracks===35?174848:196608)),tracks,file:file||'disque.d64'};
+  const sz=IMG_SIZES[buf.length];
+  if(!sz) throw new Error('Ce fichier n\u2019est pas une image disque valide ('+buf.length+' octets).');
+  const [kind,tracks,ne]=sz, base=buf.length-ne;
+  d64={img:new Uint8Array(buf.subarray(0,base)),tracks,kind,err:ne?new Uint8Array(buf.subarray(base)):null,file:file||'disque.'+kind};
   d64Persist(); drvLoadDisk(); return d64;
 }
 function d64Eject(){ drvSync(); d64=null; drvLoadDisk(); try{ localStorage.removeItem(D64_KEY); }catch(e){} }
 function d64Persist(){
   if(!d64||d64.g64) return;
-  try{
-    let bin=''; const im=d64.img;
-    for(let i=0;i<im.length;i+=0x8000) bin+=String.fromCharCode.apply(null,im.subarray(i,i+0x8000));
-    localStorage.setItem(D64_KEY,JSON.stringify({file:d64.file,tracks:d64.tracks,b:btoa(bin)}));
-  }catch(e){}
+  try{ localStorage.setItem(D64_KEY,JSON.stringify({file:d64.file,tracks:d64.tracks,kind:d64.kind,b:b64e(d64.img),e:d64.err?b64e(d64.err):null})); }catch(e){}
 }
 function d64Restore(){
   try{
     const s=localStorage.getItem(D64_KEY); if(!s) return;
-    const o=JSON.parse(s), bin=atob(o.b), im=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) im[i]=bin.charCodeAt(i);
-    d64={img:im,tracks:o.tracks,file:o.file};
+    const o=JSON.parse(s);
+    d64={img:b64d(o.b),tracks:o.tracks,kind:o.kind||'d64',err:o.e?b64d(o.e):null,file:o.file};
   }catch(e){ d64=null; }
 }
+function d64Bytes(){ if(!d64.err) return d64.img; const o=new Uint8Array(d64.img.length+d64.err.length); o.set(d64.img); o.set(d64.err,d64.img.length); return o; }
 function stripA0(bytes){ let e=bytes.length; while(e>0&&bytes[e-1]===0xA0) e--; return String.fromCharCode(...bytes.slice(0,e)); }
 function d64Header(){
-  const im=d64.img, b=tsOff(18,0);
-  return {name:stripA0(Array.from(im.subarray(b+0x90,b+0xA0))), id:String.fromCharCode(im[b+0xA2],im[b+0xA3]), dos:String.fromCharCode(im[b+0xA5],im[b+0xA6]), raw:Array.from(im.subarray(b+0x90,b+0xA0))};
+  const g=geo(), im=d64.img, b=g.off(g.hdr[0],g.hdr[1]);
+  return {name:stripA0(Array.from(im.subarray(b+g.nameOff,b+g.nameOff+16))), id:String.fromCharCode(im[b+g.idOff],im[b+g.idOff+1]), dos:String.fromCharCode(im[b+g.dosOff],im[b+g.dosOff+1]), raw:Array.from(im.subarray(b+g.nameOff,b+g.nameOff+16))};
 }
-function d64FreeBlocks(){ const im=d64.img, b=tsOff(18,0); let f=0; for(let t=1;t<=35;t++) if(t!==18) f+=im[b+4*t]; return f; }
+function d64FreeBlocks(){ const g=geo(), im=d64.img; let f=0; for(let t=1;t<=g.maxT;t++){ if(g.sysT.includes(t)) continue; const e=g.bam(t); if(e) f+=im[e.free]; } return f; }
 function d64Dir(){
-  const im=d64.img, out=[]; let t=18, s=1, g=0; const seen=new Set();
-  while(t&&g++<40){
-    if(t>d64.tracks||s>=SPT(t)||seen.has(t*32+s)) break; seen.add(t*32+s);
-    const o=tsOff(t,s);
+  const g=geo(), im=d64.img, out=[]; let t=g.dirT, s=g.dirS, n=0; const seen=new Set();
+  while(t&&n++<100){
+    if(t>g.maxT||s>=g.spt(t)||seen.has(t*64+s)) break; seen.add(t*64+s);
+    const o=g.off(t,s);
     for(let e=0;e<8;e++){
       const p=o+e*32, type=im[p+2]; if(!type) continue;
       out.push({type,t:im[p+3],s:im[p+4],name:stripA0(Array.from(im.subarray(p+5,p+21))),blocks:im[p+30]|(im[p+31]<<8),slot:p});
@@ -1173,10 +1312,10 @@ function d64Dir(){
   return out;
 }
 function d64ReadFile(e){
-  const im=d64.img, out=[]; let t=e.t, s=e.s, g=0;
-  while(t&&g++<1000){
-    if(t>d64.tracks||s>=SPT(t)) break;
-    const o=tsOff(t,s), nt=im[o], ns=im[o+1];
+  const g=geo(), im=d64.img, out=[]; let t=e.t, s=e.s, n=0;
+  while(t&&n++<4000){
+    if(t>g.maxT||s>=g.spt(t)) break;
+    const o=g.off(t,s), nt=im[o], ns=im[o+1];
     if(nt===0){ for(let i=2;i<=ns&&i<256;i++) out.push(im[o+i]); break; }
     for(let i=2;i<256;i++) out.push(im[o+i]);
     t=nt; s=ns;
@@ -1193,44 +1332,45 @@ function d64DirLines(){
   out.push([d64FreeBlocks(),pet('BLOCKS FREE.')]);
   return out;
 }
-function d64Scratch(e){ const im=d64.img; let t=e.t, s=e.s, g=0; while(t&&g++<1000){ const o=tsOff(t,s); d64FreeSector(t,s); const nt=im[o], ns=im[o+1]; if(!nt) break; t=nt; s=ns; } im[e.slot+2]=0; }
+function d64Scratch(e){ const g=geo(), im=d64.img; let t=e.t, s=e.s, n=0; while(t&&n++<4000){ if(t>g.maxT) break; const o=g.off(t,s); d64FreeSector(t,s); const nt=im[o], ns=im[o+1]; if(!nt) break; t=nt; s=ns; } im[e.slot+2]=0; }
 function d64Lookup(name,anyType){
   if(name==='$') return {name:'$',bytes:buildPRG(d64DirLines()),dir:true};
   const e=d64Dir().find(e=>(anyType?(e.type&7)!==0:(e.type&7)===2)&&(!name||name==='*'||nameMatch(e.name,name)));
   return e?{name:e.name,bytes:d64ReadFile(e)}:null;
 }
+function bamTake(t,s){ const g=geo(), e=g.bam(t); if(!e) return false; const im=d64.img, byte=e.map+(s>>3), bit=1<<(s&7); if(!(im[byte]&bit)) return false; im[byte]&=~bit; im[e.free]--; return true; }
 function d64Alloc(){
-  const im=d64.img, b=tsOff(18,0);
-  const order=[]; for(let k=1;k<=17;k++){ order.push(18-k); if(18+k<=35) order.push(18+k); }
+  const g=geo(), order=[], c=g.dirT, half=g.k==='d71'?35:g.maxT;
+  for(let k=1;k<half;k++){ if(c-k>=1) order.push(c-k); if(c+k<=half) order.push(c+k); }
+  if(g.k==='d71') for(let k=1;k<=17;k++){ order.push(53-k); if(53+k<=70) order.push(53+k); }
   for(const t of order){
-    if(t<1||t>35||!im[b+4*t]) continue;
-    for(let s=0;s<SPT(t);s++){ const byte=b+4*t+1+(s>>3), bit=1<<(s&7); if(im[byte]&bit){ im[byte]&=~bit; im[b+4*t]--; return {t,s}; } }
+    if(g.sysT.includes(t)) continue;
+    const e=g.bam(t); if(!e||!d64.img[e.free]) continue;
+    for(let s=0;s<g.spt(t);s++) if(bamTake(t,s)) return {t,s};
   }
   err('DISK FULL');
 }
-function d64FreeSector(t,s){ if(t<1||t>35) return; const im=d64.img, b=tsOff(18,0), byte=b+4*t+1+(s>>3), bit=1<<(s&7); if(!(im[byte]&bit)){ im[byte]|=bit; im[b+4*t]++; } }
+function d64FreeSector(t,s){ const g=geo(), e=g.bam(t); if(!e) return; const im=d64.img, byte=e.map+(s>>3), bit=1<<(s&7); if(!(im[byte]&bit)){ im[byte]|=bit; im[e.free]++; } }
 function d64DirSlot(){
-  const im=d64.img; let t=18, s=1, last=null, g=0;
-  while(t&&g++<40){
-    const o=tsOff(t,s);
+  const g=geo(), im=d64.img; let t=g.dirT, s=g.dirS, last=null, n=0;
+  while(t&&n++<100){
+    const o=g.off(t,s);
     for(let e=0;e<8;e++) if(!im[o+e*32+2]) return o+e*32;
     last=o; t=im[o]; s=im[o+1];
   }
-  const b=tsOff(18,0);
-  for(let ns=0;ns<SPT(18);ns++){
-    const byte=b+4*18+1+(ns>>3), bit=1<<(ns&7);
-    if(im[byte]&bit){ im[byte]&=~bit; im[b+72]--; im[last]=18; im[last+1]=ns; const o=tsOff(18,ns); im.fill(0,o,o+256); im[o+1]=0xFF; return o; }
+  for(let ns=g.dirS;ns<g.spt(g.dirT);ns++){
+    if(bamTake(g.dirT,ns)){ im[last]=g.dirT; im[last+1]=ns; const o=g.off(g.dirT,ns); im.fill(0,o,o+256); im[o+1]=0xFF; return o; }
   }
   err('DISK FULL');
 }
 function d64Save(name,bytes,ftype){
-  const im=d64.img;
+  const g=geo(), im=d64.img;
   for(const e of d64Dir()) if((e.type&7)!==0&&e.name===name) d64Scratch(e);
   const need=Math.max(1,Math.ceil(bytes.length/254));
   if(need>d64FreeBlocks()) err('DISK FULL');
   const secs=[]; for(let k=0;k<need;k++) secs.push(d64Alloc());
   for(let k=0;k<need;k++){
-    const o=tsOff(secs[k].t,secs[k].s), chunk=bytes.subarray(k*254,(k+1)*254);
+    const o=g.off(secs[k].t,secs[k].s), chunk=bytes.subarray(k*254,(k+1)*254);
     im.fill(0,o,o+256);
     if(k<need-1){ im[o]=secs[k+1].t; im[o+1]=secs[k+1].s; } else { im[o]=0; im[o+1]=chunk.length+1; }
     im.set(chunk,o+2);
@@ -1350,7 +1490,7 @@ function updRom(){
   if(exr===0){ if(hi&&lo) pageR[8]=pageR[9]=4; if(gm===0&&hi) pageR[10]=pageR[11]=5; }
   if(lo||hi){ pageR[13]=3; ioVis=!!ch; charVis=!ch; } else { ioVis=false; charVis=false; }
 }
-function portRead(){ const d=mem[0]; return ((mem[1]&d)|(~d&((TAPE.data&&TAPE.playing)?0:0x10)))&255; }
+function portRead(){ const d=mem[0]; return ((mem[1]&d)|(~d&(((TAPE.data||TAPE.recording)&&TAPE.playing)?0:0x10)))&255; }
 
 /* --- CIA 6526 (deux puces : CIA1 → IRQ, CIA2 → NMI) --- */
 function makeCIA(){ return {pra:0,prb:0,ddra:0,ddrb:0,ta:0xFFFF,tb:0xFFFF,la:0xFFFF,lb:0xFFFF,cra:0,crb:0,icr:0,mask:0,sdr:0,tod:0,todBase:0,todRun:true,todLatch:null}; }
@@ -1382,7 +1522,7 @@ function ciaNextIn(c){
   if(c.crb&1){ const mode=(c.crb>>5)&3; if(mode===0) m=Math.min(m,c.tb+1); else if(mode>=2&&(c.cra&1)) m=Math.min(m,c.ta+1+c.tb*(c.la+1)); }
   return m;
 }
-function todNow(c){ return (c.todRun?c.tod+Math.floor((cyc-c.todBase)/98525):c.tod)%864000; }
+function todNow(c){ return (c.todRun?c.tod+Math.floor((cyc-c.todBase)/(TM.hz/10)):c.tod)%864000; }
 function todRegs(t){
   const bcd=v=>((v/10|0)<<4)|(v%10);
   const h24=Math.floor(t/36000)%24; let h=h24%12; if(h===0) h=12;
@@ -1401,8 +1541,8 @@ function scanCols(){ const sel=~(cia1.prb|~cia1.ddrb)&255; let cols=255; if(sel)
 function ciaRead(c,r){
   switch(r){
     case 0: if(c===cia2){ if(!DRV.on) return (c.pra|~c.ddra)&255; drvRun(cyc); busLines(); return (c.pra|~c.ddra)&(0x3F|(BUS.clk?0:0x40)|(BUS.data?0:0x80))&255; }
-      return (c.pra|~c.ddra)&(joyPort===2?joy2:255)&scanCols()&255;
-    case 1: return (c.prb|~c.ddrb)&(c===cia1?scanRows()&(joyPort===1?joy2:255):255)&255;
+      return (c.pra|~c.ddra)&portJoy(2)&scanCols()&255;
+    case 1: return (c.prb|~c.ddrb)&(c===cia1?scanRows()&portJoy(1):255)&255;
     case 2: return c.ddra; case 3: return c.ddrb;
     case 4: return c.ta&255; case 5: return c.ta>>8; case 6: return c.tb&255; case 7: return c.tb>>8;
     case 8: case 9: case 10: case 11: {
@@ -1460,10 +1600,11 @@ function ioRead(a){
     if(r>=0x20) return mem[0xD000+r]|0xF0;
     return mem[0xD000+r];
   }
-  if(a<0xD800){ const r=a&31; if(r===0x1B) return sidOsc3(); if(r===0x1C) return SV[2].env; if(r===0x19||r===0x1A) return 0xFF; return 0; }
+  if(a<0xD800){ const r=a&31; if(r===0x1B) return sidOsc3(); if(r===0x1C) return SV[2].env; if(r===0x19) return potX; if(r===0x1A) return potY; return 0; }
   if(a<0xDC00) return (mem[a]&15)|240;
   if(a<0xDD00) return ciaRead(cia1,a&15);
   if(a<0xDE00) return ciaRead(cia2,a&15);
+  if(REU.size&&a>=0xDF00) return reuRead(a&31);
   return cart?cartIO(a,0,false):vicFloat();
 }
 function ioWrite(a,v){
@@ -1478,6 +1619,7 @@ function ioWrite(a,v){
   if(a<0xDC00){ mem[a]=v&15; return; }
   if(a<0xDD00){ ciaWrite(cia1,a&15,v); return; }
   if(a<0xDE00){ ciaWrite(cia2,a&15,v); return; }
+  if(REU.size&&a>=0xDF00){ reuWrite(a&31,v); return; }
   cartIO(a,v,true);
 }
 function peek(a){
@@ -1506,7 +1648,7 @@ function poke(a,v){
   if(a>=0xD000&&a<0xE000){ if(ioVis) ioWrite(a,v); else ramD[a-0xD000]=v; return; }
   mem[a]=v;
   if(a<0x400){
-    if(a<2){ updRom(); tapeMotor(); }
+    if(a<2){ updRom(); tapeMotor(); tapeRecEdge(); }
     if(romMode) return;
     switch(a){
       case 198: { const n=Math.min(v,10); kbd=[]; for(let i=0;i<n;i++) kbd.push(mem[631+i]); break; }
@@ -1545,7 +1687,7 @@ let RD=a=>{
   }
   return vicFloat();
 };
-let WR=(a,v)=>{ if(a<0x400||(a>=0xD000&&a<0xE000)) poke(a,v); else mem[a]=v; };
+let WR=(a,v)=>{ if(a<0x400||(a>=0xD000&&a<0xE000)) poke(a,v); else { if(cart&&cart.ramEn&&a>=0x8000&&a<0xA000&&pageR[8]===4){ cart.aram[a-0x8000]=v; return; } mem[a]=v; if(a===0xFF00&&REU.armed) reuExec(); } };
 let trapsOn=true, inIrqSync=false, irqAbort=false;
 const OPROWS=[
 "BRK 0 7|ORA 9 6|JAM 0 2|SLO 9 8|NOP 3 3|ORA 3 3|ASL 3 5|SLO 3 5|PHP 0 3|ORA 2 2|ASL 1 2|ANC 2 2|NOP 6 4|ORA 6 4|ASL 6 6|SLO 6 6",
@@ -1793,7 +1935,7 @@ function vicAdvance(){
     const L=vicLine;
     if(vicPhase===0){
       // fin de la ligne précédente : calcul au cycle près, puis cycle 58 (compteurs)
-      const P=L===0?311:L-1;
+      const P=L===0?TM.lines-1:L-1;
       renderLine(P);
       if(cpuActive){ let n=0; for(const q of SPR) if(q.dma) n++; if(n) cyc+=2*n+3; }
       // début de la nouvelle ligne
@@ -1804,7 +1946,7 @@ function vicAdvance(){
       vicPhase=1; vicNext+=14;
     } else {
       vicCycle14(L);
-      vicPhase=0; vicNext+=49; vicLine=L===311?0:L+1;
+      vicPhase=0; vicNext+=TM.lineCyc-14; vicLine=L>=TM.lines-1?0:L+1;
     }
   }
 }
@@ -1849,7 +1991,7 @@ function tick(){
 }
 let cpuSliceMs=12;
 function fastNow(){ return turbo||(TAPE.run&&TAPE.warp)||(DRV.on&&DRV.motor&&DRV.warp); }
-function irqPending(){ return ((d019&mem[0xD01A]&15)!==0)||((cia1.icr&cia1.mask&0x1F)!==0); }
+function irqPending(){ return ((d019&mem[0xD01A]&15)!==0)||((cia1.icr&cia1.mask&0x1F)!==0)||(REU.st&0x80)!==0; }
 function cpuFault(e){
   if(romMode){ romHalted=true; if(HAS_DOM) toast((e&&e.m?e.m:'Erreur du processeur')+' : cliquez sur Reset'); return; }
   C.sp=0xFF; C.i=0; inIrqSync=false; cpuActive=false;
@@ -1898,9 +2040,15 @@ function idleClock(n){
 
 /* ================= SID 6581 (synthèse logicielle) ================= */
 const MODEL_KEY='emu64.model.v1';
-let MODEL={name:'c64',vic:'6569',sid:'6581'};
-function setModel(n){ MODEL=n==='c64c'?{name:'c64c',vic:'8565',sid:'8580'}:{name:'c64',vic:'6569',sid:'6581'}; try{ localStorage.setItem(MODEL_KEY,MODEL.name); }catch(e){} }
-try{ if(typeof localStorage!=='undefined'&&localStorage.getItem(MODEL_KEY)==='c64c') MODEL={name:'c64c',vic:'8565',sid:'8580'}; }catch(e){}
+const MODELS={
+  c64:{name:'c64',vic:'6569',sid:'6581',ntsc:false}, c64c:{name:'c64c',vic:'8565',sid:'8580',ntsc:false},
+  c64n:{name:'c64n',vic:'6567',sid:'6581',ntsc:true}, c64cn:{name:'c64cn',vic:'8562',sid:'8580',ntsc:true}};
+let MODEL=MODELS.c64;
+// cadence de la machine : PAL 63 cycles × 312 lignes à 985 248 Hz ; NTSC 65 cycles × 263 lignes à 1 022 727 Hz
+const TM={lineCyc:63,lines:312,hz:985248};
+function applyTiming(){ const n=MODEL.ntsc; TM.lineCyc=n?65:63; TM.lines=n?263:312; TM.hz=n?1022727:985248; CPU_KHZ=TM.hz/1000; }
+function setModel(n){ MODEL=MODELS[n]||MODELS.c64; applyTiming(); try{ localStorage.setItem(MODEL_KEY,MODEL.name); }catch(e){} }
+try{ const m=typeof localStorage!=='undefined'&&localStorage.getItem(MODEL_KEY); if(m&&MODELS[m]) MODEL=MODELS[m]; }catch(e){}
 const SID={ctx:null,gain:null,on:true,next:0,sr:48000,q:[]};
 const ENV_RATE=[9,32,63,95,149,220,267,313,392,977,1954,3126,3907,11720,19532,31251];
 const mkVoice=()=>({acc:0,freq:0,pw:0,ctrl:0,ad:0,sr:0,env:0,state:3,ec:0,rc:0,lfsr:0x7FFFF8,rise:false});
@@ -2006,9 +2154,9 @@ function sidFlush(silent){
   const q=SID.q;
   const applyAll=()=>{ for(let i=0;i<q.length;i+=3) sidApply(q[i+1],q[i+2]); q.length=0; sidCyc=cyc; };
   if(!SID.ctx||silent||SID.ctx.state!=='running'){ applyAll(); return; }
-  const cps=985248*(SID.speed||1)/SID.sr, total=cyc-sidCyc;
+  const cps=TM.hz*(SID.speed||1)/SID.sr, total=cyc-sidCyc;
   if(total<=0){ return; }
-  if(total>985248*0.3){ applyAll(); SID.next=0; return; }
+  if(total>TM.hz*0.3){ applyAll(); SID.next=0; return; }
   const n=Math.floor(total/cps); if(n<=0) return;
   const buf=new Float32Array(n); let qi=0, c=sidCyc;
   for(let k=0;k<n;k++){
@@ -2083,6 +2231,28 @@ function tapeEdges(){
     TAPE.nextEdge+=p;
   }
 }
+function tapeRecStart(){
+  tapeStop(); TAPE.data=null; TAPE.t64=null; TAPE.name='enregistrement.tap';
+  TAPE.recording=true; TAPE.rec=[]; TAPE.recLast=-1; TAPE.recBit=(mem[1]>>3)&1; TAPE.playing=true; tapeMotor(); refreshTapeUI();
+}
+function tapeRecEdge(){
+  if(!TAPE.recording) return;
+  const on=((mem[0]&0x20)!==0)&&((mem[1]&0x20)===0), bit=(mem[1]>>3)&1;
+  if(on&&bit&&!TAPE.recBit){
+    if(TAPE.recLast>=0){ const d=cyc-TAPE.recLast, v=Math.round(d/8); if(v>0&&v<256) TAPE.rec.push(v); else TAPE.rec.push(0,d&255,(d>>8)&255,(d>>16)&255); }
+    TAPE.recLast=cyc;
+  }
+  TAPE.recBit=bit;
+}
+function tapeRecStop(){
+  if(!TAPE.recording) return null;
+  TAPE.recording=false; TAPE.playing=false;
+  const body=Uint8Array.from(TAPE.rec), out=new Uint8Array(20+body.length);
+  out.set(pet('C64-TAPE-RAW'),0); out[12]=1; out[13]=0; out[14]=MODEL.ntsc?1:0;
+  out[16]=body.length&255; out[17]=(body.length>>8)&255; out[18]=(body.length>>16)&255; out[19]=body.length>>>24; out.set(body,20);
+  TAPE.rec=null; tapeInsert('tap',parseTAP(out),'enregistrement.tap'); TAPE.recorded=out; refreshTapeUI();
+  return out;
+}
 function tapeMotor(){
   const on=!!TAPE.data&&TAPE.playing&&romMode&&((mem[0]&0x20)!==0)&&((mem[1]&0x20)===0);
   if(on&&!TAPE.run){ TAPE.run=true; TAPE.nextEdge=cyc+(TAPE.rem||tapePulse()||2048); }
@@ -2095,14 +2265,14 @@ function refreshTapeUI(){ if(HAS_DOM&&document.querySelector('#dlg-disk[open]'))
 
 /* ================= Cartouches (.crt) ================= */
 let cart=null;
-const CART_TYPES={0:'Normale',4:'Simons\u2019 BASIC',5:'Ocean',7:'Fun Play',8:'Super Games',15:'System 3',17:'Dinamic',19:'Magic Desk',32:'EasyFlash'};
+const CART_TYPES={1:'Action Replay',3:'Final Cartridge III',0:'Normale',4:'Simons\u2019 BASIC',5:'Ocean',7:'Fun Play',8:'Super Games',15:'System 3',17:'Dinamic',19:'Magic Desk',32:'EasyFlash'};
 function parseCRT(b){
   if(String.fromCharCode(...b.subarray(0,16))!=='C64 CARTRIDGE   ') throw new Error('Ce fichier n\u2019est pas une cartouche .crt valide.');
   const be16=o=>(b[o]<<8)|b[o+1], be32=o=>((b[o]<<24)|(b[o+1]<<16)|(b[o+2]<<8)|b[o+3])>>>0;
   const type=be16(0x16);
   const name=String.fromCharCode(...b.subarray(0x20,0x40)).replace(/\0.*$/,'').trim()||'CARTOUCHE';
   if(!(type in CART_TYPES)) throw new Error('Cartouche « '+name+' » : type matériel '+type+' non pris en charge (types gérés : '+Object.values(CART_TYPES).join(', ')+').');
-  const c={type,name,exrom0:b[0x18],game0:b[0x19],banks:[],bank:0,exrom:1,game:1,ram:new Uint8Array(256)};
+  const c={type,name,exrom0:b[0x18],game0:b[0x19],banks:[],bank:0,exrom:1,game:1,ram:new Uint8Array(256),aram:new Uint8Array(8192),ramEn:false,off:false};
   let p=be32(0x10);
   while(p+16<=b.length&&String.fromCharCode(...b.subarray(p,p+4))==='CHIP'){
     const len=be32(p+4), bank=be16(p+10), load=be16(p+12), size=be16(p+14), data=b.slice(p+16,p+16+size);
@@ -2116,16 +2286,27 @@ function parseCRT(b){
 }
 function cartReset(){
   if(!cart) return;
-  cart.bank=0; cart.ram.fill(0);
+  cart.bank=0; cart.ram.fill(0); cart.ramEn=false; cart.off=false;
   if(cart.type===32){ cart.exrom=1; cart.game=0; }
+  else if(cart.type===1){ cart.exrom=0; cart.game=1; }
+  else if(cart.type===3){ cart.exrom=0; cart.game=0; }
   else { cart.exrom=cart.exrom0?1:0; cart.game=cart.game0?1:0; }
 }
-function cartL(a){ const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.lo; return d?d[(a-0x8000)&(d.length-1)]:0xFF; }
-function cartH(a){ const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.hi; return d?d[a&0x1FFF&(d.length-1)]:0xFF; }
+function cartL(a){ if(cart&&cart.type===1&&cart.ramEn) return cart.aram[(a-0x8000)&0x1FFF]; const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.lo; return d?d[(a-0x8000)&(d.length-1)]:0xFF; }
+function cartH(a){ const bk=cart&&cart.banks[cart.bank]; const d=bk&&(bk.hi||(cart.type===1?bk.lo:null)); return d?d[a&0x1FFF&(d.length-1)]:0xFF; }
 function cartIO(a,v,w){
   if(!cart) return 0;
   const io1=a<0xDF00, t=cart.type, lines=()=>updRom();
   switch(t){
+    case 1:
+      if(io1){ if(w&&!cart.off){ const m=v&3; cart.exrom=m&2?1:0; cart.game=m&1?0:1; if(m===3){ cart.exrom=1; cart.game=0; } if(m===2){ cart.exrom=1; cart.game=1; }
+          cart.bank=(v>>3)&3; cart.ramEn=!!(v&0x20); if(v&4){ cart.off=true; cart.exrom=1; cart.game=1; } lines(); } return w?0:vicFloat(); }
+      if(cart.ramEn){ if(w) cart.aram[0x1F00+(a&255)]=v; else return cart.aram[0x1F00+(a&255)]; return 0; }
+      { const bk=cart.banks[cart.bank]; return w?0:(bk&&bk.lo?bk.lo[0x1F00+(a&255)]:0xFF); }
+    case 3:
+      if(!w){ const bk=cart.banks[cart.bank]; return bk&&bk.lo?bk.lo[(io1?0x1E00:0x1F00)+(a&255)]:0xFF; }
+      if(!io1&&(a&255)===0xFF&&!cart.off){ cart.bank=v&3; cart.exrom=(v>>4)&1; cart.game=(v>>5)&1; if(v&0x80) cart.off=true; lines(); if(!(v&0x40)&&romMode&&state==='rom') nmi(); }
+      return 0;
     case 5: if(w&&io1) cart.bank=v&0x3F; break;
     case 19: if(w&&io1){ cart.bank=v&0x3F; cart.exrom=(v&0x80)?1:0; lines(); } break;
     case 15: if(io1) cart.bank=a&0x3F; break;
@@ -2148,6 +2329,10 @@ function ensureRom(){
   return true;
 }
 function cartInsert(c){ cart=c; cartReset(); if(!ensureRom()) romReset(); }
+function cartFreeze(){
+  if(!cart||!(cart.type===1||cart.type===3)||!romMode) return false;
+  cart.off=false; cart.bank=0; cart.exrom=1; cart.game=0; updRom(); nmi(); return true;
+}
 function cartEject(){ cart=null; if(romMode) romReset(); else updRom(); }
 
 /* ================= ROM d'origine et lecteur virtuel ================= */
@@ -2289,10 +2474,11 @@ function romTrap(pc){
 }
 const setST=b=>{ mem[0x90]|=b; };
 const ckey=()=>IEC.dev*16+IEC.ch;
-function iecListen(){ if(DRV.on&&!DRV.halted&&(C.a&31)===8){ IEC.real=true; return false; } IEC.real=false; const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?1:0; if(!IEC.mode) setST(0x80); C.c=0; }
+function iecListen(){ if(DRV.on&&!DRV.halted&&(C.a&31)===8){ IEC.real=true; return false; } IEC.real=false; const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?1:d===4?3:0; if(!IEC.mode) setST(0x80); C.c=0; }
 function iecTalk(){ if(DRV.on&&!DRV.halted&&(C.a&31)===8){ IEC.real=true; return false; } IEC.real=false; const d=C.a&31; IEC.dev=d; IEC.mode=(d===8||d===9)?2:0; if(!IEC.mode) setST(0x80); C.c=0; }
 function iecSecond(){
   if(IEC.real) return false;
+  if(IEC.mode===3){ C.c=0; IEC.opening=(C.a&0xF0)===0xF0?{ch:C.a&15,name:[]}:null; return; }
   C.c=0; if(!IEC.mode){ setST(0x80); return; }
   const a=C.a, ch=a&15, cmd=a&0xF0; IEC.ch=ch;
   if(cmd===0xF0){ IEC.opening={ch,name:[]}; }
@@ -2302,6 +2488,7 @@ function iecSecond(){
 function iecTksa(){ if(IEC.real) return false; C.c=0; if(!IEC.mode){ setST(0x80); return; } IEC.ch=C.a&15; }
 function iecCiout(){
   if(IEC.real) return false;
+  if(IEC.mode===3){ C.c=0; if(!IEC.opening) printerPut(C.a); return; }
   C.c=0; if(!IEC.mode){ setST(0x80); return; }
   if(IEC.opening){ IEC.opening.name.push(C.a); return; }
   if(IEC.ch===15){ IEC.cmd.push(C.a); return; }
@@ -2309,6 +2496,7 @@ function iecCiout(){
 }
 function iecUnlsn(){
   if(IEC.real) return false;
+  if(IEC.mode===3){ C.c=0; IEC.opening=null; IEC.mode=0; return; }
   C.c=0;
   if(IEC.opening){ iecOpen(IEC.opening.ch,IEC.opening.name); IEC.opening=null; }
   else if(IEC.ch===15&&IEC.cmd.length){ iecCommand(String.fromCharCode(...IEC.cmd)); IEC.cmd=[]; }
@@ -2411,13 +2599,22 @@ function buildTrack(img,t){
   const ns=SPT(t), len=TRACK_LEN[zoneOf(t)], b=tsOff(18,0), id1=img[b+0xA2], id2=img[b+0xA3];
   const out=new Uint8Array(len).fill(0x55); let p=0;
   const gap=Math.max(4,Math.floor((len-ns*354)/ns));
+  const E=(d64&&d64.err&&d64.img===img)?d64.err:null, ec=s=>E?E[TRACK_OFF[t]+s]||1:1;
+  for(let s=0;s<ns;s++) if(ec(s)===3||ec(s)===15) return out;          // 21 / 74 : piste sans synchronisation
   for(let s=0;s<ns;s++){
-    for(let k=0;k<5;k++) out[p++]=0xFF;
-    for(const v of gcrEncode([0x08,s^t^id2^id1,s,t,id2,id1,0x0F,0x0F])) out[p++]=v;
-    p+=9;
+    const e=ec(s);
+    if(e===2){ p+=5+10+9; } else {                                       // 20 : en-tête introuvable
+      for(let k=0;k<5;k++) out[p++]=0xFF;
+      const h=[0x08,s^t^id2^id1,s,t,id2,id1,0x0F,0x0F];
+      if(e===9) h[1]^=0xFF;                                               // 27 : somme de l'en-tête fausse
+      if(e===11){ h[4]^=0xFF; h[1]=s^t^h[4]^id1; }                        // 29 : identifiant différent
+      for(const v of gcrEncode(h)) out[p++]=v;
+      p+=9;
+    }
     for(let k=0;k<5;k++) out[p++]=0xFF;
     const o=tsOff(t,s), data=img.subarray(o,o+256); let ck=0; for(const v of data) ck^=v;
-    for(const v of gcrEncode([0x07,...data,ck,0,0])) out[p++]=v;
+    if(e===5) ck^=0xFF;                                                   // 23 : somme des données fausse
+    for(const v of gcrEncode([e===4?0x00:0x07,...data,ck,0,0])) out[p++]=v; // 22 : bloc de données introuvable
     p+=gap;
   }
   return out;
@@ -2573,7 +2770,7 @@ function diskAdvance(n){
 function drvIrq(){ const c=DRV.C; push(c.pc>>8); push(c.pc&255); push((getP()&~0x10)|0x20); c.i=1; c.pc=drvRD(0xFFFE)|(drvRD(0xFFFF)<<8); cyc+=7; }
 function drvRun(t64){
   if(!DRV.on||DRV.halted) return;
-  const target=Math.floor(t64*1.0149723);
+  const target=Math.floor(t64*1e6/TM.hz);
   if(DRV.cyc>=target) return;
   const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive;
   C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false;
@@ -2592,13 +2789,13 @@ function drvLoadDisk(){
   drvSync(); DRV.tracks=[]; DRV.dirty=false;
   if(!d64) return;
   if(d64.g64){ d64.g64.forEach((t,h)=>{ if(t) DRV.tracks[h]=t; }); }
-  else for(let t=1;t<=d64.tracks;t++) DRV.tracks[2*t]=buildTrack(d64.img,t);
+  else if(d64.kind!=='d81'){ const mt=Math.min(d64.tracks,d64.kind==='d71'?35:42); for(let t=1;t<=mt;t++) DRV.tracks[2*t]=buildTrack(d64.img,t); }
   DRV.bitPos=0;
 }
 function drvSync(){
   if(!DRV.dirty||!d64) return;
   DRV.dirty=false;
-  for(let t=1;t<=d64.tracks;t++) if(DRV.tracks[2*t]) decodeTrack(DRV.tracks[2*t],t,d64.img);
+  for(let t=1;t<=Math.min(d64.tracks,42);t++) if(DRV.tracks[2*t]) decodeTrack(DRV.tracks[2*t],t,d64.img);
   if(d64.g64) d64.g64=DRV.tracks; else d64Persist();
   refreshDisk();
 }
@@ -2606,7 +2803,7 @@ function drvReset(){
   Object.assign(DRV.via1,makeVIA()); Object.assign(DRV.via2,makeVIA());
   DRV.ram.fill(0); DRV.halted=false; DRV.phase=0; DRV.motor=false; DRV.led=false; DRV.density=3; DRV.ht=36; DRV.bitAcc=0; DRV.bitCnt=0; DRV.ones=0; DRV.sync=false; DRV.prevAtn=false;
   Object.assign(DRV.C,{a:0,x:0,y:0,sp:0xFF,n:0,v:0,d:0,i:1,z:0,c:0}); DRV.C.pc=DRV.rom[0x3FFC]|(DRV.rom[0x3FFD]<<8);
-  DRV.cyc=Math.floor(cyc*1.0149723);
+  DRV.cyc=Math.floor(cyc*1e6/TM.hz);
 }
 function drvEnable(){
   if(!USER_ROM.dos) throw new Error('Il faut la ROM du lecteur 1541 (menu Système).');
@@ -2645,7 +2842,7 @@ function saveState(){
     cia1,cia2,
     vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo,SPR},
     sid:{SV,SF,sidCyc},
-    state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,
+    state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,reu:REU.size?REU:null,
     tape:TAPE,cart,d64,
     drv:DRV.on?{C:DRV.C,cyc:DRV.cyc,ram:DRV.ram,via1:DRV.via1,via2:DRV.via2,ht:DRV.ht,tracks:DRV.tracks,bitPos:DRV.bitPos,bitAcc:DRV.bitAcc,shift:DRV.shift,ones:DRV.ones,bitCnt:DRV.bitCnt,latch:DRV.latch,wshift:DRV.wshift,sync:DRV.sync,dirty:DRV.dirty,phase:DRV.phase,prevAtn:DRV.prevAtn,motor:DRV.motor,led:DRV.led,density:DRV.density,warp:DRV.warp}:null,
     basic:romMode?null:{prog:prog.map(l=>[l.num,l.bytes]),vars,arrays,
@@ -2662,7 +2859,7 @@ function loadState(json){
   if(o.mode==='user'&&!(USER_ROM.basic&&USER_ROM.kernal)) throw new Error('Cet état a été fait avec vos ROM d\u2019origine : chargez-les d\u2019abord dans Système.');
   if(o.drv&&!USER_ROM.dos) throw new Error('Cet état utilise le lecteur 1541 émulé : chargez d\u2019abord sa ROM dans Système.');
   pending=null; stopReq=false; typeQueue.length=0; romActions.length=0; physHeld.clear(); synthKeys.length=0; keysDown.clear();
-  if(o.model) setModel(o.model);
+  if(o.model) setModel(o.model); else setModel('c64');
   if(o.mode==='builtin'){ romMode=false; romSource=''; }
   else {
     const set=o.mode==='open'?{basic:b64d(OPEN_ROMS.basic),kernal:b64d(OPEN_ROMS.kernal),chargen:b64d(OPEN_ROMS.chargen)}:USER_ROM;
@@ -2676,6 +2873,7 @@ function loadState(json){
   for(let i=0;i<3;i++) Object.assign(SV[i],o.sid.SV[i]); Object.assign(SF,o.sid.SF); SID.q.length=0; sidCyc=cyc; SID.next=0;
   romHalted=o.romHalted; typeHoldUntil=o.typeHoldUntil; kbd=o.kbd||[]; kName=o.kern.kName; kDev=o.kern.kDev; kSa=o.kern.kSa;
   Object.assign(TAPE,o.tape); cart=o.cart; d64=o.d64;
+  if(o.reu){ PERIPH.reu=o.reu.size/1024; Object.assign(REU,o.reu); } else if(REU.size) reuSetSize(PERIPH.reu);
   if(o.iec) Object.assign(IEC,o.iec); else { IEC.chans={}; IEC.mode=0; IEC.opening=null; IEC.real=false; }
   if(o.drv){ Object.assign(DRV,o.drv); DRV.rom=USER_ROM.dos; DRV.on=true; DRV.halted=false; } else { DRV.on=false; DRV.motor=false; }
   if(o.basic){
@@ -2756,11 +2954,12 @@ function runSlice(budget,ms){
   return cost-c0;
 }
 let credit=0;
-const CPU_KHZ=985.248;
+let CPU_KHZ=985.248;
 function update(dt){
   if(pending&&now()>=pending.at){ const f=pending.fn; pending=null; guard(f); }
   let n=0;
   while(typeQueue.length&&(state==='idle'||state==='input')&&n<600){ editKey(typeQueue.shift()); n++; }
+  if(CPU_KHZ!==TM.hz/1000) CPU_KHZ=TM.hz/1000;
   cycFrac+=Math.min(dt,100)*CPU_KHZ; const cycles=Math.floor(cycFrac); cycFrac-=cycles;
   if(romMode){ romUpdate(cycles); sidFlush(!SID.on||fastNow()); return; }
   if(state==='cpu'){ runCpu(cycles); credit=0; sidFlush(!SID.on||fastNow()); return; }
@@ -3030,7 +3229,7 @@ let canvas, ctx2, IMG, IMG32, cursorOn=true, blinkT=0;
 const FBW=new Uint32Array(W*H), FB_D=new Uint32Array(W*H);   // image en cours de balayage / dernière image complète
 const lineFg=new Uint8Array(W), sprOwnL=new Uint8Array(W);
 let vicFrameNo=0, skipDraw=false;
-function frameFlip(){ if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNow()&&(vicFrameNo&7)!==0; }
+function frameFlip(){ if(TM.lines<312&&!skipDraw) FBW.fill(PAL[0],(TM.lines-15)*W); if(!skipDraw) FB_D.set(FBW); vicFrameNo++; skipDraw=fastNow()&&(vicFrameNo&7)!==0; }
 function render(){ if(!ctx2) return; IMG32.set(FB_D); ctx2.putImageData(IMG,0,0); }
 const lineBrd=new Uint8Array(W);
 const gB=new Uint8Array(40), gS=new Uint8Array(40), gC=new Uint8Array(40), gD=new Uint8Array(40);
@@ -3051,7 +3250,8 @@ function renderLine(L){
   // accès de la puce aux caractères
   const cur=!romMode&&cursorOn&&(state==='idle'||state==='input')&&!typeQueue.length?crow*40+ccol:-1;
   let vmli=0, baStart=-1, greyCc=-1, greyCol=0; const newVic=MODEL.vic==='8565', GREY=PAL[15];
-  for(let cc=0;cc<63;cc++){
+  const LC=TM.lineCyc, XW=LC*8;
+  for(let cc=0;cc<LC;cc++){
     const ct=ls+cc;
     if(li<ln&&lg[li]<=ct){
       while(li<ln&&lg[li]<=ct){
@@ -3135,7 +3335,7 @@ function renderLine(L){
       }
       let spc=-1, behind=0, mask=0;
       if(sprWork){
-        const vx=x<0?x+504:x;
+        const vx=x<0?x+XW:x;
         for(let ai=0;ai<act.length;ai++){
           const s=act[ai], q=SPR[s];
           if(!q.on&&q.show&&vx===sxp[s]){ q.on=true; q.pos=0; q.sd=q.data; }
@@ -3199,6 +3399,34 @@ function updateJoy(e,down){
   const bit={ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,Tab:16}[e.key];
   if(bit){ if(down) joy2&=~bit; else joy2|=bit; }
 }
+const NUMPAD_JOY={Numpad8:1,Numpad2:2,Numpad4:4,Numpad6:8,Numpad7:5,Numpad9:9,Numpad1:6,Numpad3:10,Numpad0:16,Numpad5:16,NumpadEnter:16};
+function numpadJoy(e,down){
+  if(!PERIPH.numpadJoy) return false;
+  const bit=NUMPAD_JOY[e.code]; if(bit===undefined) return false;
+  e.preventDefault(); if(down) joyB&=~bit; else joyB|=bit; return true;
+}
+/* manettes USB / Bluetooth : 1re sur le port 2, 2e sur le port 1 */
+let padsBlocked=false;
+function getPads(){
+  // certaines pages (cadres intégrés) interdisent l'accès aux manettes : on le note une fois pour toutes
+  if(padsBlocked||typeof navigator==='undefined'||!navigator.getGamepads) return [];
+  try{ return Array.from(navigator.getGamepads()||[]); }catch(e){ padsBlocked=true; return []; }
+}
+function pollPads(){
+  padBits[1]=padBits[2]=255;
+  if(padsBlocked) return;
+  let k=0;
+  for(const gp of getPads()){
+    if(!gp||!gp.connected) continue;
+    const port=k===0?2:1; k++; if(k>2) break;
+    const ax=gp.axes||[], bt=gp.buttons||[], pr=i=>bt[i]&&bt[i].pressed;
+    let v=255;
+    if((ax[1]||0)<-0.5||pr(12)) v&=~1; if((ax[1]||0)>0.5||pr(13)) v&=~2;
+    if((ax[0]||0)<-0.5||pr(14)) v&=~4; if((ax[0]||0)>0.5||pr(15)) v&=~8;
+    if(pr(0)||pr(1)||pr(2)||pr(3)||pr(5)||pr(7)) v&=~16;
+    padBits[port]=v;
+  }
+}
 const MATRIX={Space:[60],Enter:[1],NumpadEnter:[1],Backspace:[0],Delete:[0],ArrowDown:[7],ArrowRight:[2],ArrowUp:[7,15],ArrowLeft:[2,15],
   F1:[4],F3:[5],F5:[6],F7:[3],F2:[4,15],F4:[5,15],F6:[6,15],F8:[3,15],Home:[51],ShiftLeft:[15],ShiftRight:[52],ControlLeft:[58],ControlRight:[58],
   AltLeft:[61],AltRight:[61],Escape:[63],Minus:[43],Equal:[53],Period:[44],Comma:[47],Slash:[55],Semicolon:[50],Quote:[45],BracketLeft:[46],
@@ -3245,9 +3473,9 @@ function refreshDisk(){
   dbox.innerHTML='';
   if(d64){
     const h=d64Header(), free=d64FreeBlocks(), files=d64Dir();
-    dbox.append(mkItem(petToText(h.name)||'(sans nom)','ID '+petToText(h.id)+' · '+files.length+' fichier'+(files.length>1?'s':'')+' · '+free+' blocs libres · '+d64.file,[
+    dbox.append(mkItem(petToText(h.name)||'(sans nom)',({d64:'1541',d71:'1571',d81:'1581'}[d64.kind||'d64'])+(d64.err?' · octets d\u2019erreur':'')+' · ID '+petToText(h.id)+' · '+files.length+' fichier'+(files.length>1?'s':'')+' · '+free+' blocs libres · '+d64.file,[
       mkBtn('Répertoire','',()=>{ prepLoad(); typeQueue.push(...textToPet('LOAD"$",8\nLIST\n')); }),
-      mkBtn('.d64','ghost',()=>{ drvSync(); download(d64.img,d64.file.replace(/\.[dg]64$/i,'')+'.d64','application/octet-stream'); toast('Image .d64 téléchargée'); }),
+      mkBtn('.'+(d64.kind||'d64'),'ghost',()=>{ drvSync(); download(d64Bytes(),d64.file.replace(/\.[dg](64|71|81)$/i,'')+'.'+(d64.kind||'d64'),'application/octet-stream'); toast('Image téléchargée'); }),
       mkBtn('.g64','ghost',()=>{ drvSync(); const tr=DRV.on||d64.g64?(d64.g64||DRV.tracks):(()=>{ const a=[]; for(let t=1;t<=d64.tracks;t++) a[2*t]=buildTrack(d64.img,t); return a; })(); download(buildG64(tr),d64.file.replace(/\.[dg]64$/i,'')+'.g64','application/octet-stream'); toast('Image .g64 téléchargée'); }),
       mkBtn('Éjecter','ghost',()=>{ d64Eject(); refreshDisk(); toast('Disquette éjectée : le lecteur 8 revient à la disquette du navigateur'); })
     ],'disk'));
@@ -3290,10 +3518,12 @@ function refreshDisk(){
         mkBtn('.prg','ghost',()=>{ download(f.bytes,safeName(petToText(f.name))+'.prg','application/octet-stream'); })]));
     }
     tb.append(list);
-  } else tb.innerHTML='<div class="empty">Aucune cassette. Les fichiers .t64 marchent dans les deux modes ; les .tap (enregistrement fidèle de la bande) demandent le mode ROM.</div>';
+  } else if(TAPE.recording){ tb.append(mkItem('Enregistrement en cours',(TAPE.rec?TAPE.rec.length:0)+' impulsions enregistrées',[mkBtn('Arrêter et garder','',()=>{ tapeRecStop(); toast('Cassette enregistrée : elle est insérée et téléchargeable'); })],'disk')); }
+  else tb.innerHTML='<div class="empty">Aucune cassette. Les fichiers .t64 marchent dans les deux modes ; les .tap (enregistrement fidèle de la bande) demandent le mode ROM.</div>';
   const cbx=$('#cart-box'); cbx.innerHTML='';
   if(cart) cbx.append(mkItem(cart.name,'Type '+CART_TYPES[cart.type]+' · '+cart.banks.length+' banque'+(cart.banks.length>1?'s':''),[
-    mkBtn('Redémarrer','',()=>{ closeAll(); romReset(); }),
+    ...((cart.type===1||cart.type===3)?[mkBtn('Figer (freeze)','',()=>{ closeAll(); if(cartFreeze()) toast('Cartouche : bouton de gel pressé'); })]:[]),
+    mkBtn('Redémarrer','ghost',()=>{ closeAll(); romReset(); }),
     mkBtn('Débrancher','ghost',()=>{ cartEject(); refreshDisk(); toast('Cartouche débranchée'); })],'disk'));
   else cbx.innerHTML='<div class="empty">Aucune cartouche. Brancher une cartouche redémarre la machine en mode ROM.</div>';
   const dev=webDev();
@@ -3312,9 +3542,9 @@ function refreshDisk(){
 }
 function refreshModel(){
   const box=$('#model-list'); if(!box) return; box.innerHTML='';
-  for(const [n,t,d] of [['c64','C64 d\u2019origine (1982)','Puce vidéo 6569, SID 6581 : filtre chaud et irrégulier, voix digitalisées fortes'],['c64c','C64C (1986 et après)','Puce vidéo 8565 (points gris lors des changements de couleur), SID 8580 : filtre net, voix digitalisées faibles']]){
+  for(const [n,t,d] of [['c64','C64 européen (PAL, 1982)','Puce vidéo 6569, SID 6581 : filtre chaud et irrégulier, voix digitalisées fortes'],['c64c','C64C européen (PAL, 1986 et après)','Puce vidéo 8565 (points gris lors des changements de couleur), SID 8580 : filtre net, voix digitalisées faibles'],['c64n','C64 américain (NTSC)','Puce vidéo 6567 : 60 images/s, 263 lignes, processeur à 1,023 MHz ; SID 6581'],['c64cn','C64C américain (NTSC)','Puce vidéo 8562, SID 8580 : cadence NTSC']]){
     const on=MODEL.name===n;
-    box.append(mkItem(t,d,[mkBtn(on?'Choisi':'Choisir',on?'':'ghost',()=>{ setModel(n); refreshModel(); toast('Modèle : '+t); })],on?'disk':''));
+    box.append(mkItem(t,d,[mkBtn(on?'Choisi':'Choisir',on?'':'ghost',()=>{ const was=MODEL.ntsc; setModel(n); refreshModel(); if(was!==MODEL.ntsc){ if(romMode) romReset(); else coldReset(); toast('Modèle : '+t+' — machine redémarrée (changement de cadence)'); } else toast('Modèle : '+t); })],on?'disk':''));
   }
 }
 function refreshRom(){
@@ -3352,12 +3582,30 @@ async function refreshStates(){
 }
 async function quickSave(){ try{ await stateSave('rapide'); toast('Sauvegarde rapide faite (F10 pour y revenir)'); }catch(ex){ toast(ex.message); } }
 async function quickLoad(){ try{ const w=await stateLoad('rapide'); toast(w||'Sauvegarde rapide restaurée'); }catch(ex){ toast(ex.message==='Emplacement vide.'?'Aucune sauvegarde rapide : appuyez d\u2019abord sur F9':ex.message); } }
+function refreshPrinter(){ const t=$('#prn-text'); if(!t) return; t.value=PRN.text||''; t.placeholder='Aucune impression pour l\u2019instant.'; t.scrollTop=t.scrollHeight; }
+function refreshPeriph(){
+  const jl=$('#joy-list'); jl.innerHTML='';
+  let pads=0; for(const g of getPads()) if(g&&g.connected) pads++;
+  jl.append(mkItem('Pavé numérique = second joystick',(PERIPH.numpadJoy?'Actif':'Inactif')+' : 8 4 6 2 pour diriger, 0 ou 5 pour tirer, sur le port opposé aux flèches'+(PERIPH.numpadJoy?' (les chiffres du pavé ne tapent plus)':''),[mkBtn(PERIPH.numpadJoy?'Désactiver':'Activer',PERIPH.numpadJoy?'ghost':'',()=>{ PERIPH.numpadJoy=!PERIPH.numpadJoy; periphSave(); refreshPeriph(); })],PERIPH.numpadJoy?'disk':''));
+  jl.append(mkItem('Manettes détectées',padsBlocked?'Indisponibles sur cette page : le site qui l\u2019affiche interdit l\u2019accès aux manettes (ouvrez le fichier directement ou depuis votre propre site)':pads?pads+' manette'+(pads>1?'s':'')+' connectée'+(pads>1?'s':''):'Aucune pour l\u2019instant (appuyez sur un bouton de la manette)',[]));
+  const ml=$('#mouse-list'); ml.innerHTML='';
+  for(const [k,t,d] of [['none','Aucune','Port 1 réservé au joystick'],['paddle','Paddles','Position de la souris sur l\u2019écran = boutons rotatifs X et Y ; clic gauche / droit = tir de chaque paddle'],['1351','Souris 1351','Mode proportionnel (GEOS, logiciels de dessin) : cliquez sur l\u2019écran pour capturer la souris, Échap pour la libérer']]){
+    const on=PERIPH.mouse===k;
+    ml.append(mkItem(t,d,[mkBtn(on?'Choisi':'Choisir',on?'':'ghost',()=>{ PERIPH.mouse=k; periphSave(); mouseBits=255; potX=potY=0xFF; if(k!=='1351'&&document.pointerLockElement) document.exitPointerLock(); refreshPeriph(); })],on?'disk':''));
+  }
+  const rl=$('#reu-list'); rl.innerHTML='';
+  const sizes=[[0,'Aucune'],[128,'1700 · 128 Ko'],[256,'1764 · 256 Ko'],[512,'1750 · 512 Ko'],[2048,'2 Mo'],[16384,'16 Mo']];
+  const it=document.createElement('div'); it.className='item'; it.innerHTML='<div><b>Taille</b><small>La REU sert à GEOS, à certaines démos et utilitaires ; changer la taille la vide.</small></div><div class="bar" style="margin:0;flex-wrap:wrap"></div>';
+  for(const [kb,t] of sizes) it.lastChild.append(mkBtn(t,PERIPH.reu===kb?'':'ghost',()=>{ reuSetSize(kb); periphSave(); refreshPeriph(); toast(kb?'REU de '+t+' branchée':'REU débranchée'); }));
+  rl.append(it);
+  refreshPrinter();
+}
 async function openFile(f,run){
   const low=f.name.toLowerCase();
   if(low.endsWith('.crt')){ const c=parseCRT(new Uint8Array(await f.arrayBuffer())); closeAll(); cartInsert(c); refreshDisk(); toast('Cartouche « '+c.name+' » branchée'); return; }
   if(low.endsWith('.tap')){ const t=parseTAP(new Uint8Array(await f.arrayBuffer())); tapeInsert('tap',t,f.name); closeAll(); ensureRom(); refreshDisk(); if(run){ romAfter(300,()=>{}); typeQueue.push(...pet('LOAD"",1'),13); romAfter(1500,()=>tapePlay()); } toast('Cassette insérée'+(run?' : chargement lancé':'')); return; }
   if(low.endsWith('.t64')){ const t=parseT64(new Uint8Array(await f.arrayBuffer())); tapeInsert('t64',t,f.name); closeAll(); refreshDisk(); if(run){ prepLoad(); const f0=t.files[0], ml=(f0.bytes[0]|(f0.bytes[1]<<8))!==0x0801; typeQueue.push(...pet('LOAD'),13); if(!ml) typeQueue.push(...pet('RUN'),13); } toast('Archive « '+(petToText(t.name)||f.name)+' » insérée'); return; }
-  if(low.endsWith('.d64')||low.endsWith('.g64')){
+  if(low.endsWith('.d64')||low.endsWith('.g64')||low.endsWith('.d71')||low.endsWith('.d81')){
     const u=new Uint8Array(await f.arrayBuffer()); if(low.endsWith('.g64')) g64Mount(u,f.name); else d64Mount(u,f.name); refreshDisk();
     const h=d64Header(); closeAll();
     if(run){ if(state!=='idle') restoreKey(); typeQueue.push(...textToPet('LOAD"$",8\nLIST\n')); }
@@ -3386,12 +3634,27 @@ function initUI(){
   canvas=$('#screen'); ctx2=canvas.getContext('2d'); IMG=ctx2.createImageData(W,H); IMG32=new Uint32Array(IMG.data.buffer);
   const ta=$('#kbd');
   const focusKbd=()=>{ try{ ta.focus({preventScroll:true}); }catch(e){} };
-  $('#tube').addEventListener('pointerdown',()=>{ audioInit(); setTimeout(focusKbd,0); });
+  $('#tube').addEventListener('pointerdown',e=>{
+    audioInit(); setTimeout(focusKbd,0);
+    if(PERIPH.mouse==='1351'&&document.pointerLockElement!==canvas){ try{ canvas.requestPointerLock(); }catch(ex){} }
+    if(PERIPH.mouse!=='none'){ mouseBits&=~(e.button===2?(PERIPH.mouse==='1351'?1:8):(PERIPH.mouse==='1351'?16:4)); }
+  });
+  window.addEventListener('pointerup',e=>{ if(PERIPH.mouse!=='none') mouseBits|=(e.button===2?(PERIPH.mouse==='1351'?1:8):(PERIPH.mouse==='1351'?16:4)); });
+  $('#tube').addEventListener('contextmenu',e=>{ if(PERIPH.mouse!=='none') e.preventDefault(); });
+  $('#tube').addEventListener('pointermove',e=>{
+    if(PERIPH.mouse==='paddle'){ const r=canvas.getBoundingClientRect(); potX=Math.max(0,Math.min(255,Math.round(255*(e.clientX-r.left)/r.width))); potY=Math.max(0,Math.min(255,Math.round(255*(e.clientY-r.top)/r.height))); }
+  });
+  document.addEventListener('mousemove',e=>{
+    if(PERIPH.mouse!=='1351'||document.pointerLockElement!==canvas) return;
+    mouseX+=e.movementX/2; mouseY-=e.movementY/2;
+    potX=((Math.floor(mouseX)&0x3F)<<1); potY=((Math.floor(mouseY)&0x3F)<<1);
+  });
 
   window.addEventListener('keydown',e=>{
     if(modalOpen()) return;
     const tg=e.target; if(tg&&tg!==ta&&(tg.tagName==='INPUT'||tg.tagName==='TEXTAREA'||tg.tagName==='SELECT')) return;
     if(e.key==='Unidentified'||e.keyCode===229) return;
+    if(numpadJoy(e,true)) return;
     if(e.key==='F9'){ e.preventDefault(); if(!e.repeat) quickSave(); return; }
     if(e.key==='F10'){ e.preventDefault(); if(!e.repeat) quickLoad(); return; }
     if(romMode){
@@ -3418,11 +3681,12 @@ function initUI(){
     e.preventDefault(); lastKeyAt=now(); feedKey(p);
   });
   window.addEventListener('keyup',e=>{
+    if(numpadJoy(e,false)) return;
     updateJoy(e,false);
     if(romMode){ const h=physHeld.get(e.code||e.key); if(h){ physHeld.delete(e.code||e.key); const rest=55-(now()-h.at); if(rest>0) synthKeys.push({codes:h.combo,until:now()+rest}); rebuildKeys(); } return; }
     curKey=64; shiftFlags=0; for(const k of matrixCodes(e)) keysDown.delete(k);
   });
-  window.addEventListener('blur',()=>{ keysDown.clear(); physHeld.clear(); joy2=255; curKey=64; });
+  window.addEventListener('blur',()=>{ keysDown.clear(); physHeld.clear(); joy2=255; joyB=255; mouseBits=255; curKey=64; });
   ta.addEventListener('beforeinput',e=>{
     if(now()-lastKeyAt<60){ e.preventDefault(); return; }
     e.preventDefault(); audioInit();
@@ -3462,6 +3726,9 @@ function initUI(){
   });
 
   const toggle=(id,fn)=>{ const b=$(id); b.addEventListener('click',()=>{ const v=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',String(v)); fn(v); }); };
+  $('#prn-dl').addEventListener('click',()=>{ if(!PRN.text){ toast('Rien à télécharger'); return; } download(PRN.text,'impression-c64.txt','text/plain;charset=utf-8'); });
+  $('#prn-clear').addEventListener('click',()=>{ PRN.text=''; PRN.col=0; refreshPrinter(); });
+  window.addEventListener('gamepadconnected',e=>{ toast('Manette connectée : '+(e.gamepad.id||'').slice(0,40)); if(document.querySelector('#dlg-periph[open]')) refreshPeriph(); });
   $('#st-export').addEventListener('click',()=>{ try{ download(saveState(),'etat-c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.c64s','application/json'); toast('État exporté'); }catch(ex){ toast(ex.message); } });
   $('#st-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=loadState(await f.text()); closeAll(); toast(w||'État importé et restauré'); }catch(ex){ toast(ex.message); } });
   $('#sw-sync').addEventListener('click',()=>{
@@ -3477,7 +3744,7 @@ function initUI(){
   $('#sw-joy').addEventListener('click',e=>{ joyPort=joyPort===2?1:2; e.currentTarget.textContent='Joystick '+joyPort; toast('Joystick branché sur le port '+joyPort); });
   $('#sw-reset').addEventListener('click',()=>{ if(romMode) romReset(); else coldReset(); toast('Machine redémarrée : mémoire effacée'); });
 
-  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{ const d=$('#'+b.dataset.open); if(b.dataset.open==='dlg-state') refreshStates(); if(b.dataset.open==='dlg-disk') refreshDisk(); if(b.dataset.open==='dlg-rom') refreshRom(); d.showModal(); }));
+  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{ const d=$('#'+b.dataset.open); if(b.dataset.open==='dlg-periph') refreshPeriph(); if(b.dataset.open==='dlg-state') refreshStates(); if(b.dataset.open==='dlg-disk') refreshDisk(); if(b.dataset.open==='dlg-rom') refreshRom(); d.showModal(); }));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
   document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{ if(e.target===d) d.close(); }));
 
@@ -3523,8 +3790,10 @@ function initUI(){
   $('#rom-builtin').addEventListener('click',()=>{ stopRom(); closeAll(); toast('Retour au BASIC intégré'); });
   $('#rom-forget').addEventListener('click',()=>{ romForget(); refreshRom(); if(romSource==='user') stopRom(); toast('ROM effacées de ce navigateur'); });
   $('#tape-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ await openFile(f,false); $('#dlg-disk').showModal(); refreshDisk(); }catch(ex){ toast(ex.message); } });
+  $('#tape-rec').addEventListener('click',()=>{ ensureRom(); tapeRecStart(); toast('Cassette vierge en place, touches RECORD et PLAY enfoncées : tapez SAVE"NOM" puis RETURN'); refreshDisk(); });
+  $('#tape-dl').addEventListener('click',()=>{ const d=TAPE.recorded||(TAPE.data&&TAPE.data.subarray?TAPE.data:null); if(!d){ toast('Aucune cassette .tap à télécharger'); return; } download(d,(TAPE.name||'cassette').replace(/\.tap$/i,'')+'.tap','application/octet-stream'); });
   $('#cart-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ await openFile(f,true); }catch(ex){ toast(ex.message); } });
-  $('#d64-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const u=new Uint8Array(await f.arrayBuffer()); if(/\.g64$/i.test(f.name)) g64Mount(u,f.name); else d64Mount(u,f.name); refreshDisk(); toast('Disquette insérée : '+f.name); }catch(ex){ toast(ex.message); } });
+  $('#d64-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const u=new Uint8Array(await f.arrayBuffer()); if(/\.g64$/i.test(f.name)) g64Mount(u,f.name); else d64Mount(u,f.name); if(d64.kind==='d81'&&DRV.on) toast('Une disquette 3,5" (.d81) ne se lit pas dans un 1541 : désactivez le 1541 émulé pour utiliser le lecteur virtuel'); refreshDisk(); toast('Disquette insérée : '+f.name); }catch(ex){ toast(ex.message); } });
   $('#d64-blank').addEventListener('click',()=>{ const n=Object.keys(diskAll()).length; d64Mount(d64Blank('DISQUETTE','01'),'vierge.d64'); refreshDisk(); toast('Disquette vierge insérée : SAVE"NOM",8 pour y enregistrer'); });
   const tube=$('.monitor');
   tube.addEventListener('dragover',e=>{ e.preventDefault(); tube.classList.add('drop'); });
@@ -3560,14 +3829,14 @@ function initUI(){
 }
 let lastT=0, lastStat='';
 /* --- cadence : temps réel, ou une image C64 par rafraîchissement --- */
-const PAL_HZ=985248/19656, PAL_FRAME_MS=1000/PAL_HZ, SYNC_KEY='emu64.sync.v1';
+const frameHz=()=>TM.hz/(TM.lineCyc*TM.lines), SYNC_KEY='emu64.sync.v1';
 let dispHz=0, hzSamples=[], syncForced=false, syncAuto=false, syncN=1, syncCount=0;
 try{ syncForced=localStorage.getItem(SYNC_KEY)==='1'; }catch(e){}
 function syncOn(){ return (syncForced||syncAuto)&&!fastNow(); }
-function syncSpeed(){ return dispHz?(dispHz/syncN)/PAL_HZ:1; }
+function syncSpeed(){ return dispHz?(dispHz/syncN)/frameHz():1; }
 function updSync(){
-  syncAuto=Math.abs(dispHz-50)<1.5||Math.abs(dispHz-100)<3;
-  syncN=Math.max(1,Math.round(dispHz/50));
+  const fh=frameHz(); syncN=Math.max(1,Math.round(dispHz/fh));
+  syncAuto=Math.abs(dispHz/syncN-fh)<1.5;
   const b=document.querySelector('#sw-sync');
   if(b){ b.setAttribute('aria-pressed',String(syncForced||syncAuto)); b.title='Écran mesuré : '+dispHz.toFixed(1)+' Hz'+(syncAuto?' — synchro automatique, vitesse exacte':' — une image C64 par rafraîchissement'); }
 }
@@ -3581,8 +3850,9 @@ function measureHz(dt){
 }
 function frame(t){
   const dt=Math.min(100,t-lastT||16); lastT=t;
-  measureHz(dt);
-  if(syncOn()){ SID.speed=syncSpeed(); if(++syncCount>=syncN){ syncCount=0; update(PAL_FRAME_MS); } }
+  measureHz(dt); pollPads();
+  if(printerDirty&&document.querySelector('#dlg-periph[open]')){ printerDirty=false; refreshPrinter(); }
+  if(syncOn()){ SID.speed=syncSpeed(); if(++syncCount>=syncN){ syncCount=0; update(1000/frameHz()); } }
   else { SID.speed=1; syncCount=0; update(dt); }
   blinkT+=dt; if(blinkT>=320){ blinkT=0; cursorOn=!cursorOn; }
   render();
@@ -3604,11 +3874,12 @@ async function start(){
   try{ if(romMode&&USER_ROM.dos&&localStorage.getItem(DRV_KEY)==='1') drvEnable(); }catch(e){}
   requestAnimationFrame(frame);
 }
+applyTiming();
 if(HAS_DOM){ start(); globalThis.EMU_DEBUG={frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0}; }
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
