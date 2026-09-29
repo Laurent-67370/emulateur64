@@ -1834,7 +1834,7 @@ function scanCols(){ const sel=~(cia1.prb|~cia1.ddrb)&255; let cols=255; if(sel)
 function ciaRead(c,r){
   const t=busTime(false); ciaAlarms(c,t);
   switch(r){
-    case 0: if(c===cia2){ if(!DRV.on) return (c.pra|~c.ddra)&255; drvRun(cyc); busLines(); return (c.pra|~c.ddra)&(0x3F|(BUS.clk?0:0x40)|(BUS.data?0:0x80))&255; }
+    case 0: if(c===cia2){ if(!DRV.on) return (c.pra|~c.ddra)&255; drvRun(SYNC_FINE?t:cyc); busLines(); return (c.pra|~c.ddra)&(0x3F|(BUS.clk?0:0x40)|(BUS.data?0:0x80))&255; }
       return (c.pra|~c.ddra)&portJoy(2)&scanCols()&255;
     case 1: { let b=(c.prb|~c.ddrb)&(c===cia1?scanRows()&portJoy(1):255)&255;
       if((c.cra|c.crb)&2){
@@ -1863,9 +1863,9 @@ function ciaRead(c,r){
 function ciaWrite(c,r,v){
   const t=busTime(true); ciaAlarms(c,t);
   switch(r){
-    case 0: if(c===cia2&&DRV.on){ drvRun(cyc); c.pra=v; atnCheck(); } else c.pra=v; break;
+    case 0: if(c===cia2&&DRV.on){ drvRun(SYNC_FINE?t:cyc); c.pra=v; atnCheck(); } else c.pra=v; break;
     case 1: c.prb=v; break;
-    case 2: if(c===cia2&&DRV.on){ drvRun(cyc); c.ddra=v; atnCheck(); } else c.ddra=v; break;
+    case 2: if(c===cia2&&DRV.on){ drvRun(SYNC_FINE?t:cyc); c.ddra=v; atnCheck(); } else c.ddra=v; break;
     case 3: c.ddrb=v; break;
     case 4: ciaUpdTA(c,t); ciatSetLatchLo(c.TA,v); break;
     case 5: ciaUpdTA(c,t); ciatSetLatchHi(c.TA,v); break;
@@ -3138,7 +3138,11 @@ const DRV_KEY='emu64.drive.v1';
    demi-cycle pres. Sans cela, le C64 lit un etat du futur : c'est ce dephasage qui
    perd les poignees de main des chargeurs rapides serres (V-MAX!, Rapidlok). */
 const DRVT={inDrive:false,t64:0};
-function tC64Now(){ return DRVT.inDrive?DRVT.t64:cyc; }
+/* Synchro fine C64/1541 (optionnelle) : au lieu de caler le lecteur sur la fin de l'instruction du C64,
+   on le cale sur le cycle réel de l'accès à $DD00/$DD02 (busTime), et le lecteur ne démarre plus une
+   instruction dont l'accès au bus tomberait après cet instant (plus de lecture « dans le futur » des lignes du C64). */
+const SYNCFINE_KEY='emu64.syncfine.v1'; let SYNC_FINE=false; try{ SYNC_FINE=localStorage.getItem(SYNCFINE_KEY)==='1'; }catch(e){}
+function tC64Now(){ return DRVT.inDrive?DRVT.t64:(SYNC_FINE&&inStep?accEnd-1:cyc); }
 function iecDrvBits(){ const v=DRV.via1, q=v.prb&v.ddrb; return {clk:(q&8)!==0, data:(q&2)!==0, ack:(q&0x10)!==0}; }
 function iecDrvPush(){
   const b=iecDrvBits(), n=DRV.pend.length, p=n?DRV.pend[n-1].b:DRV.outBits;
@@ -3262,11 +3266,12 @@ function drvRun(t64){
   if(DRV.cyc>=target) return;
   const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive, sAE=accEnd, sRK=rmwK, sIS=inStep, sPA=pollAdj, sIP=iPoll;
   C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false;
-  DRVT.inDrive=true; DRVT.t64=sCyc;
+  DRVT.inDrive=true; DRVT.t64=SYNC_FINE?t64:sCyc;
   const v1=DRV.via1, v2=DRV.via2;
   try{
     while(cyc<target){
       if(MON.drvArmed&&monDrvBefore()) break;
+      if(SYNC_FINE){ const op=drvRD(C.pc); if(cyc+OPC[op]-1>target) break; }   // dernier cycle (accès au bus) après la cible : on attend
       const c0=cyc;
       cpuStep();
       const n=cyc-c0; viaAdvance(v1,n); viaAdvance(v2,n); diskAdvance(n);
@@ -5349,7 +5354,7 @@ async function start(){
   requestAnimationFrame(frame);
 }
 applyTiming();
-if(HAS_DOM){ start(); globalThis.EMU_DEBUG={sid:()=>SID, joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
+if(HAS_DOM){ start(); globalThis.EMU_DEBUG={syncFine:v=>{ if(v!==undefined){ SYNC_FINE=!!v; try{ localStorage.setItem(SYNCFINE_KEY,SYNC_FINE?'1':'0'); }catch(e){} } return SYNC_FINE; }, sid:()=>SID, joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
