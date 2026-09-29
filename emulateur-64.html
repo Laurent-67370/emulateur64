@@ -1683,7 +1683,8 @@ function ciatSetCtrl(T,b){ T.state=(T.state&~CT.CR_MASK)|((b&CT.CR_MASK)^CT.PHI2
 function ciatStep(T){ if(T.state&CT.CR_START){ T.state|=CT.STEP; ciatSetAlarm(T); } }
 const ciaNew=()=>MODEL.name==='c64c'||MODEL.name==='c64cn';   // C64C : 6526A ; C64 : 6526
 function makeCIA(){
-  const c={pra:0,prb:0,ddra:0,ddrb:0,cra:0,crb:0,icr:0,mask:0,sdr:0,tod:0,todBase:0,todRun:true,todLatch:null,
+  const c={pra:0,prb:0,ddra:0,ddrb:0,cra:0,crb:0,icr:0,mask:0,sdr:0,todR:[0,0,0,1],todA:[0,0,0,0],todL:[0,0,0,1],todLatched:false,todStop:true,todCnt:0,todT0:0,todN:0,todNext:-1,
+    srBits:0,shifter:0,sdrValid:false,sdrOff:false,sdrAlarm:NEVER,
     TA:mkTimer(),TB:mkTimer(),tat:0,tbt:0,rdi:-10,irqOn:false,irqT:0};
   Object.defineProperties(c,{
     ta:{get(){ ciaSync(this,cyc); return this.TA.cnt; }, set(v){ this.TA.cnt=v&0xFFFF; }, enumerable:false},
@@ -1693,7 +1694,7 @@ function makeCIA(){
   return c;
 }
 const cia1=makeCIA(), cia2=makeCIA();
-function ciaReset(c){ Object.assign(c,makeCIA()); c.todBase=cyc; }
+function ciaReset(c){ Object.assign(c,makeCIA()); }
 /* après une restauration (ancienne sauvegarde, .vsf, valeurs par défaut) : reconstruire l'état des automates */
 function ciaRestore(c,exact){
   const ta=c.TA, tb=c.TB;
@@ -1716,8 +1717,36 @@ function ciaDoSetInt(c,t){
 function ciaIntTA(c,t){
   ciaDoUpdTA(c,t); c.TA.alarm=NEVER;
   if((c.cra&0x29)===0x01&&(((c.mask&1)&&!(c.icr&0x80))||(c.cra&0x60)||(c.crb&0x40))) ciatSetAlarm(c.TA);
+  if(c.cra&0x40){   // registre à décalage en sortie : un bit toutes les deux fins de comptage du timer A
+    c.sdrOff=false;
+    if(c.srBits||c.sdrValid){
+      c.sdrOff=(c.srBits===1);
+      if(c.srBits&&((--c.srBits)&1)){ /* front bas de CNT : la broche SP n'est reliée à rien ici */ }
+      else {
+        c.shifter=(c.shifter<<1)&0xFFFF;
+        if(c.srBits<=2){
+          if(c.srBits===2) c.sdrAlarm=t+3;                       // drapeau SDR : 4 cycles de délai (on est déjà dans une alarme)
+          if(c.sdrValid){ c.shifter|=c.sdr; c.sdrValid=false; c.srBits=16; }
+        }
+      }
+    }
+  }
   if((c.crb&0x41)===0x41){ ciaUpdTB(c,t); ciatStep(c.TB); }
   ciaDoSetInt(c,t);
+}
+function ciaIntSDR(c,t){ c.sdrAlarm=NEVER; c.icr|=8; ciaDoSetInt(c,t); }
+/* cas particuliers relevés sur le vrai circuit (VICE, bogue 1219) : démarrage du timer A pendant un décalage */
+function ciaStrangeSdr(c,t,byte,cont){
+  const timer=c.TA.cnt, latch=c.TA.latch, sb=c.srBits, off=c.sdrOff; let f=false;
+  if((byte&0x40)&&latch===0) f=true;
+  if((sb||off)&&cont){
+    if(latch===0){}
+    else if(latch===1) f=true;
+    else if(latch===2){ if(timer===0) f=(sb!==2)&&!off; else if(timer===1) f=true; else if(timer===2) f=!(sb&1); }
+    else if(sb&1) f=timer>latch-5&&(timer!==latch||latch===3);
+    else if(sb!==0) f=(timer!==latch-1)&&(timer!==latch-3)&&!(sb===2&&timer===latch-2);
+  }
+  if(f) c.sdrAlarm=t+4;
 }
 function ciaIntTB(c,t){
   ciaDoUpdTB(c,t); c.TB.alarm=NEVER;
@@ -1727,28 +1756,56 @@ function ciaIntTB(c,t){
 function ciaUpdTA(c,t){ let last=-1; for(let g=0;g<100000&&c.TA.alarm<=t;g++){ const a=c.TA.alarm; ciaIntTA(c,a); last=a; } if(last!==t) ciaDoUpdTA(c,t); }
 function ciaUpdTB(c,t){ if((c.crb&0x41)===0x41) ciaUpdTA(c,t); let last=-1; for(let g=0;g<100000&&c.TB.alarm<=t;g++){ const a=c.TB.alarm; ciaIntTB(c,a); last=a; } if(last!==t) ciaDoUpdTB(c,t); }
 /* événements en attente strictement avant t (ordre chronologique) */
-function ciaAlarms(c,t){ for(let g=0;g<100000;g++){ const a=c.TA.alarm, b=c.TB.alarm; if(Math.min(a,b)>=t) return; if(a<=b) ciaIntTA(c,a); else ciaIntTB(c,b); } }
+function ciaAlarms(c,t){
+  if(c.todNext<t) todTicks(c,t);
+  for(let g=0;g<100000;g++){ const a=c.TA.alarm, b=c.TB.alarm, d=c.sdrAlarm, m=Math.min(a,b,d); if(m>=t) return;
+    if(a===m) ciaIntTA(c,a); else if(b===m) ciaIntTB(c,b); else ciaIntSDR(c,d); } }
 /* sources extérieures : broche FLAG (magnétophone, bus série), acquittement par les routines simulées */
 function ciaFlag(c){ const t=inStep?busTime(false):cyc; ciaAlarms(c,t); c.icr|=0x10; ciaDoSetInt(c,t); }
 function ciaAck(c){ c.icr=0; c.irqOn=false; }
 function ciaSync(c,t){ ciaAlarms(c,t); ciaUpdTA(c,t); ciaUpdTB(c,t); }
-function ciaNextIn(c){ const m=Math.min(c.TA.alarm,c.TB.alarm); let d=m===NEVER?Infinity:Math.max(1,m-cyc+1); if(c.irqOn) d=Math.min(d,Math.max(1,c.irqT+CIA_IRQ_DELAY-cyc)); return d; }
+function ciaNextIn(c){ const m=Math.min(c.TA.alarm,c.TB.alarm,c.sdrAlarm,(c.mask&4)?c.todNext:NEVER); let d=m===NEVER?Infinity:Math.max(1,m-cyc+1); if(c.irqOn) d=Math.min(d,Math.max(1,c.irqT+CIA_IRQ_DELAY-cyc)); return d; }
 /* datation des accès du processeur : dernier cycle de l'instruction, ou 3e/2e/1er avant la fin pour une lecture-modification-écriture */
 let accEnd=0, rmwK=-1, inStep=false, CIA_RD_OFF=0, CIA_WR_OFF=0, CIA_IRQ_DELAY=2;
 function busTime(w){ if(!inStep) return cyc; const t=rmwK>=0?accEnd-3+(rmwK++):accEnd-1; return t+(w?CIA_WR_OFF:CIA_RD_OFF); }
-function todNow(c){ return (c.todRun?c.tod+Math.floor((cyc-c.todBase)/(TM.hz/10)):c.tod)%864000; }
-function todRegs(t){
+/* Horloge TOD : quatre registres BCD (dixièmes, secondes, minutes, heures + AM/PM), comptés chiffre par chiffre ;
+   elle avance à chaque impulsion du secteur (50 Hz PAL, 60 Hz NTSC) : 5 ou 6 impulsions font un dixième selon CRA bit 7.
+   Écrire les heures l'arrête, écrire les dixièmes la relance ; lire les heures fige la lecture jusqu'à la lecture des dixièmes. */
+const todFreq=()=>MODEL.ntsc?60:50;
+function todAlarmCheck(c,t){ const R=c.todR, A=c.todA; if(R[0]===A[0]&&R[1]===A[1]&&R[2]===A[2]&&R[3]===A[3]){ c.icr|=4; if(c.mask&4){ c.icr|=0x80; ciaSetInt(c,true,t); } } }
+function todCount(c,at){
+  const R=c.todR; let t0=R[0]&15, t1=R[1]&15, t2=(R[1]>>4)&15, t3=R[2]&15, t4=(R[2]>>4)&15, t5=R[3]&15, t6=(R[3]>>4)&1, pm=R[3]&0x80;
+  t0=(t0+1)&15;
+  if(t0===10){ t0=0; t1=(t1+1)&15;
+    if(t1===10){ t1=0; t2=(t2+1)&7;
+      if(t2===6){ t2=0; t3=(t3+1)&15;
+        if(t3===10){ t3=0; t4=(t4+1)&7;
+          if(t4===6){ t4=0; t5=(t5+1)&15;
+            if(t6){ if(t5===2) pm^=0x80; if(t5===3){ t5=1; t6=0; } }
+            else if(t5===10){ t5=0; t6=1; } } } } } }
+  R[0]=t0; R[1]=t1|(t2<<4); R[2]=t3|(t4<<4); R[3]=t5|(t6<<4)|pm;
+  todAlarmCheck(c,at);
+}
+function todTicks(c,t){
+  const f=todFreq(), hz=TM.hz;
+  if(c.todNext<0){ c.todT0=t; c.todN=0; c.todNext=t+Math.floor(hz/f); return; }
+  for(let g=0;c.todNext<t&&g<200000;g++){
+    const at=c.todNext;
+    if(++c.todN>=f){ c.todN=0; c.todT0+=hz; }
+    c.todNext=c.todT0+Math.floor((c.todN+1)*hz/f);
+    if(!c.todStop){ c.todCnt++; if(c.todCnt===((c.cra&0x80)?5:6)){ c.todCnt=0; todCount(c,at); } else if(c.todCnt>=6) c.todCnt=0; }   // le diviseur monte jusqu'à 6 puis repart à 0 (test hzsync6, relevé sur le circuit réel)
+  }
+}
+/* anciennes sauvegardes et instantanés : l'heure était un simple compteur de dixièmes */
+function todRegsOld(t){
   const bcd=v=>((v/10|0)<<4)|(v%10);
   const h24=Math.floor(t/36000)%24; let h=h24%12; if(h===0) h=12;
   return [bcd(t%10), bcd(Math.floor(t/10)%60), bcd(Math.floor(t/600)%60), bcd(h)|(h24>=12?0x80:0)];
 }
-function todSet(c,r,v){
-  const f=todRegs(todNow(c)).map((x,i)=>i===3?x:x);
-  const unb=x=>(x>>4)*10+(x&15);
-  f[r]=v;
-  let h=unb(f[3]&0x1F)%12; if(f[3]&0x80) h+=12;
-  c.tod=((h*60+unb(f[2]))*60+unb(f[1]))*10+unb(f[0]&15);
-  if(r===3) c.todRun=false; else if(r===0){ c.todRun=true; c.todBase=cyc; } else c.todBase=cyc;
+function todFromOld(c,oc){
+  const tt=((oc.tod|0)+(oc.todRun?Math.floor((cyc-oc.todBase)/(TM.hz/10)):0))%864000;
+  c.todR=todRegsOld(tt); c.todA=[0,0,0,0]; c.todLatched=!!oc.todLatch; c.todL=oc.todLatch?Array.from(oc.todLatch):c.todR.slice();
+  c.todStop=!oc.todRun; c.todCnt=0; c.todNext=-1; delete c.tod; delete c.todBase; delete c.todRun; delete c.todLatch;
 }
 function scanRows(){ const sel=~(cia1.pra|~cia1.ddra)&255; let rows=255; if(sel) for(const k of keysDown) if(sel&(1<<(k>>3))) rows&=~(1<<(k&7)); return rows; }
 function scanCols(){ const sel=~(cia1.prb|~cia1.ddrb)&255; let cols=255; if(sel) for(const k of keysDown) if(sel&(1<<(k&7))) cols&=~(1<<(k>>3)); return cols; }
@@ -1767,10 +1824,10 @@ function ciaRead(c,r){
     case 4: ciaUpdTA(c,t); return c.TA.cnt&255; case 5: ciaUpdTA(c,t); return c.TA.cnt>>8;
     case 6: ciaUpdTB(c,t); return c.TB.cnt&255; case 7: ciaUpdTB(c,t); return c.TB.cnt>>8;
     case 8: case 9: case 10: case 11: {
-      if(r===11) c.todLatch=todRegs(todNow(c));
-      const v=(c.todLatch||todRegs(todNow(c)))[r-8];
-      if(r===8) c.todLatch=null;
-      return v;
+      if(!c.todLatched) c.todL=c.todR.slice();
+      if(r===8) c.todLatched=false;
+      if(r===11) c.todLatched=true;
+      return c.todL[r-8];
     }
     case 12: return c.sdr;
     case 13: { c.rdi=t; ciaUpdTA(c,t); ciaUpdTB(c,t); ciatSetAlarm(c.TA); ciatSetAlarm(c.TB);
@@ -1792,14 +1849,34 @@ function ciaWrite(c,r,v){
     case 5: ciaUpdTA(c,t); ciatSetLatchHi(c.TA,v); break;
     case 6: ciaUpdTB(c,t); ciatSetLatchLo(c.TB,v); break;
     case 7: ciaUpdTB(c,t); ciatSetLatchHi(c.TB,v); break;
-    case 8: case 9: case 10: case 11: if(!(c.crb&0x80)) todSet(c,r-8,v); break;
-    case 12: c.sdr=v; break;
+    case 8: case 9: case 10: case 11: {
+      let b=v; const k=r-8;
+      if(r===11){ b&=0x9F; if((b&0x1F)===0x12&&!(c.crb&0x80)) b^=0x80; }   // 12 h : le circuit inverse AM/PM (heure, pas alarme)
+      else if(r===8) b&=0x0F; else b&=0x7F;
+      let changed;
+      if(c.crb&0x80){ changed=c.todA[k]!==b; c.todA[k]=b; }
+      else{
+        if(r===8){ if(c.todStop) c.todCnt=0; c.todStop=false; }
+        if(r===11) c.todStop=true;
+        changed=c.todR[k]!==b; c.todR[k]=b;
+      }
+      if(changed) todAlarmCheck(c,t);
+      break; }
+    case 12:
+      if((c.cra&0x41)===0x41){
+        if(c.srBits===0){ c.srBits=17; c.shifter=v; }
+        else if(c.srBits===2){ c.shifter|=c.sdr; c.srBits=18; }
+        else c.sdrValid=true;
+      } else c.sdrValid=true;
+      c.sdr=v; break;
     case 13: ciaUpdTA(c,t); ciaUpdTB(c,t);
       if(v&0x80) c.mask|=v&0x7F; else c.mask&=~(v&0x7F);
       if(c.mask&c.icr&0x7F) ciaDoSetInt(c,t+1);
       if(c.mask&1) ciatSetAlarm(c.TA); if(c.mask&2) ciatSetAlarm(c.TB);
       break;
-    case 14: ciaUpdTA(c,t); if((v&1)&&!(c.cra&1)) c.tat=1; ciatSetCtrl(c.TA,v); c.cra=v&0xEF; break;
+    case 14: ciaUpdTA(c,t);
+      if((v&1)&&!(c.cra&1)){ c.tat=1; const cont=(v&0x09)===0x01; ciaStrangeSdr(c,t,v,cont); if(c.srBits&&cont) c.srBits=0; }
+      ciatSetCtrl(c.TA,v); c.cra=v&0xEF; break;
     case 15: if((v&1)&&!(c.crb&1)) c.tbt=1; ciaUpdTA(c,t); ciaUpdTB(c,t);
       if(v&0x40){ ciatSetAlarm(c.TA); ciatSetCtrl(c.TB,v|0x20); } else ciatSetCtrl(c.TB,v);
       c.crb=v&0xEF; break;
@@ -3259,7 +3336,7 @@ function loadState(json){
   }
   mem.set(o.mem); ramD.set(o.ramD); C=Object.assign(C,o.cpu);
   cyc=o.cyc; cycFrac=o.cycFrac; rasterCmp=o.rasterCmp; d019=o.d019; collSS=o.collSS; collSB=o.collSB; joyPort=o.joyPort; nmiLvl=o.nmiLvl; joy2=255;
-  for(const [c,oc] of [[cia1,o.cia1],[cia2,o.cia2]]){ Object.assign(c,makeCIA(),oc); if(oc&&oc.TA){ c.TA={...oc.TA}; c.TB={...oc.TB}; ciaRestore(c,true); } else ciaRestore(c,false); }
+  for(const [c,oc] of [[cia1,o.cia1],[cia2,o.cia2]]){ Object.assign(c,makeCIA(),oc); if(oc&&!oc.todR&&typeof oc.tod==='number') todFromOld(c,oc); if(oc&&oc.TA){ c.TA={...oc.TA}; c.TB={...oc.TB}; ciaRestore(c,true); } else ciaRestore(c,false); }
   nmiAt=-1;
   const V=o.vic; vicNext=V.vicNext; vicLine=V.vicLine; vicPhase=V.vicPhase; vicLineCur=V.vicLineCur; vcBase=V.vcBase; vc=V.vc; rc=V.rc; vDisplay=V.vDisplay; vBorder=V.vBorder; mBorder=V.mBorder; den30=V.den30; ciaLast=V.ciaLast; vLineStart=V.vLineStart; rowSC.set(V.rowSC); rowCol.set(V.rowCol); vstart.set(V.vstart); vlog=V.vlog||[]; lineBad=V.lineBad; vicFrameNo=V.vicFrameNo; if(V.SPR) V.SPR.forEach((q,i)=>Object.assign(SPR[i],q)); else sprReset();
   // partage du bus vidéo de la ligne en cours et front de NMI en attente (états d'avant : recalculés au prochain début de ligne)
@@ -3342,7 +3419,7 @@ function monFlags(){
 }
 function monRearm(){ monFlags(); monWrap(); }
 /* lecture sans effet de bord (le moniteur ne doit rien acquitter ni déclencher) */
-function ciaPeekQuiet(c,r){ if(r===13) return (c.icr&0x1F)|((c.icr&c.mask&0x1F)?0x80:0); if(r>=8&&r<=11) return (c.todLatch||todRegs(todNow(c)))[r-8]; return ciaRead(c,r); }
+function ciaPeekQuiet(c,r){ if(r===13) return (c.icr&0x1F)|((c.icr&c.mask&0x1F)?0x80:0); if(r>=8&&r<=11) return (c.todLatched?c.todL:c.todR)[r-8]; return ciaRead(c,r); }
 function monPeek(a){
   a&=0xFFFF;
   if(MON.dev==='8'){ if(a<0x1800) return DRV.ram[a&0x7FF]; if(a<0x1C00||a<0x2000){ const v=a<0x1C00?DRV.via1:DRV.via2, r=a&15; return r===13?v.ifr|((v.ifr&v.ier&0x7F)?0x80:0):r===1||r===15?viaPortA(v):r===0?viaPortB(v):viaRead(Object.assign({},v),r); } return a>=0x8000&&DRV.rom?DRV.rom[a&0x3FFF]:a>>8; }
@@ -4810,15 +4887,15 @@ function vsfExport(){
   w.mod('C64CART',0,1,()=>w.B(0));
   ciaSync(cia1,cyc); ciaSync(cia2,cyc);
   const cia=(name,c)=>w.mod(name,2,3,()=>{
-    const tod=todRegs(todNow(c)), per=TM.hz/10, left=Math.max(1,Math.round(per-((cyc-c.todBase)%per)));
+    const tod=c.todR, left=Math.max(1,c.todNext>=0?c.todNext-cyc:Math.floor(TM.hz/todFreq()));
     w.B(c.pra); w.B(c.prb); w.B(c.ddra); w.B(c.ddrb); w.W(c.ta); w.W(c.tb);
     for(const v of tod) w.B(v);
     w.B(c.sdr); w.B(c.mask&0x1F); w.B(c.cra&0xEF); w.B(c.crb&0xEF); w.W(c.la); w.W(c.lb);
-    w.B((c.icr&0x1F)|((c.icr&0x80)?0x80:0)); w.B((c.tat?0x40:0)|(c.tbt?0x80:0)); w.B(0); w.Z(4); w.B(0);
-    w.B((c.todLatch?1:0)|(c.todRun?0:2)); for(const v of (c.todLatch||tod)) w.B(v);
+    w.B((c.icr&0x1F)|((c.icr&0x80)?0x80:0)); w.B((c.tat?0x40:0)|(c.tbt?0x80:0)); w.B(c.srBits&255); for(const v of c.todA) w.B(v); w.B(0);
+    w.B((c.todLatched?1:0)|(c.todStop?2:0)); for(const v of c.todL) w.B(v);
     w.Q(left);
     w.W(c.TA.state); w.W(c.TB.state);
-    w.B(0); w.B(0); w.B(c.irqOn?1:0); w.B(0); w.B(0); w.B(0); w.B(0xC0); });
+    w.B(c.shifter&255); w.B(c.sdrValid?1:0); w.B(c.irqOn?1:0); w.B(c.todCnt&7); w.B((c.shifter>>8)&255); w.B(c.sdrAlarm<NEVER?Math.min(255,1+Math.max(0,c.sdrAlarm-cyc)):0); w.B(0xC0|(c.sdrOff?0x20:0)); });
   cia('CIA1',cia1); cia('CIA2',cia2);
   // SID : registres + état interne reSID (oscillateurs, bruit, enveloppes)
   const sidRegs=base=>{ const r=new Uint8Array(32); for(let i=0;i<25;i++) r[i]=mem[base+i]; return r; };
@@ -4902,9 +4979,11 @@ function vsfImport(buf){
   { const r=rd(M.MAINCPU.p); r.Q(); C.a=r.B(); C.x=r.B(); C.y=r.B(); C.sp=r.B(); C.pc=r.W(); setP(r.B()); }
   const ciaIn=(c,p)=>{ const r=rd(p); c.pra=r.B(); c.prb=r.B(); c.ddra=r.B(); c.ddrb=r.B(); c.ta=r.W(); c.tb=r.W();
     const t=r.BA(4), bcd=v=>(v>>4)*10+(v&15); c.sdr=r.B(); c.mask=r.B()&0x1F; c.cra=r.B(); c.crb=r.B(); c.la=r.W(); c.lb=r.W(); c.icr=r.B()&0x1F;
-    const tf=r.B(); r.skip(6); const tl=r.B(); const lat=r.BA(4); r.Q(); const sa=r.W(), sb=r.W(); r.skip(2); const ien=r.B();
-    const h12=bcd(t[3]&0x1F)%12, h24=h12+((t[3]&0x80)?12:0);
-    c.tod=bcd(t[0])+10*bcd(t[1])+600*bcd(t[2])+36000*h24; c.todBase=cyc; c.todRun=!(tl&2); c.todLatch=(tl&1)?Array.from(lat):null;
+    const tf=r.B(), srb=r.B(), al=r.BA(4); r.B(); const tl=r.B(); const lat=r.BA(4); const left=r.Q(); const sa=r.W(), sb=r.W();
+    const shLo=r.B(), sv=r.B(), ien=r.B(), tcnt=r.B(), shHi=r.B(), sal=r.B(), spc=r.B();
+    c.todR=[t[0]&15,t[1]&0x7F,t[2]&0x7F,t[3]&0x9F]; c.todA=Array.from(al); c.todLatched=!!(tl&1); c.todL=Array.from(lat); c.todStop=!!(tl&2); c.todCnt=tcnt&7;
+    { const f=todFreq(); c.todN=0; c.todT0=cyc+Math.max(1,left)-Math.floor(TM.hz/f); c.todNext=cyc+Math.max(1,left); }
+    c.srBits=srb; c.shifter=shLo|(shHi<<8); c.sdrValid=!!sv; c.sdrOff=!!(spc&0x20); c.sdrAlarm=sal?cyc+sal-1:NEVER;
     c.tat=(tf>>6)&1; c.tbt=(tf>>7)&1; c.TA.state=sa; c.TB.state=sb; c.rdi=-10; c.irqOn=!!ien; if(c.irqOn) c.icr|=0x80; c.irqT=cyc-4; ciaRestore(c,true); };
   if(M.CIA1) ciaIn(cia1,M.CIA1.p); if(M.CIA2) ciaIn(cia2,M.CIA2.p);
   // SID : registres, puis état interne si présent
