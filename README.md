@@ -24,7 +24,16 @@
 - **Disquettes .d64** (35/40 pistes) : lecture **et écriture** (`SAVE` modifie l'image, téléchargeable ensuite), répertoire réel, lecteurs 8 (image) et 9 (disquette navigateur persistante)
 - **Cassettes .t64** (archives) et **.tap** (flux bit-level via le flag CIA, mode warp)
 - **Cartouches .crt** : normales 8/16 Ko, Ultimax, Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC, EasyFlash
+- **Instantanés .VSF (VICE)** : l'export s'ouvre dans **x64sc** (émulateur par défaut de VICE 3.7+, mêmes modèles C64/C64C/NTSC) ; l'import accepte les instantanés de x64sc **et de l'ancien x64**, programme en cours compris, et règle le modèle tout seul
 - Import/export de listings BASIC et de fichiers .prg
+
+### Moniteur
+- Désassemblage labellisé, registres éditables, trace pas à pas (y compris par-dessus JSR et sorties de sous-programme)
+- **Points d'arrêt dans le lecteur 1541** (`dev 8`) : arrêt sur adresse dans son propre CPU, pas à pas dédié
+- **Points d'arrêt BASIC** (`bline`) : arrêt sur une ligne du programme, exécution pas à pas de l'interpréteur
+- **Étiquettes** : table intégrée (vecteurs KERNAL…), chargement de fichiers `.lbl/.vs/.sym` (formats VICE, ACME, ca65, 64tass, Kick Assembler), commandes `al`/`dl`/`ll`/`sl`/`labels`
+- **hunt** : recherche d'octets ou de « texte » (PETSCII **et** codes écran) dans la RAM du C64 ou du lecteur
+- **vic** : état vidéo en clair (écran/caractères/raster, les 8 sprites : X, Y, pointeur, couleur, priorité, agrandissement, collisions)
 
 ### Interface
 - Écran 40×25 avec effet tube CRT (scanlines, vignette), 16 couleurs
@@ -35,10 +44,13 @@
 ### Limites
 - Affichage exact à la ligne près, pas au cycle près (pas de bordures ouvertes ni de défilement fin en cours de ligne)
 - Pas de filtres SID physiques au composant près
+- L'export .VSF vise x64sc et n'est pas lu par l'ancien x64 (l'import, lui, accepte les deux)
 
 ## Tests
 
 L'émulateur a été validé sur du contenu d'époque : compilation « Oldies & Goldies (IPC) » (langage machine + IRQ raster + multicolore), programmes BASIC, disquettes .d64 faites main, cassettes .t64.
+
+Les instantanés .VSF sont validés en aller-retour avec le vrai VICE 3.7.1 (x64sc et x64) : un instantané exporté ici reprend la machine dans VICE (round-trip à quelques octets de volatilité près), et un instantané produit par VICE reprend la machine ici, programme en cours compris.
 
 ## Licence
 
@@ -47,4 +59,4 @@ L'émulateur a été validé sur du contenu d'époque : compilation « Oldies & 
 
 ---
 
-*Développé en collaboration avec Hermes (agent IA) — itérations V1 → V3.8 en 2026.*
+*Développé en collaboration avec Hermes (agent IA) — itérations V1 → V6.1 en 2026.*
