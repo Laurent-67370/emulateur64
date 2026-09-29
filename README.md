@@ -26,6 +26,7 @@
 - **Cartouches .crt** : normales 8/16 Ko, Ultimax, Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC, EasyFlash
 - **Instantanés .VSF (VICE)** : l'export s'ouvre dans **x64sc** (émulateur par défaut de VICE 3.7+, mêmes modèles C64/C64C/NTSC) ; l'import accepte les instantanés de x64sc **et de l'ancien x64**, programme en cours compris, et règle le modèle tout seul
 - Import/export de listings BASIC et de fichiers .prg
+- **Partage par lien / QR / cloud** : la session complète ou un listing BASIC encodés (compressés) dans un lien `#s=`/`#b=`, QR code affiché à l'écran, ou lien court `emulateur64.lhusser.fr/s/<id>` via le relais intégré (conservation 90 jours)
 
 ### Moniteur
 - Désassemblage labellisé, registres éditables, trace pas à pas (y compris par-dessus JSR et sorties de sous-programme)
@@ -59,4 +60,4 @@ Les instantanés .VSF sont validés en aller-retour avec le vrai VICE 3.7.1 (x64
 
 ---
 
-*Développé en collaboration avec Hermes (agent IA) — itérations V1 → V6.1 en 2026.*
+*Développé en collaboration avec Hermes (agent IA) — itérations V1 → V6.5 en 2026.*
