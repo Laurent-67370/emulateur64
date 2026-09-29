@@ -136,6 +136,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radiu
 .mdis .dl.cur{background:#34462b;color:#ffffff}
 .mdis .dl.bp{color:#ff8a7a}
 .mdis .dl.bpoff{color:#8a6a64}
+.mdis .dlab{color:#f2c14e}
 .mout{background:#0b0d0a;border-radius:8px;padding:8px;max-height:220px;min-height:80px;overflow:auto;margin-top:6px}
 .mcmd{width:100%;margin-top:8px;background:#0b0d0a;color:#e7ffd8;border:1px solid #3b5234;border-radius:8px;padding:8px;font:14px ui-monospace,Menlo,Consolas,monospace}
 #tjoy{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 4px}
@@ -276,13 +277,13 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
         <button class="mb" id="mon-trace">Trace : non</button>
         <button class="mb" data-mc="io">Puces (io)</button>
         <button class="mb" data-mc="vic">Sprites (vic)</button>
-        <label class="mb" style="cursor:pointer">Étiquettes .sym<input id="mon-sym" type="file" accept=".sym,.lbl,.txt" hidden></label>
+        <label class="mb" style="cursor:pointer">Étiquettes…<input type="file" id="mon-lab-file" accept=".lbl,.vs,.sym,.txt,.labels,.lst,.map" hidden></label>
         <button class="mb" id="mon-close">Fermer</button>
       </div>
     </div>
     <pre id="mon-regs" class="mpre"></pre>
     <div class="mon-grid">
-      <div><div class="mcap">Désassemblage — cliquez une ligne pour un point d'arrêt</div><div id="mon-dis" class="mpre mdis"></div></div>
+      <div><div class="mcap" id="mon-discap">Désassemblage — cliquez une ligne pour un point d'arrêt</div><div id="mon-dis" class="mpre mdis"></div></div>
       <div><div class="mcap">Mémoire <input id="mon-maddr" value="0400" maxlength="4" aria-label="Adresse"></div><pre id="mon-mem" class="mpre"></pre>
         <div class="mcap">Points d'arrêt et watchpoints</div><div id="mon-bps" class="mpre small"></div></div>
     </div>
@@ -425,7 +426,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <label class="act ghost" style="cursor:pointer">Importer .VSF (VICE)<input type="file" id="vsf-import" accept=".vsf" hidden></label>
     </div>
     <p style="margin-top:12px;font-size:15px;color:var(--muted)">Les ROM ne sont pas incluses dans les sauvegardes : un état fait avec vos ROM d'origine demande qu'elles soient chargées dans ce navigateur.</p>
-    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE : l'export est vérifié compatible VICE 3.7 (structure calée sur un instantané réel, 23 modules) et l'import lit les .VSF faits sous VICE, y compris l'état interne du SID. Deux limites : le modèle choisi (C64/C64C, PAL/NTSC) doit correspondre à celui de VICE, et l'état du lecteur 1541 n'est pas transféré — VICE reprend avec son lecteur (relancez LOAD si un chargement était en cours).</p>
+    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE (émulateur <b>x64sc</b>, version 3.7 ou plus récente) : exportez-en pour reprendre la machine dans VICE sur PC, ou importez un .VSF fait sous VICE pour la reprendre ici, programme en cours compris. Nécessite le mode ROM (Système). Dans VICE, choisissez le <b>même modèle</b> de machine (C64, C64C, NTSC…) avant d'ouvrir le fichier, sinon il est refusé. Ne sont pas transférés : l'état du lecteur 1541 émulé (VICE reprend avec son lecteur simplifié), les cartouches et la REU.</p>
   </div>
 </dialog>
 
@@ -458,7 +459,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Menu Système : C64 d'origine (puce vidéo 6569, SID 6581) ou C64C (puce vidéo 8565, SID 8580). Le changement est immédiat. Le son diffère nettement (filtre, voix digitalisées), et le 8565 affiche un pixel gris à l'endroit où une couleur est changée en pleine ligne, comme la vraie puce.</p>
 
     <h3>Moniteur (débogueur)</h3>
-    <p>Bouton Moniteur : panneau façon VICE sous le clavier. Pause, pas à pas (z), pas par-dessus un JSR (n), sortie du sous-programme (ret), reprise (g) ou jusqu'à une adresse (until). Points d'arrêt, éventuellement conditionnels (break c000 if a == 05, ou sur une case mémoire : if @d012 >= 80), watchpoints en lecture ou écriture sur une plage (watch store d020), trace des 20 000 dernières instructions avec registres, ligne et cycle de balayage (trace on, trace save pour la télécharger). Désassembleur, affichage et modification de la mémoire (m, >, f), assembleur ligne à ligne (a c000 lda #$05), registres (r pc=c000), état des puces (io), vue de la mémoire vive seule (bank ram) et du lecteur 1541 émulé (dev 8). La lecture depuis le moniteur n'a aucun effet de bord sur les puces. Tapez h dans le moniteur pour la liste complète.</p>
+    <p>Bouton Moniteur : panneau façon VICE sous le clavier. Pause, pas à pas (z), pas par-dessus un JSR (n), sortie du sous-programme (ret), reprise (g) ou jusqu'à une adresse (until). Points d'arrêt, éventuellement conditionnels (break c000 if a == 05, ou sur une case mémoire : if @d012 >= 80), watchpoints en lecture ou écriture sur une plage (watch store d020), trace des 20 000 dernières instructions avec registres, ligne et cycle de balayage (trace on, trace save pour la télécharger). Désassembleur, affichage et modification de la mémoire (m, >, f), assembleur ligne à ligne (a c000 lda #$05), registres (r pc=c000), état des puces (io), vue de la mémoire vive seule (bank ram) et du lecteur 1541 émulé (dev 8), où points d'arrêt et pas à pas agissent sur le processeur du lecteur. Étiquettes : les noms du KERNAL et des registres des puces sont intégrés (JSR CHROUT, STA EXTCOL…), on ajoute les siennes (al c000 boucle) ou on charge un fichier d'étiquettes de VICE, ACME, 64tass ou KickAssembler (bouton Étiquettes), puis on s'en sert partout (break .boucle). Avec le BASIC intégré, le moniteur devient un débogueur BASIC : points d'arrêt sur numéros de ligne (bline 100), pas à pas instruction par instruction, pas par-dessus un GOSUB, sortie jusqu'au RETURN, variables et tableaux (vars). La lecture depuis le moniteur n'a aucun effet de bord sur les puces. Tapez h dans le moniteur pour la liste complète.</p>
 
     <h3>Sauvegardes d'état</h3>
     <p>Menu États : cinq emplacements (dont la sauvegarde rapide, F9 pour sauver, F10 pour revenir), avec miniature et date, gardés dans ce navigateur. Un état peut aussi être exporté dans un fichier .c64s et réimporté ailleurs. En BASIC intégré, la sauvegarde n'est pas possible pendant un INPUT ou un chargement en cours.</p>
@@ -822,6 +823,7 @@ function gotoLine(n){
 }
 
 function step(){
+  if(MON.basArmed&&!MON.bstep&&curIdx>=0&&monBasBefore()) return;
   jumped=false;
   const c=skip();
   if(c===undefined){ nextLine(); return; }
@@ -2146,6 +2148,7 @@ function runCpu(budget){
       busWait(); { const t0=cyc; MON.inCpu=true; cpuStep(); MON.inCpu=false; busStall(t0); } tick();
       if(!C.i&&irqPending()) irqEnter();
       if(MON.armed&&monAfter()) break;
+      if(MON.paused) break;
       if((++n&2047)===0&&now()-t0>cpuSliceMs) break;
     }
   }catch(e){ cpuFault(e); }
@@ -2190,7 +2193,7 @@ const TM={lineCyc:63,lines:312,hz:985248};
 function applyTiming(){ const n=MODEL.ntsc; TM.lineCyc=n?65:63; TM.lines=n?263:312; TM.hz=n?1022727:985248; CPU_KHZ=TM.hz/1000; }
 function setModel(n){ MODEL=MODELS[n]||MODELS.c64; applyTiming(); try{ localStorage.setItem(MODEL_KEY,MODEL.name); }catch(e){} }
 try{ const m=typeof localStorage!=='undefined'&&localStorage.getItem(MODEL_KEY); if(m&&MODELS[m]) MODEL=MODELS[m]; }catch(e){}
-const SID={ctx:null,gain:null,on:true,next:0,sr:48000};
+const SID={ctx:null,gain:null,on:true,next:0,sr:48000,worklet:null,workletOK:false,sab:null,sabW:null,head:0};
 const ENV_RATE=[9,32,63,95,149,220,267,313,392,977,1954,3126,3907,11720,19532,31251];
 const mkVoice=()=>({acc:0,freq:0,pw:0,ctrl:0,ad:0,sr:0,env:0,state:3,ec:0,rc:0,lfsr:0x7FFFF8,rise:false});
 const mkSid=()=>({v:[mkVoice(),mkVoice(),mkVoice()],f:{fc:0,res:0,filt:0,mode:0,vol:0,low:0,band:0,dcx:0,dcy:0},q:[],cyc:0,on:true});
@@ -2200,11 +2203,35 @@ const SV=SI[0].v, SF=SI[0].f;
 let sidCyc=0;
 /* adresse du 2e SID : 0 = désactivé */
 let SID2_ADDR=0;
-/* ring buffer audio (AudioWorklet) : cap échantillons + têtes d'écriture/lecture en cas 0/1 */
-/* sortie AudioWorklet abandonnée (V5.9c) : la file du worklet jetait les blocs
-   au-delà de 24 dès que le rAF tardait → grésillements. La sortie est le
-   scheduler AudioBuffer à SID.next (horloge du device, aucun jet). */
-function audioWorkletSetup(){}
+/* sortie audio : AudioWorklet si disponible, sinon blocs AudioBuffer planifiés */
+function audioWorkletSetup(){
+  if(SID.worklet||!SID.ctx||!SID.ctx.audioWorklet) return;
+  // processeur audio : file de blocs stéréo, latence bornée (80 à 200 ms), réserve de 40 ms après une coupure
+  const src=`class SidOut extends AudioWorkletProcessor{
+    constructor(){ super(); this.q=[]; this.cur=null; this.pi=0; this.queued=0; this.wait=true;
+      this.MAX=Math.round(sampleRate*0.2); this.TARGET=Math.round(sampleRate*0.08); this.PRE=Math.round(sampleRate*0.04);
+      this.port.onmessage=(e)=>{ const b=e.data; this.q.push(b); this.queued+=b.l.length;
+        if(this.queued>this.MAX) while(this.queued>this.TARGET&&this.q.length>1){ const o=this.q.shift(); this.queued-=o.l.length; } }; }
+    process(inputs,outputs){ const L=outputs[0][0], R=outputs[0][1]||null;
+      if(this.wait){ if(this.queued<this.PRE){ L.fill(0); if(R) R.fill(0); return true; } this.wait=false;
+        while(this.queued>this.TARGET&&this.q.length>1){ const o=this.q.shift(); this.queued-=o.l.length; } }
+      for(let i=0;i<L.length;i++){
+        if(!this.cur||this.pi>=this.cur.l.length){ this.cur=this.q.shift()||null; this.pi=0;
+          if(!this.cur){ this.wait=true; for(let k=i;k<L.length;k++){ L[k]=0; if(R) R[k]=0; } return true; } }
+        const b=this.cur; L[i]=b.l[this.pi]; if(R) R[i]=(b.r||b.l)[this.pi]; this.pi++; this.queued--;
+      }
+      return true; }}
+    registerProcessor('sid-out',SidOut);`;
+  try{
+    const blob=new Blob([src],{type:'application/javascript'});
+    const url=URL.createObjectURL(blob);
+    SID.ctx.audioWorklet.addModule(url).then(()=>{
+      URL.revokeObjectURL(url);
+      const node=new AudioWorkletNode(SID.ctx,'sid-out',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
+      node.connect(SID.gain); SID.worklet=node; SID.workletOK=true;
+    }).catch(()=>{ URL.revokeObjectURL(url); });
+  }catch(e){}
+}
 function sid2Of(a){
   if(!SID2_ADDR) return -1;
   if(SID2_ADDR===0xD420&&a>=0xD420&&a<0xD440) return 1;
@@ -2327,23 +2354,26 @@ function sidFlush(silent){
   if(total<=0){ return; }
   if(total>TM.hz*0.3){ applyAll(); SID.next=0; return; }
   const n=Math.floor(total/cps); if(n<=0) return;
-  const q2=SID2_ADDR?SI[1].q:null;
-  /* toujours entrelacé [L,R] (le canal R vaut 0 sans 2e SID) */
-  const buf=new Float32Array(n*2); let qi=0, c=sidCyc, qi2=0;
-  const cps2=cps;
+  // stéréo : SID 1 à gauche, SID 2 à droite, chacun à plein volume (mono si pas de 2e SID)
+  const buf=new Float32Array(n); let qi=0, c=sidCyc;
+  const q2=SID2_ADDR?SI[1].q:null; let qi2=0;
+  const bufR=q2?new Float32Array(n):null;
   for(let k=0;k<n;k++){
     c+=cps;
     while(qi<q.length&&q[qi]<=c){ sidApply(0,q[qi+1],q[qi+2]); qi+=3; }
-    let y=sidSampleInst(0,cps), y2=0;
-    if(q2){ while(qi2<q2.length&&q2[qi2]<=c){ sidApply(1,q2[qi2+1],q2[qi2+2]); qi2+=3; } y2=sidSampleInst(1,cps2); }
-    buf[k*2]=y; buf[k*2+1]=q2?y2:0;
+    buf[k]=sidSampleInst(0,cps);
+    if(q2){ while(qi2<q2.length&&q2[qi2]<=c){ sidApply(1,q2[qi2+1],q2[qi2+2]); qi2+=3; } bufR[k]=sidSampleInst(1,cps); }
   }
   q.splice(0,qi); if(q2) q2.splice(0,qi2); sidCyc=c; inst.cyc=c;
-  /* sortie : AudioBuffer schedulé à SID.next — précision d'horloge du device,
-     aucun jet de bloc (le worklet borné à 24 grésillait dès que le rAF tardait) */
-  const ctx=SID.ctx, ab=ctx.createBuffer(2,n,SID.sr);
-  const Lc=ab.getChannelData(0), Rc=ab.getChannelData(1);
-  for(let i=0;i<n;i++){ Lc[i]=buf[i*2]; Rc[i]=buf[i*2+1]; }
+  /* sortie par AudioWorklet (thread audio dédié) : les blocs lui sont transmis par messages */
+  if(SID.workletOK){
+    try{
+      const msg=bufR?{l:buf,r:bufR}:{l:buf};
+      SID.worklet.port.postMessage(msg,bufR?[buf.buffer,bufR.buffer]:[buf.buffer]);
+      return;
+    }catch(e){ SID.workletOK=false; }
+  }
+  const ctx=SID.ctx, ab=ctx.createBuffer(2,n,SID.sr); ab.copyToChannel(buf,0); ab.copyToChannel(bufR||buf,1);
   const src=ctx.createBufferSource(); src.buffer=ab; src.connect(SID.gain);
   const t=ctx.currentTime; if(SID.next<t+0.015||SID.next>t+0.35) SID.next=t+0.07;
   src.start(SID.next); SID.next+=n/SID.sr;
@@ -2986,6 +3016,7 @@ function drvRun(t64){
   const v1=DRV.via1, v2=DRV.via2;
   try{
     while(cyc<target){
+      if(MON.drvArmed&&monDrvBefore()) break;
       const c0=cyc;
       cpuStep();
       const n=cyc-c0; viaAdvance(v1,n); viaAdvance(v2,n); diskAdvance(n);
@@ -2993,6 +3024,7 @@ function drvRun(t64){
     }
   }catch(e){ DRV.halted=true; console.warn('Lecteur 1541 bloqué',e); if(HAS_DOM) toast('Le lecteur 1541 émulé s\u2019est bloqué : désactivez-le puis réactivez-le'); }
   DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false;
+  if(MON.pendingUI) monDrvUI();
 }
 function drvLoadDisk(){
   drvSync(); DRV.tracks=[]; DRV.dirty=false;
@@ -3051,7 +3083,7 @@ function saveState(){
     mem,ramD,cpu:Object.assign({},C),cyc,cycFrac,rasterCmp,d019,collSS,collSB,joyPort,nmiLvl,joy2,
     cia1,cia2,
     vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo,SPR},
-    sid:{SV,SF,sidCyc,sid2:SID2_ADDR,si:[{f:SI[1].f},{f:SI[1].f}]},
+    sid:{SV,SF,sidCyc,sid2:{addr:SID2_ADDR,v:SI[1].v,f:SI[1].f}},
     state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,reu:REU.size?REU:null,
     tape:TAPE,cart,d64,
     drv:DRV.on?{C:DRV.C,cyc:DRV.cyc,ram:DRV.ram,via1:DRV.via1,via2:DRV.via2,ht:DRV.ht,tracks:DRV.tracks,bitPos:DRV.bitPos,bitAcc:DRV.bitAcc,shift:DRV.shift,ones:DRV.ones,bitCnt:DRV.bitCnt,latch:DRV.latch,wshift:DRV.wshift,sync:DRV.sync,dirty:DRV.dirty,phase:DRV.phase,prevAtn:DRV.prevAtn,motor:DRV.motor,led:DRV.led,density:DRV.density,warp:DRV.warp}:null,
@@ -3081,9 +3113,15 @@ function loadState(json){
   Object.assign(cia1,makeCIA(),o.cia1); Object.assign(cia2,makeCIA(),o.cia2);
   const V=o.vic; vicNext=V.vicNext; vicLine=V.vicLine; vicPhase=V.vicPhase; vicLineCur=V.vicLineCur; vcBase=V.vcBase; vc=V.vc; rc=V.rc; vDisplay=V.vDisplay; vBorder=V.vBorder; mBorder=V.mBorder; den30=V.den30; ciaLast=V.ciaLast; vLineStart=V.vLineStart; rowSC.set(V.rowSC); rowCol.set(V.rowCol); vstart.set(V.vstart); vlog=V.vlog||[]; lineBad=V.lineBad; vicFrameNo=V.vicFrameNo; if(V.SPR) V.SPR.forEach((q,i)=>Object.assign(SPR[i],q)); else sprReset();
   for(let i=0;i<3;i++) Object.assign(SV[i],o.sid.SV[i]); Object.assign(SF,o.sid.SF);
-  SID2_ADDR=o.sid.sid2||0; if(SID2_ADDR) Object.assign(SI[1].f,o.sid.si[0].f||{}); else { Object.assign(SI[1],mkSid()); }
-  if(o.sid.si){ for(let i=0;i<2;i++){ const s=o.sid.si[i]; if(s){ Object.assign(SI[i].f,s.f); SI[i].q.length=0; SI[i].cyc=cyc; } } }
-  SI[0].q.length=0; SI[1].q.length=0; sidCyc=cyc; SID.next=0;
+  { const s2=o.sid.sid2;
+    if(typeof s2==='number'){ /* ancien format : adresse seule + filtres si[] */
+      SID2_ADDR=s2|0; PERIPH.sid2=SID2_ADDR;
+      if(s2&&o.sid.si){ const f=o.sid.si[0]&&o.sid.si[0].f; if(f) Object.assign(SI[1].f,f); }
+    } else if(s2&&typeof s2==='object'){ SID2_ADDR=s2.addr|0; PERIPH.sid2=SID2_ADDR;
+      for(let i=0;i<3;i++) Object.assign(SI[1].v[i],s2.v[i]); Object.assign(SI[1].f,s2.f); }
+    else { SID2_ADDR=0; PERIPH.sid2=0; } }
+  for(const inst of SI){ inst.q.length=0; inst.cyc=cyc; } sidCyc=cyc; SID.next=0;
+  if(HAS_DOM) refreshSid2();
   romHalted=o.romHalted; typeHoldUntil=o.typeHoldUntil; kbd=o.kbd||[]; kName=o.kern.kName; kDev=o.kern.kDev; kSa=o.kern.kSa;
   Object.assign(TAPE,o.tape); cart=o.cart; d64=o.d64;
   if(o.reu){ PERIPH.reu=o.reu.size/1024; Object.assign(REU,o.reu); } else if(REU.size) reuSetSize(PERIPH.reu);
@@ -3137,29 +3175,16 @@ async function stateLoad(k){
 
 /* ================= Moniteur (débogueur façon VICE) ================= */
 const MON={paused:false,armed:false,bps:[],wps:[],trace:false,tbuf:[],tmax:20000,skip:-1,out:null,outSp:0,tempBp:-1,
-  wHit:null,inCpu:false,fetchLo:-1,fetchHi:-1,lastOp:0,bank:'cpu',dev:'c64',dis:-1,mem:0x0400,asm:-1,reason:'',wrapped:false,baseRD:null,baseWR:null,log:[]};
+  wHit:null,inCpu:false,fetchLo:-1,fetchHi:-1,lastOp:0,tempBp8:-1,out8:null,skip8:-1,lastOp8:0,drvArmed:false,pendingUI:false,bbps:[],bnext:null,bout:null,bskip:null,basArmed:false,bstep:false,bank:'cpu',dev:'c64',dis:-1,mem:0x0400,asm:-1,reason:'',wrapped:false,baseRD:null,baseWR:null,log:[]};
 const hx2=n=>(n&255).toString(16).toUpperCase().padStart(2,'0'), hx4=n=>(n&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
-/* ===== Étiquettes du moniteur (fichiers .sym/.lbl) =====
-   Formats acceptés : « add_label C: c000 nom » (VICE), « nom = $c000 » ou
-   « nom=$c000 » (Kick Assembler / ca65 / 64tass / DASM). Les noms commencent
-   par un point comme dans VICE ; un nom sans point est accepté à la lecture. */
-let LBL=new Map();
-function labelOf(a){ for(const [k,v] of LBL) if(v===(a&0xFFFF)) return k; return null; }
-function labelLoad(text){
-  let n=0; LBL=new Map();
-  for(const raw of text.split(/\r?\n/)){
-    const l=raw.trim(); if(!l||l.startsWith('#')||l.startsWith(';')) continue;
-    let m=/^add_label\s+(?:[c891011]:\s*)?\$?([0-9a-f]{1,4})\s+\.?(\S+)$/i.exec(l);
-    if(!m){ m=/^\.?([A-Za-z_]\w*)\s*=\s*\$?([0-9a-f]{1,4})\s*(?:;.*)?$/i.exec(l); }
-    if(!m) continue;
-    LBL.set('.'+m[1], parseInt(m[2],16)&0xFFFF); n++;
-  }
-  return n;
-}
-
 const OFFICIAL=new Set('LDA LDX LDY STA STX STY ADC SBC AND ORA EOR CMP CPX CPY BIT ASL LSR ROL ROR INC DEC INX INY DEX DEY TAX TAY TXA TYA TSX TXS BPL BMI BVC BVS BCC BCS BNE BEQ JMP JSR RTS RTI BRK PHA PHP PLA PLP CLC SEC CLI SEI CLV CLD SED NOP'.split(' '));
 const OPLEN=[1,1,2,2,2,2,3,3,3,2,2,2,3];
-function monRearm(){ MON.armed=MON.bps.length>0||MON.wps.length>0||MON.trace||MON.out!==null||MON.tempBp>=0; monWrap(); }
+function monFlags(){
+  MON.armed=MON.bps.some(b=>b.dev!=='8')||MON.wps.length>0||MON.trace||MON.out!==null||MON.tempBp>=0;
+  MON.drvArmed=MON.bps.some(b=>b.dev==='8')||MON.tempBp8>=0||MON.out8!==null;
+  MON.basArmed=MON.bbps.length>0||MON.bnext!==null||MON.bout!==null||MON.trace;
+}
+function monRearm(){ monFlags(); monWrap(); }
 /* lecture sans effet de bord (le moniteur ne doit rien acquitter ni déclencher) */
 function ciaPeekQuiet(c,r){ if(r===13) return (c.icr&0x1F)|((c.icr&c.mask&0x1F)?0x80:0); if(r>=8&&r<=11) return (c.todLatch||todRegs(todNow(c)))[r-8]; return ciaRead(c,r); }
 function monPeek(a){
@@ -3194,24 +3219,61 @@ function cpuOf(){ return MON.dev==='8'?DRV.C:C; }
 function disasm(a){
   const op=monPeek(a), m=OPM[op], md=OPA[op], len=OPLEN[md], b1=monPeek(a+1), b2=monPeek(a+2), w=b1|(b2<<8);
   let t='';
+  const L=(x,z)=>{ const nm=MLAB.show?labName(x):undefined; return nm!==undefined?nm:'$'+(z?hx2(x):hx4(x)); };
   switch(md){
-    case 2: t='#$'+hx2(b1); break; case 3: t='$'+hx2(b1); break; case 4: t='$'+hx2(b1)+',X'; break; case 5: t='$'+hx2(b1)+',Y'; break;
-    case 6: t='$'+hx4(w); break; case 7: t='$'+hx4(w)+',X'; break; case 8: t='$'+hx4(w)+',Y'; break;
-    case 9: t='($'+hx2(b1)+',X)'; break; case 10: t='($'+hx2(b1)+'),Y'; break;
-    case 11: t='$'+hx4(a+2+(b1<128?b1:b1-256)); break; case 12: t='($'+hx4(w)+')'; break;
+    case 2: t='#$'+hx2(b1); break; case 3: t=L(b1,1); break; case 4: t=L(b1,1)+',X'; break; case 5: t=L(b1,1)+',Y'; break;
+    case 6: t=L(w); break; case 7: t=L(w)+',X'; break; case 8: t=L(w)+',Y'; break;
+    case 9: t='('+L(b1,1)+',X)'; break; case 10: t='('+L(b1,1)+'),Y'; break;
+    case 11: t=L((a+2+(b1<128?b1:b1-256))&0xFFFF); break; case 12: t='('+L(w)+')'; break;
   }
   const bytes=[op,b1,b2].slice(0,len).map(hx2).join(' ');
-  const lb=labelOf(a);
-  return {len,text:'.'+(MON.dev==='8'?'8':'C')+':'+hx4(a)+(lb?' ['+lb+']':'')+'  '+bytes.padEnd(9)+' '+(OFFICIAL.has(m)?' ':'*')+m+(t?' '+t:'')};
+  return {len,text:'.'+(MON.dev==='8'?'8':'C')+':'+hx4(a)+'  '+bytes.padEnd(9)+' '+(OFFICIAL.has(m)?' ':'*')+m+(t?' '+t:'')};
 }
 /* assembleur (une instruction) */
 const ASM=new Map(); for(let o=0;o<256;o++){ const k=OPM[o]+'/'+OPA[o]; if(!ASM.has(k)) ASM.set(k,o); } ASM.set('NOP/0',0xEA); ASM.set('SBC/2',0xE9);
-function mnum(t){ t=t.trim(); if(/^\+\d+$/.test(t)) return parseInt(t.slice(1),10); if(/^%[01]+$/.test(t)) return parseInt(t.slice(1),2);
-  let lk=t.startsWith('.')?t:('.'+t);
-  if(LBL.has(lk)) return LBL.get(lk);
-  const ll=lk.toLowerCase();
-  for(const [k,v] of LBL) if(k.toLowerCase()===ll) return v;
-  t=t.replace(/^\$/,''); if(!/^[0-9a-f]+$/i.test(t)) throw new Error('nombre invalide : '+t); return parseInt(t,16); }
+/* --- étiquettes (symboles) : noms officiels intégrés + étiquettes de l'utilisateur --- */
+const MON_SYMS=(()=>{ const m=new Map(), add=(a,n)=>m.set(a,n);
+  [[0xFF81,'CINT'],[0xFF84,'IOINIT'],[0xFF87,'RAMTAS'],[0xFF8A,'RESTOR'],[0xFF8D,'VECTOR'],[0xFF90,'SETMSG'],[0xFF93,'SECOND'],[0xFF96,'TKSA'],[0xFF99,'MEMTOP'],[0xFF9C,'MEMBOT'],
+   [0xFF9F,'SCNKEY'],[0xFFA2,'SETTMO'],[0xFFA5,'ACPTR'],[0xFFA8,'CIOUT'],[0xFFAB,'UNTLK'],[0xFFAE,'UNLSN'],[0xFFB1,'LISTEN'],[0xFFB4,'TALK'],[0xFFB7,'READST'],[0xFFBA,'SETLFS'],
+   [0xFFBD,'SETNAM'],[0xFFC0,'OPEN'],[0xFFC3,'CLOSE'],[0xFFC6,'CHKIN'],[0xFFC9,'CHKOUT'],[0xFFCC,'CLRCHN'],[0xFFCF,'CHRIN'],[0xFFD2,'CHROUT'],[0xFFD5,'LOAD'],[0xFFD8,'SAVE'],
+   [0xFFDB,'SETTIM'],[0xFFDE,'RDTIM'],[0xFFE1,'STOP'],[0xFFE4,'GETIN'],[0xFFE7,'CLALL'],[0xFFEA,'UDTIM'],[0xFFED,'SCREEN'],[0xFFF0,'PLOT'],[0xFFF3,'IOBASE'],
+   [0xEA31,'IRQ_KERNAL'],[0xEA81,'IRQ_EXIT'],[0x0314,'CINV'],[0x0316,'CBINV'],[0x0318,'NMINV'],[0xFFFA,'NMI_VEC'],[0xFFFC,'RESET_VEC'],[0xFFFE,'IRQ_VEC']].forEach(([a,n])=>add(a,n));
+  for(let i=0;i<8;i++){ add(0xD000+2*i,'SP'+i+'X'); add(0xD001+2*i,'SP'+i+'Y'); add(0xD027+i,'SP'+i+'COL'); }
+  'MSIGX SCROLY RASTER LPENX LPENY SPENA SCROLX YXPAND VMCSB VICIRQ IRQMSK SPBGPR SPMC XXPAND SPSPCL SPBGCL EXTCOL BGCOL0 BGCOL1 BGCOL2 BGCOL3 SPMC0 SPMC1'.split(' ').forEach((n,i)=>add(0xD010+i,n));
+  for(let v=0;v<3;v++) 'FRELO FREHI PWLO PWHI VCREG ATDCY SUREL'.split(' ').forEach((n,i)=>add(0xD400+v*7+i,n+(v+1)));
+  'CUTLO CUTHI RESON SIGVOL POTX POTY RANDOM ENV3'.split(' ').forEach((n,i)=>add(0xD415+i,n));
+  'CIAPRA CIAPRB CIDDRA CIDDRB TIMALO TIMAHI TIMBLO TIMBHI TODTEN TODSEC TODMIN TODHRS CIASDR CIAICR CIACRA CIACRB'.split(' ').forEach((n,i)=>add(0xDC00+i,n));
+  'CI2PRA CI2PRB C2DDRA C2DDRB TI2ALO TI2AHI TI2BLO TI2BHI TO2TEN TO2SEC TO2MIN TO2HRS CI2SDR CI2ICR CI2CRA CI2CRB'.split(' ').forEach((n,i)=>add(0xDD00+i,n));
+  return m; })();
+const MON_SYMS_REV=new Map([...MON_SYMS].map(([a,n])=>[n.toLowerCase(),a]));
+const LAB_KEY='emu64.labels.v1';
+const MLAB={user:new Map(), byName:new Map(), builtin:true, show:true};
+function labSave(){ try{ localStorage.setItem(LAB_KEY,JSON.stringify({l:[...MLAB.user],b:MLAB.builtin,s:MLAB.show})); }catch(e){} }
+function labSet(a,n,save=true){ n=String(n).replace(/^\./,''); if(!/^[A-Za-z_@][\w.@]*$/.test(n)) throw new Error('nom d\u2019étiquette invalide : '+n);
+  const k=n.toLowerCase(), old=MLAB.byName.get(k); if(old!==undefined) MLAB.user.delete(old);
+  const prev=MLAB.user.get(a&0xFFFF); if(prev) MLAB.byName.delete(prev.toLowerCase());
+  MLAB.user.set(a&0xFFFF,n); MLAB.byName.set(k,a&0xFFFF); if(save) labSave(); }
+function labDel(n){ const k=String(n).replace(/^\./,'').toLowerCase(), a=MLAB.byName.get(k); if(a===undefined) return false; MLAB.byName.delete(k); MLAB.user.delete(a); labSave(); return true; }
+try{ const o=typeof localStorage!=='undefined'&&JSON.parse(localStorage.getItem(LAB_KEY)||'null'); if(o){ for(const [a,n] of o.l||[]) labSet(a,n,false); MLAB.builtin=o.b!==false; MLAB.show=o.s!==false; } }catch(e){}
+function labName(a){ if(MON.dev==='8') return undefined; const u=MLAB.user.get(a&0xFFFF); if(u!==undefined) return u; return MLAB.builtin?MON_SYMS.get(a&0xFFFF):undefined; }
+function labAddr(t){ const k=t.replace(/^\./,'').toLowerCase(); if(MLAB.byName.has(k)) return MLAB.byName.get(k); if(MLAB.builtin&&MON_SYMS_REV.has(k)) return MON_SYMS_REV.get(k); return undefined; }
+/* fichiers d'étiquettes : VICE (al C:1000 .nom), ACME / 64tass / KickAssembler (nom = $1000, .label nom=$1000), listes « nom $1000 » ou « $1000 nom » */
+function labParse(text){
+  let n=0; const put=(a,nm)=>{ try{ labSet(a,nm,false); n++; }catch(e){} };
+  for(const raw of String(text).split(/\r?\n/)){
+    const t=raw.replace(/(^|\s);.*$/,'').replace(/\/\/.*$/,'').trim(); if(!t) continue; let m;
+    if(m=/^al\s+(?:[c8]:)?\$?([0-9a-f]{1,4})\s+\.?([A-Za-z_@][\w.@]*)/i.exec(t)) put(parseInt(m[1],16),m[2]);
+    else if(m=/^\.(?:label|const|var)\s+([A-Za-z_@][\w.@]*)\s*=\s*\$([0-9a-f]{1,4})\b/i.exec(t)) put(parseInt(m[2],16),m[1]);
+    else if(m=/^\.?([A-Za-z_@][\w.@]*)\s*=\s*\$([0-9a-f]{1,4})\b/i.exec(t)) put(parseInt(m[2],16),m[1]);
+    else if(m=/^\.?([A-Za-z_@][\w.@]*)\s*=\s*(\d{1,5})\s*$/.exec(t)){ const v=+m[2]; if(v<65536) put(v,m[1]); }
+    else if(m=/^\.?([A-Za-z_@][\w.@]*):?\s+\$([0-9a-f]{4})\s*$/i.exec(t)) put(parseInt(m[2],16),m[1]);
+    else if(m=/^\$?([0-9a-f]{4})\s+\.?([A-Za-z_@][\w.@]*)\s*$/i.exec(t)) put(parseInt(m[1],16),m[2]);
+  }
+  labSave(); return n;
+}
+function mnum(t){ t=t.trim().replace(/^[c8]:/i,'');
+  if(t[0]==='.'||(/^[A-Za-z_@]/.test(t)&&!/^[0-9a-f]+$/i.test(t))){ const a=labAddr(t); if(a===undefined) throw new Error('étiquette inconnue : '+t); return a; }
+  if(/^\+\d+$/.test(t)) return parseInt(t.slice(1),10); if(/^%[01]+$/.test(t)) return parseInt(t.slice(1),2); t=t.replace(/^\$/,''); if(!/^[0-9a-f]+$/i.test(t)) throw new Error('nombre invalide : '+t); return parseInt(t,16); }
 function assemble(a,src){
   const m=/^\s*([a-z]{3})\s*(.*)$/i.exec(src); if(!m) throw new Error('instruction illisible');
   const mn=m[1].toUpperCase(), op=m[2].trim().toUpperCase(); let md, v=0, r;
@@ -3233,6 +3295,8 @@ function assemble(a,src){
 /* registres */
 function flagsStr(p){ return 'NV-BDIZC'.split('').map((f,i)=>(p>>(7-i))&1?f:'.').join(''); }
 function regsLine(){
+  if(basicView()){ const ln=curIdx>=0&&prog[curIdx]?prog[curIdx].num:'—';
+    return '  BASIC intégré (sans ROM) · ligne '+ln+' · GOSUB niveau '+gosubDepth()+' · FOR niveau '+forDepth()+'\n  instruction : '+(basStmtText()||'—'); }
   const c=cpuOf(), p=(c.n<<7)|(c.v<<6)|0x20|(c.d<<3)|(c.i<<2)|(c.z<<1)|c.c;
   if(MON.dev==='8') return '  ADDR A  X  Y  SP NV-BDIZC   lecteur 1541 · piste '+(DRV.ht/2)+'\n.;'+hx4(c.pc)+' '+hx2(c.a)+' '+hx2(c.x)+' '+hx2(c.y)+' '+hx2(c.sp)+' '+flagsStr(p);
   return '  ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH\n.;'+hx4(c.pc)+' '+hx2(c.a)+' '+hx2(c.x)+' '+hx2(c.y)+' '+hx2(c.sp)+' '+hx2(mem[0])+' '+hx2(mem[1])+' '+flagsStr(p)+' '+String(vicLineCur).padStart(3,'0')+' '+String(Math.max(0,cyc-vLineStart)).padStart(3,'0')+'  '+String(cyc).padStart(10);
@@ -3240,7 +3304,9 @@ function regsLine(){
 /* points d'arrêt, watchpoints, trace */
 function condOk(bp){
   if(!bp.cond) return true;
-  const c=C, {l,op,r}=bp.cond, lv=l==='A'?c.a:l==='X'?c.x:l==='Y'?c.y:l==='SP'?c.sp:l==='PC'?c.pc:monPeek(parseInt(l.slice(1),16));
+  const c=C, {l,op,r}=bp.cond; let lv;
+  if(l==='A') lv=c.a; else if(l==='X') lv=c.x; else if(l==='Y') lv=c.y; else if(l==='SP') lv=c.sp; else if(l==='PC') lv=c.pc;
+  else { const sd=MON.dev; MON.dev=bp.dev==='8'?'8':'c64'; lv=monPeek(parseInt(l.slice(1),16)); MON.dev=sd; }
   switch(op){ case '==': return lv===r; case '!=': return lv!==r; case '<': return lv<r; case '>': return lv>r; case '<=': return lv<=r; case '>=': return lv>=r; }
   return false;
 }
@@ -3252,7 +3318,7 @@ function monBefore(){
   if(MON.skip===pc){ MON.skip=-1; return false; }
   MON.skip=-1;
   if(MON.tempBp===pc){ monPause('Arrêt en $'+hx4(pc)); return true; }
-  for(const bp of MON.bps) if(bp.on&&bp.a===pc&&condOk(bp)){ bp.hits++; monPause('Point d\u2019arrêt n°'+bp.n+' en $'+hx4(pc)+(bp.cond?' (condition vraie)':'')); return true; }
+  for(const bp of MON.bps) if(bp.on&&bp.dev!=='8'&&bp.a===pc&&condOk(bp)){ bp.hits++; monPause('Point d\u2019arrêt n°'+bp.n+' en $'+hx4(pc)+(bp.cond?' (condition vraie)':'')); return true; }
   return false;
 }
 function monAfter(){
@@ -3271,11 +3337,69 @@ function monWrap(){
     WR=(a,v)=>{ if(MON.inCpu) monWatch(a,v,'store'); MON.baseWR(a,v); };
   } else if(!MON.wps.length&&MON.wrapped){ RD=MON.baseRD; WR=MON.baseWR; MON.wrapped=false; MON.baseRD=MON.baseWR=null; }
 }
+/* --- lecteur 1541 : points d'arrêt, pas à pas (le processeur du lecteur tourne dans drvRun) --- */
+function drvPeekQ(a){ const sd=MON.dev; MON.dev='8'; const v=monPeek(a); MON.dev=sd; return v; }
+function monDrvHit(r){ MON.paused=true; MON.reason=r; MON.out8=null; MON.tempBp8=-1; MON.out=null; MON.tempBp=-1; MON.dev='8'; MON.dis=-1; MON.pendingUI=true; monFlags(); return true; }
+function monDrvBefore(){
+  const pc=C.pc;
+  if(MON.out8!==null&&(MON.lastOp8===0x60||MON.lastOp8===0x40)&&C.sp>MON.out8) return monDrvHit('Lecteur : sortie du sous-programme, retour en $'+hx4(pc));
+  MON.lastOp8=drvPeekQ(pc);
+  if(MON.skip8===pc){ MON.skip8=-1; return false; }
+  MON.skip8=-1;
+  if(MON.tempBp8===pc) return monDrvHit('Lecteur : arrêt en $'+hx4(pc));
+  for(const bp of MON.bps) if(bp.on&&bp.dev==='8'&&bp.a===pc&&condOk(bp)){ bp.hits++; return monDrvHit('Point d\u2019arrêt n°'+bp.n+' dans le lecteur en $'+hx4(pc)+(bp.cond?' (condition vraie)':'')); }
+  return false;
+}
+function monDrvUI(){ if(!MON.pendingUI) return; MON.pendingUI=false; if(HAS_DOM){ monOpen(true); monPrint(MON.reason); monRefresh(); } }
+function drvStep1(){
+  if(!DRV.on||DRV.halted) throw new Error('Le lecteur 1541 émulé n\u2019est pas actif.');
+  const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive;
+  C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false; DRVT.inDrive=true; DRVT.t64=sCyc;
+  try{ const v1=DRV.via1, v2=DRV.via2, c0=cyc; MON.lastOp8=drvPeekQ(C.pc); cpuStep(); const n=cyc-c0; viaAdvance(v1,n); viaAdvance(v2,n); diskAdvance(n);
+    if(!C.i&&((v1.ifr&v1.ier&0x7F)||(v2.ifr&v2.ier&0x7F))) drvIrq(); }
+  finally{ DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false; }
+}
+/* --- débogueur du BASIC intégré (interpréteur sans ROM) --- */
+function basicView(){ return MON.dev==='c64'&&!romMode&&state==='running'; }
+function gosubDepth(){ let n=0; for(const e of stack) if(e.t==='g') n++; return n; }
+function forDepth(){ let n=0; for(const e of stack) if(e.t!=='g') n++; return n; }
+function basStmtPos(){ let q=P; while(B[q]===32) q++; const c=B[q]; return c===undefined||c===58?-1:q; }
+function basText(bytes,from,to){ let t='', qt=false; for(let i=from||0;i<(to===undefined?bytes.length:to);i++){ const b=bytes[i];
+    if(b===34) qt=!qt; if(!qt&&b>=128&&b<=0xCB) t+=KW[b-128]; else if(b>=32&&b<96) t+=String.fromCharCode(b); else if(b>=0xC1&&b<=0xDA) t+=String.fromCharCode(b-0x80); else t+='·'; } return t; }
+function basStmtText(){ const q=basStmtPos(); if(q<0||curIdx<0) return ''; let e=q, qt=false; while(e<B.length){ if(B[e]===34) qt=!qt; if(!qt&&B[e]===58) break; e++; } return basText(B,q,e); }
+function monBasHit(r){ MON.bnext=null; MON.bout=null; monPause(r); return true; }
+function monBasBefore(){
+  const q=basStmtPos(); if(q<0) return false;
+  const ln=prog[curIdx]?prog[curIdx].num:0, dep=gosubDepth();
+  if(MON.trace){ const t=MON.tbuf; t.push({b:1,ln,txt:basStmtText(),dep}); if(t.length>MON.tmax) t.splice(0,t.length-MON.tmax); }
+  if(MON.bskip&&MON.bskip.idx===curIdx&&MON.bskip.q===q){ MON.bskip=null; return false; }
+  MON.bskip=null;
+  if(MON.bnext&&dep<=MON.bnext.dep) return monBasHit('Ligne '+ln+' : '+basStmtText());
+  if(MON.bout&&dep<MON.bout.dep) return monBasHit('Retour du sous-programme, ligne '+ln+' : '+basStmtText());
+  let first=true; for(let i=0;i<q;i++) if(B[i]!==32){ first=false; break; }
+  if(first) for(const b of MON.bbps) if(b.on&&b.line===ln){ b.hits++; return monBasHit('Point d\u2019arrêt n°'+b.n+' : ligne '+ln); }
+  return false;
+}
+function monBasStep(){
+  MON.bstep=true;
+  try{ let g=0; do{ step(); g++; } while(state==='running'&&basStmtPos()<0&&g<10000); }
+  catch(e){ if(e instanceof BErr) runtimeError(e); else { console.error(e); runtimeError(new BErr('SYNTAX')); } }
+  finally{ MON.bstep=false; }
+  if(state!=='running'){ MON.paused=false; MON.reason=''; monPrint(state==='input'?'Le programme attend une saisie : la machine reprend.':'Programme terminé.'); }
+}
+function basVars(filter){
+  const f=filter?filter.toUpperCase():null, out=[], fmt=v=>typeof v==='string'?'"'+v+'"':fmtNum(v);
+  for(const [k,v] of vars) if(!f||k.startsWith(f)) out.push(k+' = '+fmt(v));
+  for(const [k,a] of arrays) if(!f||k.startsWith(f)){ const n=a.data.length, shown=a.data.slice(0,8).map(fmt).join(', ');
+    out.push(k+'('+a.dims.map(d=>d-1).join(',')+') : '+n+' élément'+(n>1?'s':'')+' — '+shown+(n>8?', …':'')); }
+  return out.length?out.join('\n'):(f?'Aucune variable commençant par '+f+'.':'Aucune variable pour l\u2019instant.');
+}
 /* exécution contrôlée */
 function monCanStep(){ return state==='cpu'||(state==='rom'&&!romHalted); }
 function monStep(){
-  if(!monCanStep()) throw new Error('La machine exécute le BASIC intégré, pas du code machine : démarrez avec les ROM (Système) ou lancez un SYS.');
-  if(MON.dev==='8'){ const t=DRV.cyc; drvRun(Math.ceil((t+8)*TM.hz/1e6)); return; }
+  if(MON.dev==='8'){ drvStep1(); return; }
+  if(basicView()){ monBasStep(); return; }
+  if(!monCanStep()) throw new Error('Rien à exécuter pas à pas : lancez un programme (RUN) ou du code machine (SYS), ou démarrez avec les ROM.');
   if(MON.trace){ MON.tbuf.push([C.pc,C.a,C.x,C.y,C.sp,getP(),vicLineCur,cyc-vLineStart,cyc]); }
   MON.lastOp=monPeek(C.pc); cpuActive=true;
   try{ busWait(); const t0=cyc; MON.inCpu=true; cpuStep(); MON.inCpu=false; busStall(t0); tick(); if(!C.i&&irqPending()) irqEnter(); }
@@ -3283,13 +3407,18 @@ function monStep(){
   MON.inCpu=false; cpuActive=false; MON.wHit=null;
   if(state==='cpu'&&C.pc===0xFFF6) sysReturn();
 }
-function monResume(){ if(!MON.paused) return; MON.skip=C.pc; MON.paused=false; MON.reason=''; monRearm(); monRefresh(); }
+function monResume(){ if(!MON.paused) return; MON.skip=C.pc; MON.skip8=DRV.C?DRV.C.pc:-1; if(curIdx>=0&&!romMode){ const q=basStmtPos(); if(q>=0) MON.bskip={idx:curIdx,q}; } MON.paused=false; MON.reason=''; monRearm(); monRefresh(); }
 function monNext(){
+  if(MON.dev==='8'){ const pc=DRV.C.pc; if(drvPeekQ(pc)===0x20){ MON.tempBp8=(pc+3)&0xFFFF; monResume(); } else { drvStep1(); MON.reason='Pas à pas (lecteur)'; monPrint(disasm(DRV.C.pc).text); monRefresh(); } return; }
+  if(basicView()){ MON.bnext={dep:gosubDepth()}; monResume(); return; }
   if(!monCanStep()) throw new Error('Pas de code machine en cours d\u2019exécution.');
   const op=monPeek(C.pc);
   if(op===0x20){ MON.tempBp=(C.pc+3)&0xFFFF; monResume(); } else { monStep(); MON.reason='Pas à pas'; monPrint(disasm(C.pc).text); monRefresh(); }
 }
-function monReturn(){ if(!monCanStep()) throw new Error('Pas de code machine en cours d\u2019exécution.'); MON.out=C.sp; monResume(); }
+function monReturn(){
+  if(MON.dev==='8'){ MON.out8=DRV.C.sp; MON.lastOp8=0; monResume(); return; }
+  if(basicView()){ const d=gosubDepth(); if(!d) throw new Error('Le programme n\u2019est pas dans un sous-programme (GOSUB).'); MON.bout={dep:d}; monResume(); return; }
+  if(!monCanStep()) throw new Error('Pas de code machine en cours d\u2019exécution.'); MON.out=C.sp; monResume(); }
 /* sortie texte */
 function monPrint(t){ MON.log.push(t); if(MON.log.length>400) MON.log.splice(0,MON.log.length-400); if(HAS_DOM){ const o=$('#mon-out'); if(o){ o.textContent=MON.log.join('\n'); o.scrollTop=o.scrollHeight; } } }
 function memLines(from,n){
@@ -3318,15 +3447,13 @@ const MON_HELP=`Commandes (nombres en hexadécimal ; +12 = décimal, %101 = bina
   z · n · ret                        pas à pas · par-dessus un JSR · jusqu'au retour du sous-programme
   g [adresse] · until adresse · x    reprend (depuis l'adresse) · reprend jusqu'à l'adresse · quitte et reprend
   trace on|off|clear|save [n]        journal des instructions (save = télécharger ; n = afficher les n dernières)
-  io                                  état des puces
-  vic                                 détail écran + 8 sprites (position, pointeur, priorité)      bank cpu|ram      dev c64|8 (lecteur 1541 émulé)
-  hunt début fin octets|"texte"       recherche en mémoire (12 résultats max)
-  al adresse nom                      définir une étiquette (ex. : al c000 .main)
-  dl nom                              supprimer une étiquette
-  ll "fichier"                        charger un .sym (Kick Assembler, ca65, VICE)
-  sl                                  télécharger les étiquettes (format VICE)
-  (les étiquettes s'utilisent partout à la place d'une adresse, et s'affichent
-  dans le désassemblage entre crochets)`;
+  io                                  état des puces      bank cpu|ram      dev c64|8 (lecteur 1541 émulé)
+Lecteur (après « dev 8 ») : break, until, z, n, ret agissent sur le processeur du lecteur ; un arrêt fige toute la machine.
+Étiquettes : al adresse nom · dl nom · sl (liste) · clear_labels · ll (charger un fichier VICE, ACME, 64tass, KickAss)
+  labels on|off (noms dans le désassemblage) · labels builtin on|off (noms du KERNAL et des puces)
+  utilisables partout : break .boucle · d CHROUT · m SCROLY
+BASIC intégré (sans ROM) : bline [ligne…] points d'arrêt sur numéros de ligne · z instruction suivante
+  n par-dessus un GOSUB · ret jusqu'au RETURN · vars [nom] variables et tableaux · trace on : lignes exécutées`;
 function monCmd(line){
   line=line.trim(); if(!line) return; monPrint('» '+line);
   const [c0,...rest]=line.split(/\s+/), c=c0.toLowerCase(), args=rest.join(' ');
@@ -3341,29 +3468,31 @@ function monCmd(line){
         monPrint(regsLine()); break; }
       case 'm': { const f=A[0]?mnum(A[0]):MON.mem, t=A[1]?mnum(A[1]):f+0x7F; MON.mem=f; monPrint(memLines(f,Math.min(64,Math.max(1,Math.ceil((t-f+1)/16)))).join('\n')); MON.mem=(f+Math.ceil((t-f+1)/16)*16)&0xFFFF; break; }
       case 'd': { let a=A[0]?mnum(A[0]):(MON.dis>=0?MON.dis:cpuOf().pc); const t=A[1]?mnum(A[1]):-1; const out=[];
-        for(let i=0;i<(t>=0?400:20);i++){ const d=disasm(a); out.push(d.text); a=(a+d.len)&0xFFFF; if(t>=0&&a>t) break; }
+        for(let i=0;i<(t>=0?400:20);i++){ const d=disasm(a), nm=MLAB.show?labName(a):undefined; if(nm!==undefined) out.push('.'+nm+':'); out.push(d.text); a=(a+d.len)&0xFFFF; if(t>=0&&a>t) break; }
         MON.dis=a; monPrint(out.join('\n')); break; }
       case 'a': { let a, src; if(/^[0-9a-f$]+$/i.test(A[0]||'')&&A.length>1){ a=mnum(A[0]); src=A.slice(1).join(' '); } else { a=MON.asm; src=args; } if(a<0) throw new Error('adresse manquante');
         const n=assemble(a,src); monPrint(disasm(a).text); MON.asm=(a+n)&0xFFFF; break; }
       case '>': { let a=mnum(A[0]); for(const b of A.slice(1)){ monPoke(a,mnum(b)); a=(a+1)&0xFFFF; } monPrint(memLines(mnum(A[0]),1)[0]); break; }
       case 'f': { const f=mnum(A[0]), t=mnum(A[1]), v=mnum(A[2]); for(let a=f;a<=t;a++) monPoke(a,v); monPrint('Rempli $'+hx4(f)+'-$'+hx4(t)+' avec $'+hx2(v)); break; }
       case 'break': case 'bk': {
-        if(!A.length){ monPrint(MON.bps.length?MON.bps.map(b=>'n°'+b.n+' exec $'+hx4(b.a)+(b.cond?' if '+b.cond.l+' '+b.cond.op+' $'+hx2(b.cond.r):'')+(b.on?'':' (désactivé)')+'  — '+b.hits+' arrêt(s)').join('\n'):'Aucun point d\u2019arrêt.'); break; }
-        const bp={n:++monSeq,a:mnum(A[0]),cond:null,on:true,hits:0};
+        if(!A.length){ monPrint(MON.bps.length?MON.bps.map(b=>'n°'+b.n+(b.dev==='8'?' lecteur':'')+' exec $'+hx4(b.a)+(b.cond?' if '+b.cond.l+' '+b.cond.op+' $'+hx2(b.cond.r):'')+(b.on?'':' (désactivé)')+'  — '+b.hits+' arrêt(s)').join('\n'):'Aucun point d\u2019arrêt.'); break; }
+        const bp={n:++monSeq,a:mnum(A[0]),cond:null,on:true,hits:0,dev:MON.dev==='8'?'8':'c64'}; if(bp.dev==='8'&&!DRV.on) throw new Error('Le lecteur 1541 émulé n\u2019est pas actif (Supports).');
         const m=/\bif\s+(a|x|y|sp|pc|@[0-9a-f]+)\s*(==|!=|<=|>=|<|>)\s*(\S+)/i.exec(args); if(m) bp.cond={l:m[1].toUpperCase().replace(/^@/,'@'),op:m[2],r:mnum(m[3])};
-        MON.bps.push(bp); monRearm(); monPrint('Point d\u2019arrêt n°'+bp.n+' en $'+hx4(bp.a)+(bp.cond?' si '+bp.cond.l+' '+bp.cond.op+' $'+hx2(bp.cond.r):'')); monRefresh(); break; }
+        MON.bps.push(bp); monRearm(); monPrint('Point d\u2019arrêt n°'+bp.n+(bp.dev==='8'?' dans le lecteur':'')+' en $'+hx4(bp.a)+(bp.cond?' si '+bp.cond.l+' '+bp.cond.op+' $'+hx2(bp.cond.r):'')); monRefresh(); break; }
       case 'watch': case 'w': {
         if(!A.length){ monPrint(MON.wps.length?MON.wps.map(w=>'n°'+w.n+' '+({load:'lecture',store:'écriture',both:'lecture+écriture'})[w.kind]+' $'+hx4(w.from)+(w.to!==w.from?'-$'+hx4(w.to):'')+(w.on?'':' (désactivé)')+'  — '+w.hits+' arrêt(s)').join('\n'):'Aucun watchpoint.'); break; }
         let kind='both', i=0; if(/^(load|store)$/i.test(A[0])){ kind=A[0].toLowerCase(); i=1; }
         const from=mnum(A[i]), to=A[i+1]?mnum(A[i+1]):from; const w={n:++monSeq,kind,from,to,on:true,hits:0};
         MON.wps.push(w); monRearm(); monPrint('Watchpoint n°'+w.n+' ('+({load:'lecture',store:'écriture',both:'lecture+écriture'})[kind]+') sur $'+hx4(from)+(to!==from?'-$'+hx4(to):'')); break; }
-      case 'del': case 'delete': { if(A[0]){ const n=mnum('+'+A[0].replace(/^\+/,'')); MON.bps=MON.bps.filter(b=>b.n!==n); MON.wps=MON.wps.filter(w=>w.n!==n); } else { MON.bps=[]; MON.wps=[]; } monRearm(); monPrint(A[0]?'Supprimé.':'Tous les points d\u2019arrêt et watchpoints supprimés.'); monRefresh(); break; }
-      case 'enable': case 'disable': { const on=c==='enable'; for(const x of [...MON.bps,...MON.wps]) if(!A[0]||x.n===parseInt(A[0],10)) x.on=on; monPrint(on?'Activé.':'Désactivé.'); monRefresh(); break; }
-      case 'z': case 'step': { if(!MON.paused) monPause('Pause'); monStep(); MON.reason='Pas à pas'; monPrint(disasm(cpuOf().pc).text); monRefresh(); break; }
+      case 'del': case 'delete': { if(A[0]){ const n=mnum('+'+A[0].replace(/^\+/,'')); MON.bps=MON.bps.filter(b=>b.n!==n); MON.wps=MON.wps.filter(w=>w.n!==n); MON.bbps=MON.bbps.filter(b=>b.n!==n); } else { MON.bps=[]; MON.wps=[]; MON.bbps=[]; } monRearm(); monPrint(A[0]?'Supprimé.':'Tous les points d\u2019arrêt et watchpoints supprimés.'); monRefresh(); break; }
+      case 'enable': case 'disable': { const on=c==='enable'; for(const x of [...MON.bps,...MON.wps,...MON.bbps]) if(!A[0]||x.n===parseInt(A[0],10)) x.on=on; monPrint(on?'Activé.':'Désactivé.'); monRefresh(); break; }
+      case 'z': case 'step': { if(!MON.paused) monPause('Pause'); monStep();
+        if(MON.paused){ if(basicView()){ MON.reason='Pas à pas'; monPrint('ligne '+(prog[curIdx]?prog[curIdx].num:'')+' : '+basStmtText()); } else { MON.reason=MON.dev==='8'?'Pas à pas (lecteur)':'Pas à pas'; monPrint(disasm(cpuOf().pc).text); } }
+        monRefresh(); break; }
       case 'n': case 'next': { if(!MON.paused) monPause('Pause'); monNext(); break; }
       case 'ret': { if(!MON.paused) monPause('Pause'); monReturn(); break; }
       case 'g': case 'goto': { if(A[0]){ cpuOf().pc=mnum(A[0]); } monResume(); monPrint('Reprise'+(A[0]?' en $'+hx4(mnum(A[0])):'')+'.'); break; }
-      case 'until': case 'un': { MON.tempBp=mnum(A[0]); monResume(); monPrint('Reprise jusqu\u2019à $'+hx4(MON.tempBp)+'.'); break; }
+      case 'until': case 'un': { const a=mnum(A[0]); if(MON.dev==='8') MON.tempBp8=a; else MON.tempBp=a; monResume(); monPrint('Reprise jusqu\u2019à $'+hx4(a)+(MON.dev==='8'?' (lecteur)':'')+'.'); break; }
       case 'x': case 'exit': monResume(); monOpen(false); break;
       case 'trace': case 'tr': {
         const sub=(A[0]||'').toLowerCase();
@@ -3374,43 +3503,23 @@ function monCmd(line){
         else monPrint(traceText(Math.min(MON.tbuf.length,A[0]?parseInt(A[0],10)||30:30))||'Trace vide : « trace on » pour l\u2019activer.');
         monRefresh(); break; }
       case 'io': monPrint(ioSummary().join('\n')); break;
-      case 'vic': {
-        const v=[...Array(47)].map((_,i)=>mem[0xD000+i]);
-        const sx=i=>v[i*2]|((v[0x10]>>i)&1)*256;
-        const pt=i=>vread(vicBank()+(v[0x07]&15)*1024+1016+i);
-        monPrint('Écran  : écran à $'+hx4(((v[0x18]>>4)&15)*1024+vicBank())+'  caractères $'+hx4((v[0x18]&14)*512+vicBank())+'  raster $'+hx2(v[0x12])+'  sprites actifs $'+hx2(v[0x15]));
-        for(let i=0;i<8;i++){
-          monPrint('  Sprite '+(i+1)+' '+(((v[0x15]>>i)&1)?'actif ':'inactif')+'  X '+sx(i)+'  Y '+v[1+i]+'  pointeur '+pt(i)+'  coul '+hx2(v[0x27+i])+'  derrière '+(v[0x1B]&(1<<i)?'fond':'avant')+'  multicol '+(v[0x1C]&(1<<i)?'oui':'non')+(v[0x1D]&(1<<i)?'  étiré X':'')+(v[0x17]&(1<<i)?'  étiré Y':''));
-        }
-        monPrint('Collisions : sprites $'+hx2(v[0x1E])+'  fond $'+hx2(v[0x1F]));
-        break; }
-
+      case 'bline': case 'bl': {
+        if(!A.length){ monPrint(MON.bbps.length?MON.bbps.map(b=>'n°'+b.n+' ligne '+b.line+(b.on?'':' (désactivé)')+'  — '+b.hits+' arrêt(s)').join('\n'):'Aucun point d\u2019arrêt BASIC.'); break; }
+        for(const x of A){ const ln=parseInt(x,10); if(!(ln>=0&&ln<=63999)) throw new Error('numéro de ligne invalide : '+x);
+          if(!lineIndex.has(ln)) monPrint('(la ligne '+ln+' n\u2019existe pas encore dans le programme)');
+          const b={n:++monSeq,line:ln,on:true,hits:0}; MON.bbps.push(b); monPrint('Point d\u2019arrêt BASIC n°'+b.n+' : ligne '+ln); }
+        monRearm(); monRefresh(); break; }
+      case 'vars': case 'v': monPrint(basVars(A[0])); break;
+      case 'add_label': case 'al': { if(A.length<2) throw new Error('usage : al adresse nom'); const a=mnum(A[0]); labSet(a,A[1]); monPrint('Étiquette '+A[1].replace(/^\./,'')+' = $'+hx4(a)); monRefresh(); break; }
+      case 'del_label': case 'dl': { if(!A[0]) throw new Error('usage : dl nom'); monPrint(labDel(A[0])?'Étiquette supprimée.':'Étiquette inconnue : '+A[0]); monRefresh(); break; }
+      case 'show_labels': case 'sl': { const l=[...MLAB.user].sort((x,y)=>x[0]-y[0]); monPrint((l.length?l.map(([a,n])=>'$'+hx4(a)+'  .'+n).join('\n'):'Aucune étiquette personnelle.')+'\nNoms intégrés (KERNAL, puces) : '+(MLAB.builtin?'oui':'non')+' · noms dans le désassemblage : '+(MLAB.show?'oui':'non')); break; }
+      case 'clear_labels': { MLAB.user.clear(); MLAB.byName.clear(); labSave(); monPrint('Étiquettes personnelles effacées.'); monRefresh(); break; }
+      case 'labels': { const a=(A[0]||'').toLowerCase(), b=(A[1]||'').toLowerCase();
+        if(a==='builtin'&&(b==='on'||b==='off')) MLAB.builtin=b==='on'; else if(a==='on'||a==='off') MLAB.show=a==='on'; else throw new Error('usage : labels on|off  ou  labels builtin on|off');
+        labSave(); monPrint('Noms dans le désassemblage : '+(MLAB.show?'oui':'non')+' · noms intégrés : '+(MLAB.builtin?'oui':'non')); monRefresh(); break; }
+      case 'load_labels': case 'll': { if(HAS_DOM&&$('#mon-lab-file')) $('#mon-lab-file').click(); else monPrint('Utilisez le bouton Étiquettes.'); break; }
       case 'bank': { if(/^(cpu|ram)$/i.test(A[0]||'')) MON.bank=A[0].toLowerCase(); monPrint('Vue mémoire : '+(MON.bank==='cpu'?'celle du processeur (ROM, E/S, cartouche selon $01)':'mémoire vive seule')); monRefresh(); break; }
       case 'dev': { if(A[0]==='8'){ if(!DRV.on) throw new Error('Le lecteur 1541 émulé n\u2019est pas actif (Supports).'); MON.dev='8'; } else MON.dev='c64'; MON.dis=-1; monPrint('Cible : '+(MON.dev==='8'?'lecteur 1541 (mémoire, code, registres)':'C64')); monRefresh(); break; }
-            /* étiquettes : al (add), dl (delete), ll (load), sl (show) */
-      case 'al': case 'add_label': {
-        let an=0;
-        if(A.length>=2&&/^(add_label|al)$/i.test(A[0])) { A.shift(); }   /* format fichier VICE : "add_label C: c000 nom" */
-        const rest=A[0]&&/^[cC]:$/.test(A[0])?A.slice(1):A;
-        if(rest.length<2) { monPrint('Usage : al adresse nom'); break; }
-        const addr=mnum(rest[0])&0xFFFF, name=rest[1].startsWith('.')?rest[1]:('.'+rest[1]);
-        LBL.set(name,addr); monPrint('Étiquette '+name+' = $'+hx4(addr)); monRefresh(); break; }
-      case 'dl': case 'delete_label': {
-        const name=(A[0]||'');
-        const had=LBL.delete(name.startsWith('.')?name:('.'+name));
-        monPrint(had?'Étiquette supprimée.':'Étiquette inconnue.'); monRefresh(); break; }
-      case 'll': case 'load_labels': {
-        const q=/^(?:[cC]:\s*)?"([^"]+)"$/.exec(args);
-        if(!q){ monPrint('Usage : ll "fichier"'); break; }
-        const nm=q[1].replace(/^\//,'');
-        fetch(nm).then(r=>r.ok?r.text():Promise.reject(0)).then(t=>{
-          const n=labelLoad(t); monPrint(n+' étiquettes chargées depuis '+nm); monRefresh();
-        }).catch(()=>monPrint('Fichier illisible : '+nm));
-        break; }
-      case 'sl': case 'save_labels': {
-        if(!LBL.size){ monPrint('Aucune étiquette.'); break; }
-        const txt=[...LBL.entries()].sort((x,y)=>x[1]-y[1]).map(([k,v])=>'add_label C: '+hx4(v)+' '+k).join('\n');
-        download(new Blob([txt]),'labels.sym','text/plain'); monPrint(LBL.size+' étiquettes enregistrées (labels.sym).'); break; }
       case 'hunt': case 'ho': {
         if(A.length<2){ monPrint('Usage : hunt début fin octets... (ou "texte")'); break; }
         const f=mnum(A[0])&0xFFFF, t=mnum(A[1])&0xFFFF;
@@ -3426,14 +3535,25 @@ function monCmd(line){
         }
         monPrint(found.length?found.join(' ')+(' ('+found.length+' résultat(s)'+(found.length>=12?', suite au-delà':'')+')'):'Séquence non trouvée.');
         break; }
-default: monPrint('Commande inconnue : '+c+' (h pour l\u2019aide)');
+      case 'vic': {
+        const v=[...Array(47)].map((_,i)=>mem[0xD000+i]);
+        const sx=i=>v[i*2]|((v[0x10]>>i)&1)*256;
+        const pt=i=>vread(vicBank()+(v[0x07]&15)*1024+1016+i);
+        monPrint('Écran  : écran à $'+hx4(((v[0x18]>>4)&15)*1024+vicBank())+'  caractères $'+hx4((v[0x18]&14)*512+vicBank())+'  raster $'+hx2(v[0x12])+'  sprites actifs $'+hx2(v[0x15]));
+        for(let i=0;i<8;i++){
+          monPrint('  Sprite '+(i+1)+' '+(((v[0x15]>>i)&1)?'actif ':'inactif')+'  X '+sx(i)+'  Y '+v[1+i]+'  pointeur '+pt(i)+'  coul '+hx2(v[0x27+i])+'  derrière '+(v[0x1B]&(1<<i)?'fond':'avant')+'  multicol '+(v[0x1C]&(1<<i)?'oui':'non')+(v[0x1D]&(1<<i)?'  étiré X':'')+(v[0x17]&(1<<i)?'  étiré Y':''));
+        }
+        monPrint('Collisions : sprites $'+hx2(v[0x1E])+'  fond $'+hx2(v[0x1F]));
+        break; }
+      default: monPrint('Commande inconnue : '+c+' (h pour l\u2019aide)');
     }
   }catch(e){ monPrint('?'+(e.message||e)); }
 }
 let monSeq=0;
 function traceText(n){
   const t=MON.tbuf, out=[];
-  for(const r of t.slice(-n)){ const [pc,a,x,y,sp,p,ln,cl,cy]=r; const d=disasm(pc).text;
+  for(const r of t.slice(-n)){ if(r.b){ out.push('BASIC ligne '+String(r.ln).padStart(5)+'  '+r.txt+(r.dep?'   (GOSUB niveau '+r.dep+')':'')); continue; }
+    const [pc,a,x,y,sp,p,ln,cl,cy]=r; const d=disasm(pc).text;
     out.push(d.padEnd(34)+' A:'+hx2(a)+' X:'+hx2(x)+' Y:'+hx2(y)+' SP:'+hx2(sp)+' '+flagsStr(p)+'  L:'+String(ln).padStart(3,'0')+' C:'+String(cl).padStart(2,'0')+'  '+cy); }
   return out.join('\n');
 }
@@ -3446,15 +3566,25 @@ function monRefresh(){
   $('#mon-pause').textContent=MON.paused?'▶ Reprendre (g)':'⏸ Pause';
   $('#mon-trace').textContent=MON.trace?'Trace : oui':'Trace : non';
   $('#mon-regs').textContent=regsLine();
-  const pc=cpuOf().pc; let a=MON.dis>=0&&!MON.paused?MON.dis:pc;
   const box=$('#mon-dis'); box.innerHTML='';
-  for(let i=0;i<18;i++){
-    const d=disasm(a), bp=MON.dev==='c64'&&MON.bps.find(b=>b.a===a), line=document.createElement('div');
-    line.className='dl'+(a===pc?' cur':'')+(bp?(bp.on?' bp':' bpoff'):''); line.textContent=(bp?'●':' ')+(a===pc?'▶':' ')+d.text; line.dataset.a=a;
-    box.append(line); a=(a+d.len)&0xFFFF;
+  $('#mon-discap').textContent=basicView()?'Programme BASIC — cliquez une ligne pour un point d\u2019arrêt':'Désassemblage'+(MON.dev==='8'?' du lecteur':'')+' — cliquez une ligne pour un point d\u2019arrêt';
+  if(basicView()){
+    const from=Math.max(0,curIdx-3);
+    for(let i=from;i<Math.min(prog.length,from+18);i++){ const l=prog[i], bp=MON.bbps.find(b=>b.line===l.num), line=document.createElement('div');
+      line.className='dl'+(i===curIdx?' cur':'')+(bp?(bp.on?' bp':' bpoff'):''); line.textContent=(bp?'●':' ')+(i===curIdx?'▶':' ')+String(l.num).padStart(5)+' '+basText(l.bytes); line.dataset.line=l.num; box.append(line); }
+    if(!prog.length){ const e=document.createElement('div'); e.textContent='(aucun programme)'; box.append(e); }
+  } else {
+    const pc=cpuOf().pc; let a=MON.dis>=0&&!MON.paused?MON.dis:pc; const dv=MON.dev==='8'?'8':'c64';
+    for(let i=0;i<18;i++){
+      const nm=MLAB.show?labName(a):undefined;
+      if(nm!==undefined){ const lb=document.createElement('div'); lb.className='dlab'; lb.textContent='  .'+nm+':'; box.append(lb); }
+      const d=disasm(a), bp=MON.bps.find(b=>b.a===a&&(b.dev||'c64')===dv), line=document.createElement('div');
+      line.className='dl'+(a===pc?' cur':'')+(bp?(bp.on?' bp':' bpoff'):''); line.textContent=(bp?'●':' ')+(a===pc?'▶':' ')+d.text; line.dataset.a=a;
+      box.append(line); a=(a+d.len)&0xFFFF;
+    }
   }
   $('#mon-mem').textContent=memLines(MON.mem,8).join('\n');
-  const bl=$('#mon-bps'); const items=[...MON.bps.map(b=>'● n°'+b.n+' $'+hx4(b.a)+(b.cond?' si '+b.cond.l+b.cond.op+'$'+hx2(b.cond.r):'')+' ('+b.hits+')'+(b.on?'':' off')),...MON.wps.map(w=>'◆ n°'+w.n+' '+({load:'L',store:'S',both:'LS'})[w.kind]+' $'+hx4(w.from)+(w.to!==w.from?'-'+hx4(w.to):'')+' ('+w.hits+')'+(w.on?'':' off'))];
+  const bl=$('#mon-bps'); const items=[...MON.bbps.map(b=>'◇ n°'+b.n+' ligne '+b.line+' ('+b.hits+')'+(b.on?'':' off')),...MON.bps.map(b=>'● n°'+b.n+(b.dev==='8'?' 8:':' ')+'$'+hx4(b.a)+(b.cond?' si '+b.cond.l+b.cond.op+'$'+hx2(b.cond.r):'')+' ('+b.hits+')'+(b.on?'':' off')),...MON.wps.map(w=>'◆ n°'+w.n+' '+({load:'L',store:'S',both:'LS'})[w.kind]+' $'+hx4(w.from)+(w.to!==w.from?'-'+hx4(w.to):'')+' ('+w.hits+')'+(w.on?'':' off'))];
   bl.textContent=items.length?items.join('   '):'Aucun point d\u2019arrêt : cliquez une ligne du désassemblage ou tapez « break c000 ».';
 }
 
@@ -3491,6 +3621,7 @@ function runSlice(budget,ms){
     if(stopReq){ stopReq=false; doBreak(); break; }
     try{ step(); cost+=1; }
     catch(e){ if(e instanceof BErr) runtimeError(e); else { console.error(e); runtimeError(new BErr('SYNTAX')); } break; }
+    if(MON.paused) break;
     if(yieldReq){ yieldReq=false; break; }
     if(((++it)&127)===0&&now()-t0>ms) break;
   }
@@ -4802,7 +4933,6 @@ function vsfImport(buf){
   state='run'; romHalted=false;
   return warn.join(' ');
 }
-
 function initUI(){
   canvas=$('#screen');
   gfxInit(canvas);
@@ -4931,20 +5061,23 @@ function initUI(){
   $('#mon-pause').addEventListener('click',()=>{ if(MON.paused) monResume(); else monPause('Pause demandée'); });
   $('#mon-trace').addEventListener('click',()=>monCmd(MON.trace?'trace off':'trace on'));
   document.querySelectorAll('[data-mc]').forEach(b=>b.addEventListener('click',()=>monCmd(b.dataset.mc)));
-  $('#mon-sym').addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
-    const rd=new FileReader(); rd.onload=()=>{ try{ const n=labelLoad(String(rd.result)); monCmd('h'); monPrint(n+' étiquettes chargées depuis '+f.name+'.'); monRefresh(); }catch(ex){ monPrint('Étiquettes illisibles : '+ex.message); } }; rd.readAsText(f); e.target.value=''; });
   $('#mon-cmd').addEventListener('keydown',e=>{ const t=e.target;
     if(e.key==='Enter'){ const v=t.value; MON.hist=MON.hist||[]; if(v.trim()) MON.hist.push(v); MON.hi=MON.hist.length; t.value=''; monCmd(v); }
     else if(e.key==='ArrowUp'&&MON.hist&&MON.hi>0){ t.value=MON.hist[--MON.hi]; e.preventDefault(); }
     else if(e.key==='ArrowDown'&&MON.hist&&MON.hi<MON.hist.length){ MON.hi++; t.value=MON.hist[MON.hi]||''; e.preventDefault(); } });
-  $('#mon-dis').addEventListener('click',e=>{ const l=e.target.closest('.dl'); if(!l||MON.dev!=='c64') return; const a=+l.dataset.a, b=MON.bps.find(x=>x.a===a);
+  $('#mon-dis').addEventListener('click',e=>{ const l=e.target.closest('.dl'); if(!l) return;
+    if(l.dataset.line!==undefined){ const ln=+l.dataset.line, b=MON.bbps.find(x=>x.line===ln);
+      if(b){ MON.bbps=MON.bbps.filter(x=>x!==b); monPrint('Point d\u2019arrêt BASIC ligne '+ln+' supprimé.'); monRearm(); monRefresh(); } else monCmd('bline '+ln); return; }
+    const dv=MON.dev==='8'?'8':'c64', a=+l.dataset.a, b=MON.bps.find(x=>x.a===a&&(x.dev||'c64')===dv);
     if(b){ MON.bps=MON.bps.filter(x=>x!==b); monPrint('Point d\u2019arrêt en $'+hx4(a)+' supprimé.'); } else monCmd('break '+hx4(a)); monRearm(); monRefresh(); });
+  $('#mon-lab-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    const n=labParse(await f.text()); monPrint(n+' étiquette'+(n>1?'s':'')+' chargée'+(n>1?'s':'')+' depuis '+f.name+'.'); monRefresh(); });
   $('#mon-maddr').addEventListener('change',e=>{ try{ MON.mem=mnum(e.target.value); monRefresh(); }catch(ex){ toast(ex.message); } });
   setInterval(()=>{ if(!MON.paused) monRefresh(); },300);
   $('#st-export').addEventListener('click',()=>{ try{ download(saveState(),'etat-c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.c64s','application/json'); toast('État exporté'); }catch(ex){ toast(ex.message); } });
   $('#st-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=loadState(await f.text()); closeAll(); toast(w||'État importé et restauré'); }catch(ex){ toast(ex.message); } });
-  $('#vsf-export').addEventListener('click',()=>{ try{ const b=vsfExport(); download(new Blob([b]),'c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.vsf','application/octet-stream'); toast('Instantané .VSF exporté (VICE)'); }catch(ex){ toast(ex.message); } });
-  $('#vsf-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=vsfImport(await f.arrayBuffer()); closeAll(); toast(w||'Instantané VICE restauré'); }catch(ex){ toast(ex.message); } });
+  $('#vsf-export').addEventListener('click',()=>{ try{ const b=vsfExport(); download(new Blob([b]),'c64-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.vsf','application/octet-stream'); toast('Instantané exporté pour VICE (x64sc, même modèle de machine)'+(vsfExport.notes.length?' — '+vsfExport.notes.join(' ; '):'')); }catch(ex){ toast(ex.message); } });
+  $('#vsf-import').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const w=vsfImport(await f.arrayBuffer()); closeAll(); toast('Instantané VICE restauré'+(w?' — '+w:'')); }catch(ex){ toast(ex.message); } });
   $('#sw-sync').addEventListener('click',()=>{
     if(syncAuto){ toast('Écran à '+Math.round(dispHz)+' Hz : la synchro est automatique et la vitesse exacte'); return; }
     syncForced=!syncForced; try{ localStorage.setItem(SYNC_KEY,syncForced?'1':'0'); }catch(e){}
@@ -4981,7 +5114,7 @@ function initUI(){
     refreshRom(); if(got.length) toast('ROM reconnue'+(got.length>1?'s':'')+' : '+got.join(', '));
     if(USER_ROM.dos&&fs.length) refreshDisk();
   });
-  $('#rom-start').addEventListener('click',()=>{ try{ startRom('user'); closeAll(); audioInit(); toast('Démarrage sur les ROM d\u2019origine'); }catch(ex){ toast(ex.message); } });
+  $('#rom-start').addEventListener('click',()=>{ try{ startRom('user'); closeAll(); toast('Démarrage sur les ROM d\u2019origine'); }catch(ex){ toast(ex.message); } });
   $('#rom-vps').addEventListener('click',async()=>{
     const u=prompt('Utilisateur pour les ROM privées :');
     if(!u) return;
@@ -5091,11 +5224,11 @@ async function start(){
   requestAnimationFrame(frame);
 }
 applyTiming();
-if(HAS_DOM){ start(); globalThis.EMU_DEBUG={joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
+if(HAS_DOM){ start(); globalThis.EMU_DEBUG={sid:()=>SID, joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
-  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, MON, monCmd, monPeek, unzip, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
+  C, step:cpuStep, startRom, romAddFile, typeQueue, romMode:()=>romMode, get IEC(){return IEC;}, d64Mount, d64Blank, get d64(){return d64;}, buildPRG, setBus:(r,w)=>{RD=r;WR=w;}, traps:v=>{trapsOn=v;}, peek, poke, FB_D, get cyc(){return cyc;}, cia1, cia2, initPal, PAL, ramD, keysDown, CHARROM, labParse, MLAB, setModel, vsfExport, vsfImport, sid2Set, SI, saveState, loadState, MON, monCmd, monPeek, unzip, tapeRecStart, tapeRecStop, cartFreeze, PRN, REU, reuSetSize, PERIPH, set potX(v){potX=v;}, set joyB(v){joyB=v;}, portJoy, setModel, get model(){return MODEL;}, vicSpr:()=>SPR[0].mcb, saveState, loadState, set sliceMs(v){cpuSliceMs=v;}, FBW, pushVlog:(c,r,v)=>vlog.push(c,r,v), vic:()=>({line:vicLineCur,start:vLineStart,mB:mBorder,vB:vBorder}), romRestoreStore, DRV, BUS, drvEnable, drvDisable, buildTrack, decodeTrack, buildG64, parseG64, g64Mount, gcrEncode, gcrDecode, USER_ROM, SV, SF, sidApply, sidSample, SID, tapeInsert, parseT64, parseTAP, parseCRT, cartInsert, TAPE, tapePlay, pageR, get cart(){return cart;}, set joyPort(v){joyPort=v;}, set joy(v){joy2=v;} };
 </script>
 </body>
 </html>
