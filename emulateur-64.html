@@ -5376,12 +5376,11 @@ function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+=
 
 /* ---------- pack / unpack de l'état (squelette + blobs bruts) ---------- */
 function packState(json){
-  const o=JSON.parse(json),blobs=[],b64d=v=>b64uDec(v);
+  const o=JSON.parse(json),blobs=[];
   const walk=v=>{
     if(Array.isArray(v))return v.map(walk);
     if(v&&typeof v==='object'){
-      if(typeof v.$u8==='string'){blobs.push(b64d(v.$u8));return{B:blobs.length-1};}
-      if(v.$map)return{M:v.$map.map(walk)};
+      if(typeof v.$u8==='string'){blobs.push(b64uDec(v.$u8));return{$b:blobs.length-1};}
       const out={};for(const k in v)out[k]=walk(v[k]);return out;
     }
     return v;
@@ -5402,34 +5401,17 @@ async function unpackState(u8){
   const hdr=JSON.parse(new TextDecoder().decode(u8.subarray(4,4+hl)));
   let at=4+hl;const blobs=[];
   for(const n of hdr.bl){blobs.push(u8.slice(at,at+n));at+=n;}
-  const rebuilt=[];
   const walk=v=>{
     if(Array.isArray(v))return v.map(walk);
     if(v&&typeof v==='object'){
-      if('B'in v)return blobs[v.B];
-      if('M'in v){const i=rebuilt.length;rebuilt.push(null);return{R:i,M:v.M.map(([k,x])=>[k,walk(x)])};}
+      if(typeof v.$b==='number')return{$u8:b64Std(blobs[v.$b])};
       const out={};for(const k in v)out[k]=walk(v[k]);return out;
     }
     return v;
   };
-  const o=walk(JSON.parse(hdr.sk));
-  const rec=v=>{
-    if(Array.isArray(v)){for(const x of v)rec(x);return;}
-    if(!v||typeof v!=='object')return;
-    if('R'in v){const m=new Map();for(const[k,x]of v.M)m.set(k,resolve(x));rebuilt[v.R]=m;v.M=undefined;return void(v.__m=v.__m);}
-    function resolve(x){
-      if(x&&typeof x==='object'&&'R'in x){rec(x);return rebuilt[x.R];}
-      if(x&&typeof x==='object'&&'B'in x)return blobs[x.B];
-      return x;
-    }
-  };
-  rec(o);
-  return JSON.stringify(o,(k,v)=>{
-    if(v instanceof Uint8Array){let s='';for(let i=0;i<v.length;i+=0x8000)s+=String.fromCharCode.apply(null,v.subarray(i,i+0x8000));return{$u8:btoa(s)};}
-    if(v instanceof Map)return{$map:[...v]};
-    return v;
-  });
+  return JSON.stringify(walk(JSON.parse(hdr.sk)));
 }
+function b64Std(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);}
 
 /* ---------- lien court cloud ---------- */
 async function cloudPut(json){
@@ -5448,9 +5430,7 @@ async function sharePayload(kind){                // 'state' | 'basic'
   let def;
   if(kind==='state') def=await deflateRaw(packState(saveState()));
   else{
-    let end=0x0801;while(end<0xA000&&!(mem[end]===0&&mem[end+1]===0))end+=2;
-    let top=end;while(top>0x0801&&mem[top-1]===0)top--;
-    def=await deflateRaw(mem.slice(0x0801,Math.max(top,0x0802)));
+    def=await deflateRaw(buildPRG(currentLines()));
   }
   return{payload:b64uEnc(def),raw:def};
 }
@@ -5458,27 +5438,36 @@ function shareUrl(kind,payload){return location.origin+location.pathname+'#'+(ki
 
 /* ---------- import au boot / bouton ---------- */
 async function bootShareCheck(){
-  console.log('SHARE: check', location.hash.slice(0,30), 'len', location.hash.length);
   if(!location.hash||location.hash.length<4)return;
   const h=location.hash.slice(1).split('='),kind=h[0],val=h[1];
   try{
-    if(kind==='u'){restoreJson(await cloudGet(val));}
+    if(kind==='u'){
+      const txt=await cloudGet(val);let o=null;try{o=JSON.parse(txt);}catch(_){}
+      if(o&&typeof o.b==='string')shareLoadPrg(await inflateRaw(b64uDec(o.b)));else restoreJson(txt);
+    }
     else{
       const raw=await inflateRaw(b64uDec(val));
-      console.log('SHARE: décompressé', raw.length, 'o');
       if(kind==='s')restoreJson(await unpackState(raw));
-      else{const r=parsePRG(raw);writeMem(r.addr,r.data);typeQueue.push(...textToPet((r.lines&&r.lines.length)?('RUN\n'):('SYS'+r.addr+'\n')));toast('Listing importé du lien');}
+      else shareLoadPrg(raw);
     }
   }catch(e){console.log('SHARE ERREUR:',e.message);toast('Lien de partage illisible : '+e.message);}
   history.replaceState(null,'',location.origin+location.pathname);
 }
+function shareLoadPrg(raw){
+  const r=parsePRG(raw),isBas=!!(r.lines&&r.lines.length);
+  if(romMode){
+    romRestore();
+    romAfter(380,()=>{writeMem(r.addr,r.data);if(isBas){const end=r.addr+r.data.length;mem[0x2B]=1;mem[0x2C]=8;for(const z of [0x2D,0x2F,0x31]){mem[z]=end&255;mem[z+1]=end>>8;}}});
+  }else if(isBas){loadLines(r.lines,false);writeMem(r.addr,r.data);}
+  else{restoreKey();writeMem(r.addr,r.data);}
+  typeQueue.push(...textToPet(isBas?'RUN\n':'SYS'+r.addr+'\n'));
+  toast('Listing importé du lien');
+}
 function restoreJson(json){
   try{
-    console.log('SHARE: loadState', json.length, 'o');
     const w=loadState(json);
     try{ closeAll(); }catch(_){}
     toast(w||'Session restaurée depuis le lien');
-    console.log('SHARE: restauré, warn=', w||'(aucun)');
   }catch(e){ console.log('SHARE loadState ERREUR:',e.message); toast(e.message); }
 }
 
@@ -5490,12 +5479,15 @@ async function shareOpen(kind){
     shLast={kind,payload:sp.payload};
     $('#sh-link').textContent=shareUrl(kind,sp.payload);
     $('#sh-out').style.display='';
-    const q=qrcode(0,'M');
-    q.addData(shareUrl(kind,sp.payload));
-    q.make();
-    drawQr(q,$('#sh-qr'));
-    const total=$('#sh-link').textContent.length;
-    $('#sh-qrinfo').textContent=q.getModuleCount()+'×'+q.getModuleCount()+' modules — lien '+total+' caractères'+(total>8000?' (QR affiché en version courte si le lien dépasse la capacité)':'');
+    const url=shareUrl(kind,sp.payload),total=url.length;
+    if(total>2300){
+      $('#sh-qr').style.display='none';
+      $('#sh-qrinfo').textContent='Lien de '+total+' caractères : trop long pour un QR. Utilisez « Raccourcir (cloud) » pour obtenir un lien court et son QR.';
+    }else{
+      const q=qrcode(0,'M');q.addData(url);q.make();
+      $('#sh-qr').style.display='';drawQr(q,$('#sh-qr'));
+      $('#sh-qrinfo').textContent=q.getModuleCount()+'×'+q.getModuleCount()+' modules — lien '+total+' caractères';
+    }
   }catch(e){ toast('Partage impossible : '+e.message); }
 }
 function drawQr(q,canvas){
@@ -5515,7 +5507,6 @@ $('#sh-copy').addEventListener('click',async()=>{
 });
 $('#sh-cloud').addEventListener('click',async()=>{
   try{
-    const json=(shLast.kind==='state')?await unpackState(await inflateRaw(b64uDec(shLast.payload))):null;
     let id;
     if(shLast.kind==='state'){
       const j0=saveState();                       // même contenu : le JSON encV
@@ -5526,7 +5517,7 @@ $('#sh-cloud').addEventListener('click',async()=>{
     }
     const short=location.origin+'/s/'+id;
     $('#sh-link').textContent=short;
-    const q=qrcode(0,'M'); q.addData(short); q.make(); drawQr(q,$('#sh-qr'));
+    const q=qrcode(0,'M'); q.addData(short); q.make(); $('#sh-qr').style.display=''; drawQr(q,$('#sh-qr'));
     $('#sh-qrinfo').textContent=q.getModuleCount()+'×'+q.getModuleCount()+' modules — lien court '+short.length+' caractères';
     toast('Lien court créé (90 jours)');
   }catch(e){ toast('Relais indisponible : '+e.message); }
