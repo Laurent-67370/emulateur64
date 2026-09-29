@@ -1596,7 +1596,37 @@ function updRom(){
   if(exr===0){ if(hi&&lo) pageR[8]=pageR[9]=4; if(gm===0&&hi) pageR[10]=pageR[11]=5; }
   if(lo||hi){ pageR[13]=3; ioVis=!!ch; charVis=!ch; } else { ioVis=false; charVis=false; }
 }
-function portRead(){ const d=mem[0]; return ((mem[1]&d)|(~d&(((TAPE.data||TAPE.recording)&&TAPE.playing)?0:0x10)))&255; }
+/* Port du processeur 6510/8500 : $00 = sens des lignes, $01 = données.
+   Une ligne en entrée lit la dernière valeur de sortie, filtrée par les résistances de tirage (lignes 0,1,2,4) ;
+   la ligne 5 (moteur) lit 0, la ligne 4 lit 0 quand une touche du magnétophone est enfoncée ;
+   les lignes 6 et 7, reliées à rien, gardent un moment leur charge puis retombent à 0.
+   Une écriture en $00/$01 dépose dans la RAM située dessous la valeur du bus (vue par le VIC-II). */
+const PP={out:0, b6:0, b6t:0, b6f:false, b7:0, b7t:0, b7f:false, ram:new Uint8Array(2)};
+function portFallCycles(){ return MODEL.name==='c64c'||MODEL.name==='c64cn'?1500000:350000; }
+function portReset(){ PP.out=0; PP.b6=PP.b7=0; PP.b6f=PP.b7f=false; PP.ram[0]=PP.ram[1]=0; }
+function portBeforeWrite(a,v){
+  const dir=mem[0], data=mem[1], fall=portFallCycles();
+  if(a===0){
+    if((dir&0x40)&&((dir^v)&0x40)){ PP.b6=data&0x40; PP.b6t=cyc+fall; PP.b6f=true; }
+    if((dir&0x80)&&((dir^v)&0x80)){ PP.b7=data&0x80; PP.b7t=cyc+fall; PP.b7f=true; }
+  } else {
+    if(dir&0x80){ PP.b7=v&0x80; PP.b7t=cyc+fall; PP.b7f=true; }
+    if(dir&0x40){ PP.b6=v&0x40; PP.b6t=cyc+fall; PP.b6f=true; }
+  }
+  PP.ram[a]=vicFloat();
+}
+function portAfterWrite(){ PP.out=(PP.out&~mem[0])|(mem[1]&mem[0]); }
+function portRead(){
+  const dir=mem[0], data=mem[1];
+  let r=(data|~dir)&(PP.out|0x17);
+  if(!(dir&0x20)) r&=0xDF;
+  if(((TAPE.data||TAPE.recording)&&TAPE.playing)&&!(dir&0x10)) r&=0xEF;
+  if(PP.b6f&&PP.b6t<cyc){ PP.b6f=false; PP.b6=0; }
+  if(PP.b7f&&PP.b7t<cyc){ PP.b7f=false; PP.b7=0; }
+  if(!(dir&0x40)) r=(r&~0x40)|PP.b6;
+  if(!(dir&0x80)) r=(r&~0x80)|PP.b7;
+  return r&255;
+}
 
 /* --- CIA 6526 (deux puces : CIA1 → IRQ, CIA2 → NMI) --- */
 function makeCIA(){ return {pra:0,prb:0,ddra:0,ddrb:0,ta:0xFFFF,tb:0xFFFF,la:0xFFFF,lb:0xFFFF,cra:0,crb:0,icr:0,mask:0,sdr:0,tod:0,todBase:0,todRun:true,todLatch:null}; }
@@ -1682,7 +1712,7 @@ function ciaWrite(c,r,v){
 }
 function vicBank(){ return (3-((cia2.pra|~cia2.ddra)&3))*16384; }
 function vread(a){
-  a&=0xFFFF; const off=a&0x3FFF;
+  a&=0xFFFF; if(a<2) return PP.ram[a]; const off=a&0x3FFF;
   if(ultimax&&off>=0x3000) return cartH(0xF000|(off&0xFFF));
   if(!(a&0x4000)&&off>=0x1000&&off<0x2000) return CHARROM[off-0x1000];
   if(a>=0xD000&&a<0xE000) return ramD[a-0xD000];
@@ -1753,9 +1783,10 @@ function peek(a){
 }
 function poke(a,v){
   if(a>=0xD000&&a<0xE000){ if(ioVis) ioWrite(a,v); else ramD[a-0xD000]=v; return; }
+  if(a<2) portBeforeWrite(a,v);
   mem[a]=v;
   if(a<0x400){
-    if(a<2){ updRom(); tapeMotor(); tapeRecEdge(); }
+    if(a<2){ portAfterWrite(); updRom(); tapeMotor(); tapeRecEdge(); }
     if(romMode) return;
     switch(a){
       case 198: { const n=Math.min(v,10); kbd=[]; for(let i=0;i<n;i++) kbd.push(mem[631+i]); break; }
@@ -1773,8 +1804,8 @@ function ciaDefaults(){
 function writeMem(addr,data){ for(let i=0;i<data.length;i++){ const a=(addr+i)&0xFFFF; if(a>=0xD000&&a<0xE000) ramD[a-0xD000]=data[i]; else mem[a]=data[i]; } }
 function setVectors(){ mem[0x314]=0x31; mem[0x315]=0xEA; mem[0x316]=0x66; mem[0x317]=0xFE; mem[0x318]=0x47; mem[0x319]=0xFE; mem[0x311]=0x48; mem[0x312]=0xB2; }
 function initMem(){
-  mem[0]=0x2F; mem[53280]=14; mem[53281]=6; mem[53282]=1; mem[53283]=2; mem[53284]=3;
-  mem[646]=14; mem[53265]=27; mem[53270]=200; mem[53272]=21; mem[648]=4; mem[1]=55; mem[43]=1; mem[44]=8;
+  portReset(); mem[0]=0x2F; mem[53280]=14; mem[53281]=6; mem[53282]=1; mem[53283]=2; mem[53284]=3;
+  mem[646]=14; mem[53265]=27; mem[53270]=200; mem[53272]=21; mem[648]=4; mem[1]=55; portAfterWrite(); mem[43]=1; mem[44]=8;
   mem[0xD01A]=0; ramD.fill(0);
   setVectors(); d019=0; rasterCmp=0; ciaDefaults(); nmiLvl=false;
   updRom(); vicReset();
@@ -1957,7 +1988,13 @@ function cpuStep(){
     case 'ISC': v=(rmw(ad)+1)&255; WR(ad,v); sbc(v); break;
     case 'ANC': C.a=nz(C.a&RD(ad)); C.c=C.n; break;
     case 'ALR': v=C.a&RD(ad); C.c=v&1; C.a=nz(v>>1); break;
-    case 'ARR': v=C.a&RD(ad); C.a=nz((v>>1)|(C.c<<7)); C.c=(C.a>>6)&1; C.v=((C.a>>6)^(C.a>>5))&1; break;
+    case 'ARR': v=C.a&RD(ad);
+      if(!C.d){ C.a=nz((v>>1)|(C.c<<7)); C.c=(C.a>>6)&1; C.v=((C.a>>6)^(C.a>>5))&1; }
+      else { let t=(v>>1)|(C.c<<7); nz(t); C.v=((v^t)>>6)&1;          // N, Z, V viennent du résultat binaire
+        if((v&0x0F)+(v&0x01)>5) t=(t&0xF0)|((t+6)&0x0F);                 // correction du chiffre des unités
+        C.c=((v&0xF0)+(v&0x10))>0x50?1:0; if(C.c) t=(t+0x60)&0xFF;         // correction du chiffre des dizaines
+        C.a=t; }
+      break;
     case 'SBX': v=(C.a&C.x)-RD(ad); C.c=v>=0?1:0; C.x=nz(v&255); break;
     case 'XAA': C.a=nz(C.x&RD(ad)); break;
     case 'LXA': C.a=C.x=nz(RD(ad)); break;
@@ -2609,7 +2646,7 @@ function startRom(src){
 function stopRom(){ drvDisable(); cart=null; tapeStop(); romMode=false; romSource=''; setMode('builtin'); buildCharRom(); coldReset(); }
 function romReset(){
   pending=null; stopReq=false; typeQueue.length=0; kbd=[]; romActions.length=0; physHeld.clear(); synthKeys.length=0; keysDown.clear();
-  romHalted=false; mem.fill(0); mem[0]=0x2F; mem[1]=0x37; cartReset(); if(DRV.on) drvReset(); updRom(); TAPE.run=false; TAPE.rem=0;
+  romHalted=false; mem.fill(0); portReset(); mem[0]=0x2F; mem[1]=0x37; portAfterWrite(); cartReset(); if(DRV.on) drvReset(); updRom(); TAPE.run=false; TAPE.rem=0;
   if(ROM.chargen) CHARROM.set(ROM.chargen); else buildCharRom();
   d019=0; rasterCmp=0; ciaReset(cia1); ciaReset(cia2); nmiLvl=false; ramD.fill(0); vicReset(); sidReset();
   iecSetup();
@@ -3084,6 +3121,7 @@ function saveState(){
     cia1,cia2,
     vic:{vicNext,vicLine,vicPhase,vicLineCur,vcBase,vc,rc,vDisplay,vBorder,mBorder,den30,ciaLast,vLineStart,rowSC,rowCol,vstart,vlog,lineBad,vicFrameNo,SPR},
     sid:{SV,SF,sidCyc,sid2:{addr:SID2_ADDR,v:SI[1].v,f:SI[1].f}},
+    pport:{out:PP.out,b6:PP.b6,b7:PP.b7,b6f:PP.b6f,b7f:PP.b7f,b6t:PP.b6t,b7t:PP.b7t,ram:Array.from(PP.ram)},
     state,romHalted,typeHoldUntil,kbd,kern:{kName,kDev,kSa},iec:IEC,reu:REU.size?REU:null,
     tape:TAPE,cart,d64,
     drv:DRV.on?{C:DRV.C,cyc:DRV.cyc,ram:DRV.ram,via1:DRV.via1,via2:DRV.via2,ht:DRV.ht,tracks:DRV.tracks,bitPos:DRV.bitPos,bitAcc:DRV.bitAcc,shift:DRV.shift,ones:DRV.ones,bitCnt:DRV.bitCnt,latch:DRV.latch,wshift:DRV.wshift,sync:DRV.sync,dirty:DRV.dirty,phase:DRV.phase,prevAtn:DRV.prevAtn,motor:DRV.motor,led:DRV.led,density:DRV.density,warp:DRV.warp}:null,
@@ -3121,6 +3159,8 @@ function loadState(json){
       for(let i=0;i<3;i++) Object.assign(SI[1].v[i],s2.v[i]); Object.assign(SI[1].f,s2.f); }
     else { SID2_ADDR=0; PERIPH.sid2=0; } }
   for(const inst of SI){ inst.q.length=0; inst.cyc=cyc; } sidCyc=cyc; SID.next=0;
+  if(o.pport){ const q=o.pport; Object.assign(PP,{out:q.out,b6:q.b6,b7:q.b7,b6f:q.b6f,b7f:q.b7f,b6t:q.b6t,b7t:q.b7t}); PP.ram.set(q.ram||[0,0]); }
+  else { portReset(); portAfterWrite(); }
   if(HAS_DOM) refreshSid2();
   romHalted=o.romHalted; typeHoldUntil=o.typeHoldUntil; kbd=o.kbd||[]; kName=o.kern.kName; kDev=o.kern.kDev; kSa=o.kern.kSa;
   Object.assign(TAPE,o.tape); cart=o.cart; d64=o.d64;
@@ -3608,7 +3648,7 @@ function restoreKey(){
   if(romMode){ romRestore(); return; }
   pending=null; stopReq=false; typeQueue.length=0; kbd=[]; inputReq=null;
   mem[53280]=14; mem[53281]=6; mem[646]=14; mem[53265]=27; mem[53270]=200; mem[53272]=21; mem[53269]=0;
-  mem[0xD01A]=0; mem[1]=55; mem[53271]=mem[53275]=mem[53276]=mem[53277]=0; mem[53265]=27;
+  mem[0xD01A]=0; mem[1]=55; portAfterWrite(); mem[53271]=mem[53275]=mem[53276]=mem[53277]=0; mem[53265]=27;
   setVectors(); d019=0; ciaDefaults(); nmiLvl=false; C.sp=0xFF; C.i=0; C.d=0; updRom();
   sidReset(); rvs=false; quote=false; insCount=0; clearScreen(); curIdx=-1; ready();
 }
