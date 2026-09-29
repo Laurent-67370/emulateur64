@@ -426,7 +426,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <label class="act ghost" style="cursor:pointer">Importer .VSF (VICE)<input type="file" id="vsf-import" accept=".vsf" hidden></label>
     </div>
     <p style="margin-top:12px;font-size:15px;color:var(--muted)">Les ROM ne sont pas incluses dans les sauvegardes : un état fait avec vos ROM d'origine demande qu'elles soient chargées dans ce navigateur.</p>
-    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE (émulateur <b>x64sc</b>, version 3.7 ou plus récente) : exportez-en pour reprendre la machine dans VICE sur PC, ou importez un .VSF fait sous VICE pour la reprendre ici, programme en cours compris. Nécessite le mode ROM (Système). Dans VICE, choisissez le <b>même modèle</b> de machine (C64, C64C, NTSC…) avant d'ouvrir le fichier, sinon il est refusé. Ne sont pas transférés : l'état du lecteur 1541 émulé (VICE reprend avec son lecteur simplifié), les cartouches et la REU.</p>
+    <p style="margin-top:6px;font-size:15px;color:var(--muted)">Les fichiers <b>.VSF</b> sont les instantanés de VICE. L'export s'ouvre dans <b>x64sc</b> (l'émulateur par défaut de VICE, version 3.7 ou plus récente) : choisissez-y le <b>même modèle</b> de machine (C64, C64C, NTSC…) avant d'ouvrir le fichier, sinon il est refusé. L'import accepte les instantanés de x64sc et de l'ancien x64, programme en cours compris, et règle le modèle tout seul. Nécessite le mode ROM (Système). Ne sont pas transférés : l'état du lecteur 1541 émulé (VICE reprend avec son lecteur simplifié), les cartouches et la REU.</p>
   </div>
 </dialog>
 
@@ -3525,23 +3525,27 @@ function monCmd(line){
         const f=mnum(A[0])&0xFFFF, t=mnum(A[1])&0xFFFF;
         const pat=args.slice(args.indexOf(A[1])+A[1].length).trim();
         let needle;
-        if(/"(.*)"/.test(pat)){ needle=textToPet(/"([^"]*)"/.exec(pat)[1]); }
-        else needle=pat.split(/\s+/).map(mnum);
+        const needles=[];
+        if(/"(.*)"/.test(pat)){ const pet=Array.from(textToPet(/"([^"]*)"/.exec(pat)[1]));
+          // un texte se cherche en PETSCII (chaînes en mémoire) et en codes écran (ce qui est affiché)
+          const scr=pet.map(b=>b>=64&&b<96?b-64:b>=192&&b<224?b-128:b>=96&&b<128?b-32:b);
+          needles.push(pet); if(scr.some((x,i)=>x!==pet[i])) needles.push(scr); }
+        else needles.push(pat.split(/\s+/).map(mnum));
         const found=[];
         for(let a=f;a<=t&&found.length<12;a++){
-          let ok=true;
-          for(let i=0;i<needle.length;i++){ if(monPeek(a+i)!==(needle[i]&255)){ ok=false; break; } }
-          if(needle.length&&ok) found.push('$'+hx4(a));
+          for(const needle of needles){ let ok=needle.length>0;
+            for(let i=0;ok&&i<needle.length;i++){ if(monPeek(a+i)!==(needle[i]&255)) ok=false; }
+            if(ok){ found.push('$'+hx4(a)+(needles.length>1?(needle===needles[1]?' (écran)':' (texte)'):'')); break; } }
         }
         monPrint(found.length?found.join(' ')+(' ('+found.length+' résultat(s)'+(found.length>=12?', suite au-delà':'')+')'):'Séquence non trouvée.');
         break; }
       case 'vic': {
         const v=[...Array(47)].map((_,i)=>mem[0xD000+i]);
         const sx=i=>v[i*2]|((v[0x10]>>i)&1)*256;
-        const pt=i=>vread(vicBank()+(v[0x07]&15)*1024+1016+i);
+        const pt=i=>vread(vicBank()+((v[0x18]>>4)&15)*1024+1016+i);
         monPrint('Écran  : écran à $'+hx4(((v[0x18]>>4)&15)*1024+vicBank())+'  caractères $'+hx4((v[0x18]&14)*512+vicBank())+'  raster $'+hx2(v[0x12])+'  sprites actifs $'+hx2(v[0x15]));
         for(let i=0;i<8;i++){
-          monPrint('  Sprite '+(i+1)+' '+(((v[0x15]>>i)&1)?'actif ':'inactif')+'  X '+sx(i)+'  Y '+v[1+i]+'  pointeur '+pt(i)+'  coul '+hx2(v[0x27+i])+'  derrière '+(v[0x1B]&(1<<i)?'fond':'avant')+'  multicol '+(v[0x1C]&(1<<i)?'oui':'non')+(v[0x1D]&(1<<i)?'  étiré X':'')+(v[0x17]&(1<<i)?'  étiré Y':''));
+          monPrint('  Sprite '+(i+1)+' '+(((v[0x15]>>i)&1)?'actif ':'inactif')+'  X '+sx(i)+'  Y '+v[1+2*i]+'  pointeur '+pt(i)+'  coul '+hx2(v[0x27+i])+'  derrière '+(v[0x1B]&(1<<i)?'fond':'avant')+'  multicol '+(v[0x1C]&(1<<i)?'oui':'non')+(v[0x1D]&(1<<i)?'  étiré X':'')+(v[0x17]&(1<<i)?'  étiré Y':''));
         }
         monPrint('Collisions : sprites $'+hx2(v[0x1E])+'  fond $'+hx2(v[0x1F]));
         break; }
@@ -4604,334 +4608,193 @@ function loadLines(lines,run){
   restoreKey(); setProgram(lines,true);
   if(run) typeQueue.push(...textToPet('RUN\n'));
 }
-// ─── .VSF (instantanés VICE) — axe 3 ─────────────────────────────────
+// ─── .VSF (instantanés VICE) ───
 const VSF_MAGIC='VICE Snapshot File\x1a', VSF_VERMAGIC='VICE Version\x1a';
-function vsfStr(b,s,n){ s=String(s); for(let i=0;i<n;i++) b.push(i<s.length?(s.charCodeAt(i)&255):0); }
-function vsfU32(b,v){ v=v>>>0; b.push(v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255); }
-function vsfU64(b,v){ let hi,lo;
-  if(typeof v==='bigint'){ lo=Number(v&0xFFFFFFFFn); hi=Number((v>>32n)&0xFFFFFFFFn); }
-  else { lo=v>>>0; hi=Math.floor(v/4294967296)>>>0; }
-  vsfU32(b,lo); vsfU32(b,hi); }
-function vsfMod(name,maj,min,payload){ const h=[]; vsfStr(h,name,16); h.push(maj&255,min&255); vsfU32(h,22+payload.length); return h.concat(Array.from(payload)); }
-/* VICE stocke les modules avec une taille ENTÊTE INCLUSE (22 octets) ; les valeurs
-   ci-dessous sont calées sur un instantané réel écrit par x64 3.7.1 (référence du banc). */
-function vsfClock(b,v){ vsfU64(b,v); }
-
-function sidRegsFromSI(inst){
-  const r=new Array(32).fill(0);
-  for(let i=0;i<3;i++){ const v=inst.v[i];
-    r[0+i*7]=v.freq&255; r[1+i*7]=(v.freq>>8)&255;
-    r[2+i*7]=v.pw&255;   r[3+i*7]=((v.pw>>8)&15)|(v.ctrl&240);
-    r[4+i*7]=v.ad&255;   r[5+i*7]=v.sr&255; }
-  r[21]=inst.f.fc&255; r[22]=((inst.f.res&15)<<4)|(inst.f.mode&15);
-  r[23]=inst.f.filt&255; r[24]=inst.f.vol&15;
-  return r;
-}
-
-/* état reSID interne (module SIDEXTENDED v1.4, 133 octets) : les champs que
-   l'émulateur ne reproduit pas sont écrits aux valeurs de reprise propre. */
-function sidExtFromSI(inst){
-  const p=[], D3=(v)=>{ vsfU32(p,v>>>0); };
-  const regs=sidRegsFromSI(inst);
-  for(let i=0;i<32;i++) p.push(regs[i]&255);          /* registres            */
-  p.push(0);                                          /* bus_value            */
-  vsfU32(p,0);                                        /* bus_value_ttl        */
-  for(let i=0;i<3;i++) D3(inst.v[i].acc>>>0);         /* accumulator          */
-  for(let i=0;i<3;i++) D3(inst.v[i].lfsr>>>0);        /* shift_register       */
-  for(let i=0;i<3;i++){ p.push(inst.v[i].rc&255,(inst.v[i].rc>>8)&255); }        /* rate_counter (W) */
-  for(let i=0;i<3;i++){ p.push(inst.v[i].ec&255,(inst.v[i].ec>>8)&255); }        /* exponential_counter */
-  for(let i=0;i<3;i++) p.push(inst.v[i].env&255);     /* envelope_counter     */
-  for(let i=0;i<3;i++) p.push(inst.v[i].state&255);   /* envelope_state       */
-  for(let i=0;i<3;i++) p.push(0);                     /* hold_zero           */
-  /* périodes : recopiées depuis ENV_RATE (reSID les recalcule à la moindre écriture) */
-  for(let i=0;i<3;i++){ const per=ENV_RATE[inst.v[i].ad&15]|0; p.push(per&255,(per>>8)&255); }
-  for(let i=0;i<3;i++){ p.push(9,0); }                /* exponential_counter_period */
-  for(let i=0;i<3;i++) p.push(0);                     /* envelope_pipeline    */
-  for(let i=0;i<3;i++) p.push(0);                     /* shift_pipeline       */
-  for(let i=0;i<3;i++) D3(0);                         /* shift_register_reset */
-  for(let i=0;i<3;i++) D3(0);                         /* floating_output_ttl  */
-  for(let i=0;i<3;i++){ p.push(0,0); }                /* pulse_output */
-  p.push(0);                                          /* write_pipeline       */
-  p.push(0);                                          /* write_address        */
-  p.push(0xF7);                                       /* voice_mask (valeur initiale reSID) */
-  return p;
-}
-
-function vsfExport(){
-  if(!romMode&&(state==='input'||state==='busy')) throw new Error('Terminez d\u2019abord la saisie ou le chargement en cours.');
-  if(state==='boot') throw new Error('La machine démarre encore.');
-  sidFlush(true); drvSync();
-  if(state==='input'||state==='busy'||state==='boot'){
-    // mode BASIC : l'interpréteur JS gère l'écran ; figer le CPU sur la boucle READY du
-    // KERNAL pour que VICE reprenne au prompt.
-    C.a=0; C.x=0; C.y=0; C.sp=0xF6; C.pc=0xE5CD; C.n=C.v=C.d=0; C.z=C.c=0; C.i=1;
-    mem[0x01]=0x37; mem[0x00]=0x2F;
-  }
-  const out=[]; const mods=[];
-  /* entête : identique à x64 3.7.1 */
-  vsfStr(out,VSF_MAGIC,19); out.push(2,0);
-  vsfStr(out,'C64',16); vsfStr(out,VSF_VERMAGIC,13);
-  out.push(3,7,1,0); vsfU32(out,0);
-  const CLK=cyc>>>0;
-  /* raster : cycle/ligne déduits de l'horloge (63 cycles par ligne en PAL) */
-  const rc=CLK%63, rl=Math.floor(CLK/63)%312;
-  { /* MAINCPU v1.2 (71 octets) : registres + horloge + 3 blocs d'interruption */
-    const p=[];
-    vsfClock(p,CLK);
-    p.push(C.a&255,C.x&255,C.y&255,C.sp&255);
-    p.push(C.pc&255,(C.pc>>8)&255);
-    p.push(((C.n?128:0)|(C.v?64:0)|(C.d?8:0)|(C.i?4:0)|(C.z?2:0)|(C.c?1:0))&255);
-    vsfU32(p,0);                          /* last_opcode_info */
-    /* interrupt_write_snapshot : irq_clk, nmi_clk, irq_pending_clk (jamais =
-       CLOCK_MAX 0xFFFF...), num_last_stolen, last_stolen_clk */
-    vsfClock(p,CLK); vsfClock(p,CLK);
-    vsfU64(p,0xFFFFFFFFFFFFFFFFn);
-    vsfU64(p,0); vsfClock(p,0);
-    /* interrupt_write_new_snapshot : nirq, nnmi, global_pending (IK_INT=8) */
-    vsfU32(p,0); vsfU32(p,0); vsfU32(p,8);
-    mods.push(['MAINCPU',1,2,p]); }
-  { /* C64MEM v0.1 (65555) */
-    const p=[];
-    p.push(mem[1]&255,mem[0]&255, cart?cart.exrom&255:0, cart?cart.game&255:0);
-    for(let i=0;i<65536;i++) p.push(mem[i]&255);
-    p.push(mem[1]&255,mem[1]&255,mem[0]&255);   /* data_out, data_read, dir_read */
-    vsfU32(p,0); vsfU32(p,0);                   /* data_set_clk_bit6/7 */
-    p.push(0,0,0,0);                            /* set/falloff bits */
-    mods.push(['C64MEM',0,1,p]); }
-  mods.push(['C64CART',0,1,[0]]);           /* pas de cartouche (ordre VICE : après C64MEM) */
-  const ciaP=(c)=>{ /* CIA v2.3 (52 octets), ordre exact ciacore.c */
-    const p=[];
-    p.push(c.pra&255,c.prb&255,c.ddra&255,c.ddrb&255);
-    p.push(c.ta&255,(c.ta>>8)&255, c.tb&255,(c.tb>>8)&255);
-    /* TOD : dixièmes/sec/min/heure — horloge TOD de l'émulateur, figée à la reprise */
-    const t=(c.todLatch!==null&&c.todLatch!==undefined)?c.todLatch:c.tod|0;
-    p.push((t>>20)&15,(t>>16)&15,(t>>8)&255,t&255);
-    p.push(c.sdr&255); p.push(c.icr&255, c.cra&255, c.crb&255);
-    p.push(c.la&255,(c.la>>8)&255, c.lb&255,(c.lb>>8)&255);
-    p.push(c.icr&255);                       /* ICR peek */
-    p.push((c.cra&1?0x40:0)|(c.crb&1?0x80:0)); /* tat/tbt (+ compat v1.0 bits 2-3) */
-    p.push(0);                               /* sr_bits */
-    p.push(0,0,0,0);                         /* todalarm */
-    p.push(0);                               /* rdi byte */
-    p.push(0);                               /* todlatched/stopped */
-    p.push(0,0,0,0);                         /* todlatch */
-    vsfClock(p,0);                           /* todclk-rclk */
-    /* ciat_save_snapshot ta/tb : W state (reprise à l'arrêt, comme un timer au repos) */
-    p.push((c.cra&1)?2:0,0,(c.crb&1)?2:0,0);
-    p.push(0,0);                             /* shifter lo/hi */
-    p.push(0);                               /* sdr_valid */
-    p.push(0);                               /* irq_enabled */
-    p.push(0);                               /* todtickcounter */
-    p.push(0);                               /* sdr_alarm */
-    p.push(0);                               /* sp_cnt_in */
-    return p; };
-  mods.push(['CIA1',2,3,ciaP(cia1)]); mods.push(['CIA2',2,3,ciaP(cia2)]);
-  { /* SID v1.5 (36) : sids, sound, engine(1=reSID), model + 32 registres */
-    const p=[];
-    p.push(PERIPH.sid2?1:0, 1, 1, (MODEL.sid==='8580')?1:0);
-    const r=sidRegsFromSI(SI[0]); for(let i=0;i<32;i++) p.push(r[i]&255);
-    mods.push(['SID',1,5,p]); }
-  { /* SIDEXTENDED v1.4 (133) : état interne reSID */
-    const p=sidExtFromSI(SI[0]);
-    mods.push(['SIDEXTENDED',1,4,p]); }
-  if(PERIPH.sid2){
-    /* 2e SID : module simple v1.5 (34 : W adresse + 32 registres) puis extended */
-    const p=[]; p.push(SID2_ADDR&255,(SID2_ADDR>>8)&255);
-    const r2=sidRegsFromSI(SI[1]); for(let i=0;i<32;i++) p.push(r2[i]&255);
-    mods.push(['SID2',1,5,p]);
-    const p2=sidExtFromSI(SI[1]);
-    mods.push(['SIDEXTENDED2',1,4,p2]); }
-  const driveP=()=>{ /* DRIVE v2.0 (145) : TDE actif, 1 lecteur sans image
-       (l'état correspond à ce que VICE écrit lui-même sans ROM 1541) */
-    const p=[];
-    p.push(1,1);                             /* has_tde, has_drives */
-    vsfU32(p,1);                             /* sync_factor = MACHINE_SYNC_PAL */
-    vsfClock(p,0);                           /* attach_clk */
-    p.push(1);                               /* byte_ready_level */
-    p.push(1);                               /* clock_frequency */
-    { const ht=36; p.push(ht&255,(ht>>8)&255); }  /* half_track */
-    vsfClock(p,0);                           /* detach_clk */
-    p.push(1);                               /* extend_image_policy */
-    vsfU32(p,0);                             /* GCR_head_offset */
-    p.push(0);                               /* GCR_read */
-    p.push(0x55);                            /* GCR_write_value */
-    p.push(0,0,0);                           /* idling, parallel_cable, read_only */
-    vsfU32(p,0);                             /* rotation_table_ptr */
-    vsfU32(p,0);                             /* unit_type (0 = pas de lecteur matériel) */
-    vsfU32(p,0);                             /* snap_accum */
-    vsfClock(p,0);                           /* snap_rotation_last_clk */
-    vsfU32(p,0); vsfU32(p,0);                /* bit_counter, zero_count */
-    p.push(0,0);                             /* last_read_data (W) */
-    p.push(0);                               /* last_write_data */
-    vsfU32(p,0);                             /* snap_seed */
-    vsfU32(p,0);                             /* speed_zone */
-    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);   /* ue7_dcba, ue7_counter, uf4_counter */
-    vsfU32(p,0);                             /* fr_randcount */
-    vsfU32(p,0); vsfU32(p,0); vsfU32(p,0);   /* filter_counter/state/last_state */
-    vsfU32(p,0); vsfU32(p,0);                /* write_flux, PulseHeadPosition */
-    vsfU32(p,0x1234abcd);                    /* xorShift32 (valeur initiale VICE) */
-    vsfU32(p,0);                             /* so_delay */
-    vsfU32(p,0);                             /* cycle_index */
-    vsfClock(p,0);                           /* ref_advance */
-    vsfU32(p,0);                             /* req_ref_cycles */
-    vsfClock(p,0);                           /* attach_detach_clk */
-    p.push(1);                               /* byte_ready_edge */
-    p.push(0);                               /* byte_ready_active */
-    return p; };
-  mods.push(['DRIVE8',2,0,driveP()]); mods.push(['DRIVE9',2,0,driveP()]);
-  mods.push(['DRIVE10',2,0,driveP()]); mods.push(['DRIVE11',2,0,driveP()]);
-  { /* FSDRIVE v0.0 (258) : buffer série + pointeur */
-    const p=[]; for(let i=0;i<256;i++) p.push(0); p.push(0,0);
-    mods.push(['FSDRIVE',0,0,p]); }
-  { /* VIC-II v1.3 (160513) : ordre exact vicii-snapshot.c, framebuffer 504×312 */
-    const W=504,H=312;
-    const p=[];
-    p.push(1,0,1);                           /* allow_bad_lines, bad_line, blank */
-    for(let i=0;i<40;i++) p.push(0);         /* cbuf */
-    for(let i=0;i<1024;i++) p.push(mem[0xD800+i]&15);  /* color RAM */
-    p.push(0);                               /* idle_state */
-    p.push(0,0,0);                           /* light pen */
-    for(let i=0;i<40;i++) p.push(0);         /* vbuf */
-    p.push(0);                               /* new_dma_msk */
-    vsfU32(p,0);                             /* ram_base_phi1 */
-    p.push(rc&255); p.push(rl&255,(rl>>8)&255);        /* cycle, raster_y */
-    for(let i=0;i<64;i++) p.push(mem[0xD000+i]&255);   /* 64 registres */
-    p.push(0,0,0);                           /* sbcoll, dma_msk, sscoll */
-    p.push(0,0);                             /* vbank_phi1 (W) */
-    p.push(0,0);                             /* vc (W) */
-    p.push(0);                               /* vcinc */
-    p.push(0,0);                             /* vcbase (W) */
-    p.push(0);                               /* irq_status */
-    for(let i=0;i<8;i++) p.push(0,0,0);      /* sprites : memptr, inc, exp */
-    vsfClock(p,0); p.push(0);                /* fetch_clk, fetch_idx */
-    vsfU32(p,0);                             /* ram_base_phi2 */
-    p.push(0,0);                             /* vbank_phi2 (W) */
-    vsfU32(p,rl); vsfU32(p,W); vsfU32(p,H); vsfU32(p,W); /* line, width, height, pitch */
-    for(let i=0;i<W*(H+4);i++) p.push(0);    /* framebuffer paddé (VICE redessine) */
-    mods.push(['VIC-II',1,3,p]); }
-  { const t=cart&&cart.type?cart.type&255:0;
-    mods.push(['GLUE',1,0,[t,0,0]]); }      /* GLUE v1.0 seul (VICE 3.7 n'a pas C64GLUE) */
-  mods.push(['C64MEMHACKS',0,0,[0]]);
-  mods.push(['TAPEPORT',1,0,[1,1]]);
-  { /* DATASETTE v1.05 (78) : valeurs par défaut VICE */
-    const p=[];
-    p.push(0,0);                             /* motor, notape */
-    vsfClock(p,0); vsfClock(p,0);            /* last_write_clk, motor_stop_clk */
-    p.push(0);                               /* alarm_pending */
-    vsfClock(p,0xFFFFFFFFFFFFFFFFn);          /* alarm_clk */
-    vsfClock(p,0xFFFFFFFFFFFFFFFFn);          /* long_gap_pending (valeur VICE) */
-    vsfClock(p,0);                           /* long_gap_elapsed */
-    p.push(0);                               /* last_direction */
-    vsfU32(p,0);                             /* counter_offset */
-    p.push(1);                               /* reset_with_maincpu */
-    vsfU32(p,20000);                         /* zero_gap_delay */
-    vsfU32(p,1);                             /* speed_tuning */
-    vsfU32(p,1000); vsfU32(p,1000);          /* wobble freq/amplitude */
-    vsfU32(p,0);                             /* azimuth_error */
-    p.push(0);                               /* fullwave */
-    vsfClock(p,0);                           /* fullwave_gap */
-    mods.push(['DATASETTE',1,5,p]); }
-  { /* KEYBOARD v1.1 (96) : 16 dwords keyarr + 8 dwords rev_keyarr */
-    const p=[]; for(let i=0;i<24;i++) vsfU32(p,0);
-    mods.push(['KEYBOARD',1,1,p]); }
-  mods.push(['JOYPORT0',0,0,[1]]);
-  { const p=[]; p.push(0,0); mods.push(['JOYSTICK0',1,2,p]); }
-  mods.push(['JOYPORT1',0,0,[1]]);
-  { const p=[]; p.push(0,0); mods.push(['JOYSTICK1',1,2,p]); }
-  mods.push(['USERPORT',1,0,[1,0]]);
-  for(const [n,ma,mi,p] of mods){
-    const blk=vsfMod(n,ma,mi,Uint8Array.from(p));
-    for(let i=0;i<blk.length;i++) out.push(blk[i]);
-  }
-  return new Uint8Array(out);
-}
-
-function vsfImport(buf){
-  const d=new Uint8Array(buf);
-  const magic=String.fromCharCode(...d.slice(0,19));
-  if(magic!==VSF_MAGIC) throw new Error('Ce fichier n\u2019est pas un instantan\u00e9 VICE.');
-  const fMaj=d[19], fMin=d[20];
-  if(fMaj!==2) throw new Error('Version de snapshot non support\u00e9e ('+fMaj+'.'+fMin+').');
-  const machine=String.fromCharCode(...d.slice(21,37)).replace(/\0+$/,'');
-  if(!machine.startsWith('C64')) throw new Error('Ce snapshot n\u2019est pas un C64 ('+machine+').');
-  let off=58; const mods={};
-  while(off+22<=d.length){
-    const nm=String.fromCharCode(...d.slice(off,off+16)).replace(/\0+$/,'');
-    const sz=(d[off+18]|(d[off+19]<<8)|(d[off+20]<<16)|(d[off+21]<<24))>>>0;
-    if(sz<22||off+sz>d.length) break;
-    if(!mods[nm]) mods[nm]={maj:d[off+16],min:d[off+17],p:d.slice(off+22,off+sz)};
-    off+=sz;
-  }
-  if(!mods.MAINCPU&&!mods.C64MEM) throw new Error('Instantan\u00e9 VICE sans modules CPU/m\u00e9moire.');
-  const warn=[];
-  const P=(m)=>mods[m]?mods[m].p:null;
-  if(mods.C64MEM){ const p=P('C64MEM');
-    for(let i=0;i<65536;i++) mem[i]=p[4+i];
-    mem[0]=p[1]; mem[1]=p[0];
-  }
-  if(mods.MAINCPU){ const p=P('MAINCPU');
-    let q=0; let clk=0; for(let i=7;i>=0;i--) clk=clk*256+p[q+i]; q+=8;
-    cyc=clk>>>0;
-    C.a=p[q++]; C.x=p[q++]; C.y=p[q++]; C.sp=p[q++];
-    C.pc=p[q]|(p[q+1]<<8); q+=2;
-    const st=p[q++];
-    C.n=!!(st&128); C.v=!!(st&64); C.d=!!(st&8); C.i=!!(st&4); C.z=!!(st&2); C.c=!!(st&1);
-  }
-  const ciaAp=(c,p)=>{ c.pra=p[0]; c.prb=p[1]; c.ddra=p[2]; c.ddrb=p[3];
-    c.ta=p[4]|(p[5]<<8); c.tb=p[6]|(p[7]<<8);
-    c.icr=p[12]; c.cra=p[13]; c.crb=p[14];
-    c.la=p[15]|(p[16]<<8); c.lb=p[17]|(p[18]<<8); };
-  if(mods.CIA1) ciaAp(cia1,P('CIA1'));
-  if(mods.CIA2) ciaAp(cia2,P('CIA2'));
-  const sidAp=(inst,r)=>{ for(let i=0;i<3;i++){ const v=inst.v[i];
-      v.freq=r[0+i*7]|(r[1+i*7]<<8);
-      v.pw=r[2+i*7]|((r[3+i*7]&15)<<8);
-      v.ctrl=r[3+i*7]&240; v.ad=r[4+i*7]; v.sr=r[5+i*7];
-      v.state=0; v.env=0; v.ec=cyc; }
-    inst.f.fc=r[21]; inst.f.res=r[22]>>4; inst.f.mode=r[22]&15; inst.f.filt=r[23]; inst.f.vol=r[24]&15; };
-  if(mods.SID){ const p=P('SID'); const sids=p[0]||0;
-    sidAp(SI[0],Array.from(p.slice(4,36)));
-    if(sids>0&&mods.SID2){ const p2=P('SID2'); const addr=p2[0]|(p2[1]<<8);
-      if([0xD420,0xD500,0xDE00].includes(addr)){
-        PERIPH.sid2=true; SID2_ADDR=addr; refreshSid2&&refreshSid2();
-        sidAp(SI[1],Array.from(p2.slice(2,34)));
-      } else {
-        /* adresse invalide : ne pas activer ni écraser le second SID (bug d'import signalé) */
-        warn.push('Adresse du second SID invalide ('+addr.toString(16)+') : second SID ignoré.');
-      } }
-    else if(sids>0&&!mods.SID2){ warn.push('Le snapshot contient un 2e SID non restauré.'); }
-  } else if(mods.SID2){ const p2=P('SID2'); const addr=p2[0]|(p2[1]<<8);
-    if([0xD420,0xD500,0xDE00].includes(addr)){
-      PERIPH.sid2=true; SID2_ADDR=addr; refreshSid2&&refreshSid2();
-      sidAp(SI[1],Array.from(p2.slice(2,34)));
-    } else { warn.push('Adresse du second SID invalide ('+addr.toString(16)+') : second SID ignoré.'); } }
-  const extAp=(inst,p)=>{ /* SIDEXTENDED v1.4 (état reSID) : registres + interne */
-    if(!p) return;
-    sidAp(inst,Array.from(p.slice(0,32)));
-    for(let i=0;i<3;i++){ const v=inst.v[i], o=38+i*4;
-      v.acc=((p[o]|(p[o+1]<<8)|((p[o+2]&255)<<16))>>>0); }
-    for(let i=0;i<3;i++){ const v=inst.v[i], o=50+i*4;
-      v.lfsr=((p[o]|(p[o+1]<<8)|((p[o+2]&255)<<16))>>>0)|0; }
-    for(let i=0;i<3;i++){ const v=inst.v[i], o=62+i*2;
-      v.rc=p[o]|(p[o+1]<<8); }
-    for(let i=0;i<3;i++){ const v=inst.v[i], o=68+i*2;
-      v.ec=p[o]|(p[o+1]<<8); }
-    for(let i=0;i<3;i++){ const v=inst.v[i], o=74+i;
-      v.env=p[o]&255; }
-    for(let i=0;i<3;i++){ const v=inst.v[i], o=77+i;
-      v.state=p[o]&3; }
-    /* hold_zero à 0 : la reprise repositionne l'enveloppe proprement */
+/* ===== Instantanés VICE (.vsf) — format de VICE 3.7.1 (x64sc), vérifié en chargeant les fichiers dans VICE ===== */
+// table des « drapeaux de cycle » du VIC-II de VICE (extraite de son code, vicii-chip-model.c)
+const VSF_CYC_PAL=[3290648,3356728,3425840,3491952,3561056,3627232,3696320,3762368,3831424,3897472,3932672,3998464,4064000,16777984,138511104,105022720,2688779520,2151974144,4556032,4621568,4687104,4752640,4818176,4883712,4949248,5014784,5080320,5145856,5211392,5276928,5342464,5408000,5473536,5539072,5604608,5670144,5735680,5801216,5866752,5932288,5997824,6063360,6128896,6194432,6259968,6325504,6391040,6456576,6522112,6587648,6653184,6718720,6784256,6849792,36242433,1378484225,1613430787,78382595,2951175,3020294,3086350,3155468,3221532], VSF_CYC_NTSC=[3356728,3425840,3491952,3561056,3627232,3696320,3762368,3831424,3897472,3932160,3998208,4064000,4129536,16777984,138511104,105022720,2688779520,2151974144,4556032,4621568,4687104,4752640,4818176,4883712,4949248,5014784,5080320,5145856,5211392,5276928,5342464,5408000,5473536,5539072,5604608,5670144,5735680,5801216,5866752,5932288,5997824,6063360,6128896,6194432,6259968,6325504,6391040,6456576,6522112,6587648,6653184,6718720,6784256,6849792,2688000,1378484225,1646985217,11272195,70059523,3016711,3085830,3151886,3155468,3221532,3290648];
+const VSF_VIC_MODEL={'6569':0,'8565':1,'6567':3,'8562':4};
+const VSF_DATASETTE='00000000000000000000000000000000000000ffffffffffffffff00000000000000000000000000000000000000000001204e000001000000e8030000e803000000000000000000000000000000';
+function vsfWriter(){
+  let b=new Uint8Array(1<<18), n=0;
+  const need=k=>{ if(n+k>b.length){ const nb=new Uint8Array(Math.max(b.length*2,n+k)); nb.set(b); b=nb; } };
+  const w={
+    B(v){ need(1); b[n++]=v&255; }, W(v){ w.B(v); w.B(v>>8); },
+    DW(v){ v=v>>>0; w.W(v&0xFFFF); w.W(v>>>16); },
+    Q(v){ v=Math.max(0,Math.floor(Number(v)||0)); w.DW(v%4294967296); w.DW(Math.floor(v/4294967296)); },
+    BA(a){ need(a.length); b.set(a,n); n+=a.length; }, Z(k){ need(k); b.fill(0,n,n+k); n+=k; },
+    S(s,k){ for(let i=0;i<k;i++) w.B(i<s.length?s.charCodeAt(i):0); },
+    mod(name,maj,min,fn){ const st=n; w.S(name,16); w.B(maj); w.B(min); const at=n; w.DW(0); fn(); const len=n-st; b[at]=len&255; b[at+1]=(len>>8)&255; b[at+2]=(len>>16)&255; b[at+3]=(len>>>24)&255; },
+    bytes(){ return b.slice(0,n); }
   };
-  if(mods.SIDEXTENDED){ extAp(SI[0],P('SIDEXTENDED')); }
-  if(mods.SIDEXTENDED2&&PERIPH.sid2){ extAp(SI[1],P('SIDEXTENDED2')); }
-  if(mods['VIC-II']){ const p=P('VIC-II');
-    for(let i=0;i<64;i++) mem[0xD000+i]=p[1119+i]&255;
-    for(let i=0;i<1024;i++) mem[0xD800+i]=p[43+i]&15;
-    rasterCmp=(mem[0xD012]|((mem[0xD011]&128)<<1))>>>0;
+  return w;
+}
+function vsfTimerState(cr,phi2){ return (cr&0x09)|(phi2?0x20:0)|((cr&1)&&phi2?0x842:0)|((cr&8)?0x1100:0); }
+function vsfExport(){
+  if(state==='boot') throw new Error('La machine d\u00e9marre encore.');
+  if(!romMode) throw new Error('L\u2019export vers VICE demande le mode ROM (Syst\u00e8me) : le BASIC int\u00e9gr\u00e9 n\u2019existe pas dans VICE.');
+  sidFlush(true); drvSync();
+  const notes=[];
+  if(cart) notes.push('la cartouche n\u2019est pas transf\u00e9r\u00e9e');
+  if(DRV.on) notes.push('le lecteur 1541 repart en \u00e9mulation simplifi\u00e9e dans VICE');
+  if(REU.size) notes.push('la REU n\u2019est pas transf\u00e9r\u00e9e');
+  const ntsc=MODEL.ntsc, LC=TM.lineCyc, tab=ntsc?VSF_CYC_NTSC:VSF_CYC_PAL;
+  // position du balayage : mon cycle 0 = dernier cycle de la ligne précédente chez VICE
+  const pos=Math.max(0,Math.min(LC-1,cyc-vLineStart));
+  const rline=pos===0?(vicLineCur===0?TM.lines-1:vicLineCur-1):vicLineCur, rcyc=(pos+LC-1)%LC;
+  const w=vsfWriter();
+  w.S('VICE Snapshot File\x1a',19); w.B(2); w.B(0); w.S('C64SC',16);
+  w.S('VICE Version\x1a',13); w.B(3); w.B(7); w.B(1); w.B(0); w.DW(0);
+  const P=(C.n?128:0)|(C.v?64:0)|0x20|(C.d?8:0)|(C.i?4:0)|(C.z?2:0)|(C.c?1:0);
+  w.mod('MAINCPU',1,2,()=>{ w.Q(cyc); w.B(C.a); w.B(C.x); w.B(C.y); w.B(C.sp); w.W(C.pc); w.B(P); w.DW(0); w.DW(0);
+    for(let i=0;i<5;i++) w.Q(0); w.DW(0); w.DW(0); w.DW(0); w.Q(0); w.Q(0); });
+  w.mod('C64MEM',0,1,()=>{ w.B(mem[1]); w.B(mem[0]); w.B(0); w.B(0);
+    const ram=new Uint8Array(65536); ram.set(mem); ram.set(ramD,0xD000); w.BA(ram);
+    w.B(mem[1]); w.B(portRead()); w.B(mem[0]); w.DW(0); w.DW(0); w.B(0); w.B(0); w.B(0); w.B(0); });
+  w.mod('C64CART',0,1,()=>w.B(0));
+  const cia=(name,c)=>w.mod(name,2,3,()=>{
+    const tod=todRegs(todNow(c)), per=TM.hz/10, left=Math.max(1,Math.round(per-((cyc-c.todBase)%per)));
+    w.B(c.pra); w.B(c.prb); w.B(c.ddra); w.B(c.ddrb); w.W(c.ta); w.W(c.tb);
+    for(const v of tod) w.B(v);
+    w.B(c.sdr); w.B(c.mask&0x1F); w.B(c.cra&0xEF); w.B(c.crb&0xEF); w.W(c.la); w.W(c.lb);
+    w.B((c.icr&0x1F)|((c.icr&c.mask&0x1F)?0x80:0)); w.B(0); w.B(0); w.Z(4); w.B(0);
+    w.B((c.todLatch?1:0)|(c.todRun?0:2)); for(const v of (c.todLatch||tod)) w.B(v);
+    w.Q(left);
+    w.W(vsfTimerState(c.cra,!(c.cra&0x20))); w.W(vsfTimerState(c.crb,!(c.crb&0x60)));
+    w.B(0); w.B(0); w.B((c.icr&c.mask&0x1F)?1:0); w.B(0); w.B(0); w.B(0); w.B(0xC0); });
+  cia('CIA1',cia1); cia('CIA2',cia2);
+  // SID : registres + état interne reSID (oscillateurs, bruit, enveloppes)
+  const sidRegs=base=>{ const r=new Uint8Array(32); for(let i=0;i<25;i++) r[i]=mem[base+i]; return r; };
+  const sidExt=(name,inst,regs)=>w.mod(name,1,4,()=>{
+    const V=inst.v, st=v=>v.state===0?0:v.state===3?2:1;
+    w.BA(regs); w.B(regs[24]); w.DW(0);
+    for(const v of V) w.DW(v.acc&0xFFFFFF); for(const v of V) w.DW(v.lfsr&0x7FFFFF);
+    for(const v of V) w.W(v.rc&0x7FFF); for(const v of V) w.W(v.ec&0xFFFF);
+    for(const v of V) w.B(v.env); for(const v of V) w.B(st(v)); for(const v of V) w.B(v.env===0&&v.state!==0?1:0);
+    for(const v of V) w.W(ENV_RATE[v.state===0?v.ad>>4:v.state===3?v.sr&15:v.ad&15]); for(const v of V) w.W(EXP_PER(v.env));
+    w.Z(3); w.Z(3); w.Z(12); w.Z(12);
+    for(const v of V) w.W(((v.acc>>12)&0xFFF)>=(v.pw&0xFFF)?0xFFF:0);
+    w.B(0); w.B(0); w.B(7); });
+  const r1=sidRegs(SIDB);
+  w.mod('SID',1,5,()=>{ w.B(SID2_ADDR?1:0); w.B(1); w.B(1); w.B(MODEL.sid==='8580'?1:0); w.BA(r1); });
+  sidExt('SIDEXTENDED',SI[0],r1);
+  if(SID2_ADDR){ const r2=sidRegs(SID2_ADDR); w.mod('SID2',1,5,()=>{ w.W(SID2_ADDR); w.BA(r2); }); sidExt('SIDEXTENDED2',SI[1],r2); }
+  for(let u=8;u<12;u++) w.mod('DRIVE'+u,2,0,()=>{ w.B(0); w.B(1); });
+  w.mod('FSDRIVE',0,0,()=>w.Z(258));
+  // VIC-II (x64sc)
+  w.mod('VIC-II',1,3,()=>{
+    const regs=new Uint8Array(64); for(let i=0;i<0x2F;i++) regs[i]=mem[0xD000+i];
+    regs[0x11]=(mem[0xD011]&0x7F)|((rasterCmp&0x100)>>1); regs[0x12]=rasterCmp&255; regs[0x19]=0; regs[0x1E]=0; regs[0x1F]=0;
+    const flags=tab[rcyc], irq=(d019&0x0F)|((d019&mem[0xD01A]&0x0F)?0x80:0);
+    let disp=0, dma=0; SPR.forEach((q,i)=>{ if(q.disp) disp|=1<<i; if(q.dma) dma|=1<<i; });
+    w.B(VSF_VIC_MODEL[MODEL.vic]??0); w.BA(regs); w.DW(rcyc); w.DW(flags); w.DW(rline);
+    w.B(rline===0?1:0); w.B(irq); w.DW(rasterCmp); w.B(rline===rasterCmp?1:0);
+    w.Z(40); w.Z(40); w.B(0); w.DW(0); w.Z(520);
+    w.DW(mem[0xD011]&7); w.B(den30?1:0); w.B(collSS); w.B(collSB); w.B(0);
+    w.DW(vDisplay?0:1); w.DW(vcBase); w.DW(vc); w.DW(rc); w.DW(0); w.DW(lineBad?1:0);
+    w.B(0); w.B(0); w.DW(0); w.DW(0); w.DW(0); w.Q(0);
+    w.B(regs[0x11]); w.DW(4); w.DW(disp); w.B(dma);
+    w.B(0); w.B(0); w.B(0); w.B(0xFF); w.B(vBorder?1:0); w.B(vBorder?1:0); w.B(mBorder?1:0); w.B(0xFF);
+    const cr=new Uint8Array(1024); for(let i=0;i<1024;i++) cr[i]=mem[0xD800+i]&15; w.BA(cr);
+    const vm=vicBank()+((mem[0xD018]>>4)<<10)+0x3F8;
+    SPR.forEach((q,i)=>{ w.DW(q.data&0xFFFFFF); w.B(q.mc&63); w.B(q.mcb&63); w.B(vread(vm+i)); w.B(q.ff?1:0); w.DW(mem[0xD000+2*i]|((mem[0xD010]>>i)&1)<<8); });
+    w.Z(16);
+    for(let i=0;i<8;i++) w.DW(mem[0xD000+2*i]|((mem[0xD010]>>i)&1)<<8);
+    w.B(mem[0xD01B]); w.B(mem[0xD01C]); w.B(mem[0xD01D]); w.B(0); w.B(dma); w.B(0);
+    w.Z(32); w.Z(8); w.B(0); w.B(0); w.B(mBorder?1:0); w.Z(24);
+    const cregs=new Uint8Array(0x2F); for(let i=0;i<16;i++) cregs[i]=i; for(let i=0x20;i<0x2F;i++) cregs[i]=regs[i]; w.BA(cregs);
+    w.B(0); w.B(0); w.DW(flags);
+    const W=384, H=ntsc?275:312; w.DW(rline);  // dimensions du tampon d'image de VICE (relevées sur VICE 3.7.1)
+    w.DW(W); w.DW(H); w.DW(W); w.Z(W*(H+4));
+  });
+  w.mod('GLUE',1,0,()=>{ w.B(MODEL.vic==='8565'||MODEL.vic==='8562'?1:0); w.B(0); w.B(0); });
+  w.mod('C64MEMHACKS',0,0,()=>w.B(0));
+  w.mod('TAPEPORT',1,0,()=>{ w.B(1); w.B(1); });
+  w.mod('DATASETTE',1,5,()=>w.BA(Uint8Array.from(VSF_DATASETTE.match(/../g).map(h=>parseInt(h,16)))));
+  w.mod('KEYBOARD',1,1,()=>w.Z(96));
+  for(const j of [0,1]){ w.mod('JOYPORT'+j,0,0,()=>w.B(1)); w.mod('JOYSTICK'+j,1,2,()=>{ w.B(0); w.B(0); }); }
+  w.mod('USERPORT',1,0,()=>{ w.B(1); w.B(0); });
+  vsfExport.notes=notes;
+  return w.bytes();
+}
+function vsfImport(buf){
+  const d=new Uint8Array(buf), txt=(a,b)=>String.fromCharCode(...d.subarray(a,b)).replace(/\0.*$/s,'');
+  if(txt(0,19)!=='VICE Snapshot File\x1a') throw new Error('Ce fichier n\u2019est pas un instantan\u00e9 VICE.');
+  const machine=txt(21,37);
+  if(machine!=='C64'&&machine!=='C64SC') throw new Error('Cet instantan\u00e9 vient d\u2019une autre machine ('+machine+').');
+  let off=37; if(txt(37,50)==='VICE Version\x1a') off+=21;
+  const M={};
+  while(off+22<=d.length){ const nm=txt(off,off+16), sz=(d[off+18]|(d[off+19]<<8)|(d[off+20]<<16)|(d[off+21]<<24))>>>0;
+    if(!nm||sz<22||off+sz>d.length) break; if(!M[nm]) M[nm]={maj:d[off+16],min:d[off+17],p:d.subarray(off+22,off+sz)}; off+=sz; }
+  if(!M.MAINCPU||!M.C64MEM) throw new Error('Instantan\u00e9 incomplet : processeur ou m\u00e9moire absent.');
+  const rd=p=>{ let i=0; return { B(){ return p[i++]; }, W(){ const v=p[i]|(p[i+1]<<8); i+=2; return v; }, DW(){ const v=(p[i]|(p[i+1]<<8)|(p[i+2]<<16)|(p[i+3]<<24))>>>0; i+=4; return v; },
+    Q(){ const lo=this.DW(), hi=this.DW(); return hi*4294967296+lo; }, BA(n){ const a=p.subarray(i,i+n); i+=n; return a; }, skip(n){ i+=n; }, get pos(){ return i; } }; };
+  const notes=[];
+  if(!romMode) throw new Error('Passez d\u2019abord en mode ROM (Syst\u00e8me) : un instantan\u00e9 VICE contient une machine avec ses ROM.');
+  // x64 (ancien émulateur de VICE, nom « C64 ») et x64sc (« C64SC ») n'écrivent pas le VIC-II de la même façon
+  const X64=machine==='C64'&&M['VIC-II']&&M['VIC-II'].p.length>1300&&M['VIC-II'].p.length!==123415&&M['VIC-II'].p.length!==107151;
+  if(X64){ const v=M['VIC-II'].p, o=1194+24+8+1+4+2, h=v[o+8]|(v[o+9]<<8), sm=M.SID?M.SID.p[3]:0;
+    const name=(h&&h<300)?(sm?'c64cn':'c64n'):(sm?'c64c':'c64');
+    if(MODEL.name!==name){ setModel(name); notes.push('mod\u00e8le r\u00e9gl\u00e9 sur '+({c64:'C64',c64c:'C64C',c64n:'C64 NTSC',c64cn:'C64C NTSC'})[name]); } }
+  // modèle de machine (VIC-II et SID)
+  else if(M['VIC-II']){ const vm=M['VIC-II'].p[0], name=vm===1?'c64c':vm===4?'c64cn':(vm===3||vm===5||vm===6)?'c64n':'c64';
+    if(MODEL.name!==name){ setModel(name); notes.push('mod\u00e8le r\u00e9gl\u00e9 sur '+({c64:'C64',c64c:'C64C',c64n:'C64 NTSC',c64cn:'C64C NTSC'})[name]); } }
+  sidFlush(true);
+  { const r=rd(M.C64MEM.p); const data=r.B(), dir=r.B(); r.skip(2); const ram=r.BA(65536);
+    mem.set(ram); ramD.set(ram.subarray(0xD000,0xE000)); mem[0]=dir; mem[1]=data; updRom(); }
+  { const r=rd(M.MAINCPU.p); r.Q(); C.a=r.B(); C.x=r.B(); C.y=r.B(); C.sp=r.B(); C.pc=r.W(); setP(r.B()); }
+  const ciaIn=(c,p)=>{ const r=rd(p); c.pra=r.B(); c.prb=r.B(); c.ddra=r.B(); c.ddrb=r.B(); c.ta=r.W(); c.tb=r.W();
+    const t=r.BA(4), bcd=v=>(v>>4)*10+(v&15); c.sdr=r.B(); c.mask=r.B()&0x1F; c.cra=r.B(); c.crb=r.B(); c.la=r.W(); c.lb=r.W(); c.icr=r.B()&0x1F;
+    r.skip(7); const tl=r.B(); const lat=r.BA(4);
+    const h12=bcd(t[3]&0x1F)%12, h24=h12+((t[3]&0x80)?12:0);
+    c.tod=bcd(t[0])+10*bcd(t[1])+600*bcd(t[2])+36000*h24; c.todBase=cyc; c.todRun=!(tl&2); c.todLatch=(tl&1)?Array.from(lat):null; };
+  if(M.CIA1) ciaIn(cia1,M.CIA1.p); if(M.CIA2) ciaIn(cia2,M.CIA2.p);
+  // SID : registres, puis état interne si présent
+  const sidIn=(inst,regs,ext)=>{
+    for(let i=0;i<3;i++){ const v=inst.v[i], o=i*7; v.freq=regs[o]|(regs[o+1]<<8); v.pw=regs[o+2]|((regs[o+3]&15)<<8); v.ctrl=regs[o+4]; v.ad=regs[o+5]; v.sr=regs[o+6]; }
+    inst.f.fc=(regs[21]&7)|(regs[22]<<3); inst.f.res=regs[23]>>4; inst.f.filt=regs[23]&15; inst.f.mode=regs[24]>>4; inst.f.vol=regs[24]&15;
+    if(ext&&ext.p.length>=133){ const r=rd(ext.p); r.skip(37); const V=inst.v;
+      for(const v of V) v.acc=r.DW()&0xFFFFFF; for(const v of V) v.lfsr=r.DW()&0x7FFFFF;
+      for(const v of V) v.rc=r.W()&0x7FFF; for(const v of V) v.ec=r.W();
+      for(const v of V) v.env=r.B(); for(const v of V){ const s=r.B(); v.state=s===0?0:s===2?3:1; } }
+    else for(const v of inst.v){ v.state=(v.ctrl&1)?1:3; v.env=0; v.rc=0; v.ec=0; }
+    inst.q.length=0; inst.cyc=cyc; };
+  if(M.SID){ const r=rd(M.SID.p); const sids=r.B(); r.skip(3); const regs=r.BA(32);
+    for(let i=0;i<25;i++) mem[SIDB+i]=regs[i]; sidIn(SI[0],regs,M.SIDEXTENDED);
+    if(sids>0&&M.SID2){ const r2=rd(M.SID2.p); const a=r2.W(), regs2=r2.BA(32);
+      if([0xD420,0xD500,0xDE00].includes(a)){ SID2_ADDR=a; PERIPH.sid2=a; for(let i=0;i<25;i++) mem[a+i]=regs2[i]; sidIn(SI[1],regs2,M.SIDEXTENDED2); }
+      else notes.push('2e SID \u00e0 une adresse non g\u00e9r\u00e9e ($'+a.toString(16)+')'); }
+    else { SID2_ADDR=0; PERIPH.sid2=0; } }
+  sidCyc=cyc; SID.next=0; try{ periphSave(); }catch(e){}
+  if(X64){ const v=M['VIC-II'].p, regs=v.subarray(1119,1183), cram=v.subarray(43,1067);
+    for(let i=0;i<0x2F;i++) mem[0xD000+i]=regs[i];
+    for(let i=0;i<1024;i++) mem[0xD800+i]=cram[i]&15;
+    rasterCmp=regs[0x12]|((regs[0x11]&0x80)<<1); d019=v[1193]&0x0F; den30=!!v[0]; lineBad=!!v[1]; vDisplay=!v[1067];
+    collSB=v[1183]; collSS=v[1185]; vc=(v[1188]|(v[1189]<<8))&1023; vcBase=(v[1191]|(v[1192]<<8))&1023;
+    const dma=v[1184];
+    SPR.forEach((q,i)=>{ const mp=v[1194+3*i]&63; q.mc=mp; q.mcb=mp; q.dma=!!((dma>>i)&1); q.disp=q.dma; q.show=q.dma; q.ff=true; });
+    const LC=TM.lineCyc; let L=(v[1117]|(v[1118]<<8))%TM.lines, pos=(v[1116]+1)%LC; if(pos===0) L=(L+1)%TM.lines;
+    vlog=[]; vLineStart=cyc-pos; vicLineCur=L; vstart.set(mem.subarray(0xD000,0xD040)); sprBusMap(L);
+    if(pos<14){ vicLine=L; vicPhase=1; vicNext=vLineStart+14; } else { vicLine=L>=TM.lines-1?0:L+1; vicPhase=0; vicNext=vLineStart+LC; }
   }
-  pending=null; stopReq=false; d019=0;
-  state='run'; romHalted=false;
-  return warn.join(' ');
+  else if(M['VIC-II']){ const r=rd(M['VIC-II'].p); r.B(); const regs=r.BA(64); const rcyc=r.DW(); r.DW(); const rline=r.DW(); r.B(); const irq=r.B(); const rcmp=r.DW(); r.B();
+    r.skip(40+40+1+4+520); r.DW(); const abl=r.B(); collSS=r.B(); collSB=r.B(); r.B();
+    const idle=r.DW(); vcBase=r.DW()&1023; vc=r.DW()&1023; rc=r.DW()&7; r.DW(); const bad=r.DW();
+    r.skip(1+1+4+4+4+8+1+4); const disp=r.DW(), dma=r.B(); r.skip(4); const vb=r.B(); r.B(); const mb=r.B(); r.B(); const cram=r.BA(1024);
+    for(let i=0;i<0x2F;i++) mem[0xD000+i]=regs[i];
+    for(let i=0;i<1024;i++) mem[0xD800+i]=cram[i]&15;
+    rasterCmp=rcmp&511; d019=irq&0x0F; den30=!!abl; vDisplay=!idle; vBorder=!!vb; mBorder=!!mb; lineBad=!!bad;
+    SPR.forEach((q,i)=>{ q.data=r.DW(); q.mc=r.B(); q.mcb=r.B(); r.B(); q.ff=!!r.B(); r.DW(); q.dma=!!((dma>>i)&1); q.disp=!!((disp>>i)&1); q.show=q.disp; });
+    // replacer mon VIC-II sur la ligne et le cycle de VICE (mon cycle 0 = dernier cycle de la ligne précédente chez VICE)
+    const LC=TM.lineCyc; let L=rline%TM.lines, pos=(rcyc+1)%LC; if(pos===0) L=(L+1)%TM.lines;
+    vlog=[]; vLineStart=cyc-pos; vicLineCur=L; vstart.set(mem.subarray(0xD000,0xD040)); sprBusMap(L);
+    if(pos<14){ vicLine=L; vicPhase=1; vicNext=vLineStart+14; } else { vicLine=L>=TM.lines-1?0:L+1; vicPhase=0; vicNext=vLineStart+LC; }
+  }
+  if(M.DRIVE8&&M.DRIVE8.p[0]) notes.push('l\u2019\u00e9tat du lecteur 1541 de VICE n\u2019est pas repris');
+  for(const k of Object.keys(M)) if(/^(C64CART|REU|EXPERT|ACTIONREPLAY)/.test(k)&&M[k].p.length>1) notes.push('cartouche non reprise');
+  pending=null; stopReq=false; romHalted=false; state='rom';
+  if(HAS_DOM){ refreshSid2(); }
+  return notes.join(' ; ');
 }
 function initUI(){
   canvas=$('#screen');
