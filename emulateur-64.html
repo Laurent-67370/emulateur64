@@ -2888,8 +2888,11 @@ function romSetProgram(lines){
   for(const z of [0x2D,0x2F,0x31]){ mem[z]=end&255; mem[z+1]=end>>8; }
 }
 function romGetLines(){
-  const st=mem[0x2B]|(mem[0x2C]<<8), en=mem[0x2D]|(mem[0x2E]<<8);
-  if(st!==0x0801||en<=st) return [];
+  const st=mem[0x2B]|(mem[0x2C]<<8); let en=mem[0x2D]|(mem[0x2E]<<8);
+  if(st!==0x0801) return [];
+  // fin du programme = fin de la chaîne des liens (00 00), plus fiable que le seul pointeur $2D
+  for(let p=st,n=0;n<20000&&p+1<0xA000;n++){ const nx=mem[p]|(mem[p+1]<<8); if(nx===0){ en=p+2; break; } if(nx<=p||nx>=0xA000) break; p=nx; }
+  if(en<=st) return [];
   const b=new Uint8Array(en-st+2); b[0]=1; b[1]=8; b.set(mem.subarray(st,en),2);
   return parsePRG(b).lines||[];
 }
