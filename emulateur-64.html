@@ -2200,7 +2200,13 @@ function setP(p){ C.n=(p>>7)&1; C.v=(p>>6)&1; C.d=(p>>3)&1; C.i=(p>>2)&1; C.z=(p
 function push(v){ WR(0x100+C.sp,v&255); C.sp=(C.sp-1)&255; }
 function pull(){ C.sp=(C.sp+1)&255; return RD(0x100+C.sp); }
 function nz(v){ C.z=v===0?1:0; C.n=(v>>7)&1; return v; }
-function rmw(ad){ const v=RD(ad); if(ad>=0xD000&&ad<0xE000) WR(ad,v); return v; }
+/* Accès « fantômes » du 6502 (option) : un accès indexé lit d'abord l'adresse non corrigée (toujours pour une écriture
+   ou un RMW, seulement en franchissant une page pour une lecture), et un RMW réécrit l'ancienne valeur avant la nouvelle.
+   Ils n'ont d'effet visible que sur les registres d'E/S (fenêtre WLO..WHI : $D000-$DFFF pour le C64, $1800-$1FFF pour le 1541) :
+   par exemple STA $DC0D,X lit (et efface) le registre d'interruptions du CIA avant d'écrire. */
+const BUSX_KEY='emu64.busx.v1'; let BUSX=false; try{ BUSX=localStorage.getItem(BUSX_KEY)==='1'; }catch(e){}
+let WLO=0xD000, WHI=0xE000;
+function rmw(ad){ const v=RD(ad); if(BUSX?(ad>=WLO&&ad<WHI):(ad>=0xD000&&ad<0xE000)) WR(ad,v); return v; }
 function cmpr(r,v){ const t=r-v; C.c=t>=0?1:0; nz(t&255); }
 function adc(v){
   if(C.d){
@@ -2264,22 +2270,23 @@ function cpuStep(){
   let pc=C.pc;
   if(pc>=0xA000&&trapsOn&&handleTrap(pc)) return;
   const op=RD(pc); pc=(pc+1)&0xFFFF;
-  let ad=0, v, r, px=0;
+  let ad=0, v, r, px=0, dum=-1;
   switch(OPA[op]){
     case 2: ad=pc; pc=(pc+1)&0xFFFF; break;
     case 3: ad=RD(pc); pc=(pc+1)&0xFFFF; break;
     case 4: ad=(RD(pc)+C.x)&255; pc=(pc+1)&0xFFFF; break;
     case 5: ad=(RD(pc)+C.y)&255; pc=(pc+1)&0xFFFF; break;
     case 6: ad=RD(pc)|(RD((pc+1)&0xFFFF)<<8); pc=(pc+2)&0xFFFF; break;
-    case 7: { const bs=RD(pc)|(RD((pc+1)&0xFFFF)<<8); ad=(bs+C.x)&0xFFFF; px=(bs^ad)&0xFF00; pc=(pc+2)&0xFFFF; break; }
-    case 8: { const bs=RD(pc)|(RD((pc+1)&0xFFFF)<<8); ad=(bs+C.y)&0xFFFF; px=(bs^ad)&0xFF00; pc=(pc+2)&0xFFFF; break; }
+    case 7: { const bs=RD(pc)|(RD((pc+1)&0xFFFF)<<8); ad=(bs+C.x)&0xFFFF; px=(bs^ad)&0xFF00; pc=(pc+2)&0xFFFF; if(BUSX&&(px||!PEN[op])) dum=(bs&0xFF00)|(ad&0xFF); break; }
+    case 8: { const bs=RD(pc)|(RD((pc+1)&0xFFFF)<<8); ad=(bs+C.y)&0xFFFF; px=(bs^ad)&0xFF00; pc=(pc+2)&0xFFFF; if(BUSX&&(px||!PEN[op])) dum=(bs&0xFF00)|(ad&0xFF); break; }
     case 9: { const z=(RD(pc)+C.x)&255; pc=(pc+1)&0xFFFF; ad=RD(z)|(RD((z+1)&255)<<8); break; }
-    case 10: { const z=RD(pc); pc=(pc+1)&0xFFFF; const bs=RD(z)|(RD((z+1)&255)<<8); ad=(bs+C.y)&0xFFFF; px=(bs^ad)&0xFF00; break; }
+    case 10: { const z=RD(pc); pc=(pc+1)&0xFFFF; const bs=RD(z)|(RD((z+1)&255)<<8); ad=(bs+C.y)&0xFFFF; px=(bs^ad)&0xFF00; if(BUSX&&(px||!PEN[op])) dum=(bs&0xFF00)|(ad&0xFF); break; }
     case 11: { const o=RD(pc); pc=(pc+1)&0xFFFF; ad=(pc+(o<128?o:o-256))&0xFFFF; break; }
     case 12: { const q=RD(pc)|(RD((pc+1)&0xFFFF)<<8); pc=(pc+2)&0xFFFF; ad=RD(q)|(RD((q&0xFF00)|((q+1)&255))<<8); break; }
   }
   C.pc=pc; cyc+=OPC[op]; if(px&&PEN[op]) cyc++;
   accEnd=cyc; rmwK=RMWOP[op]; inStep=true;
+  if(dum>=WLO&&dum<WHI){ const k=rmwK; accEnd--; RD(dum); accEnd++; rmwK=k; }   // lecture fantôme : un cycle avant l'accès réel
   switch(OPM[op]){
     case 'LDA': C.a=nz(RD(ad)); break;
     case 'LDX': C.x=nz(RD(ad)); break;
@@ -2338,7 +2345,7 @@ function cpuStep(){
     case 'CLV': C.v=0; break;
     case 'CLD': C.d=0; break;
     case 'SED': C.d=1; break;
-    case 'NOP': break;
+    case 'NOP': if(BUSX&&ad>=WLO&&ad<WHI&&OPA[op]!==2&&OPA[op]<11) RD(ad); break;   // NOP à opérande (zp, abs, indexé) : le 6502 lit vraiment l'adresse
     case 'SLO': v=rmw(ad); C.c=v>>7; v=(v<<1)&255; WR(ad,v); C.a=nz(C.a|v); break;
     case 'RLA': v=rmw(ad); r=((v<<1)|C.c)&255; C.c=v>>7; WR(ad,r); C.a=nz(C.a&r); break;
     case 'SRE': v=rmw(ad); C.c=v&1; r=v>>1; WR(ad,r); C.a=nz(C.a^r); break;
@@ -3490,7 +3497,7 @@ function drvRun(t64){
   const target=Math.floor(t64*1e6/TM.hz);
   if(DRV.cyc>=target) return;
   const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive, sAE=accEnd, sRK=rmwK, sIS=inStep, sPA=pollAdj, sIP=iPoll;
-  C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false;
+  C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false; const sWL=WLO, sWH=WHI; WLO=0x1800; WHI=0x2000;
   DRVT.inDrive=true; DRVT.t64=SYNC_FINE?t64:sCyc;
   const v1=DRV.via1, v2=DRV.via2;
   try{
@@ -3503,7 +3510,7 @@ function drvRun(t64){
       if(!C.i&&((v1.ifr&v1.ier&0x7F)||(v2.ifr&v2.ier&0x7F))) drvIrq();
     }
   }catch(e){ DRV.halted=true; console.warn('Lecteur 1541 bloqué',e); if(HAS_DOM) toast('Le lecteur 1541 émulé s\u2019est bloqué : désactivez-le puis réactivez-le'); }
-  DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false; accEnd=sAE; rmwK=sRK; inStep=sIS; pollAdj=sPA; iPoll=sIP;   // le lecteur ne doit pas modifier la décision d'interruption du C64
+  DRV.cyc=cyc; WLO=sWL; WHI=sWH; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false; accEnd=sAE; rmwK=sRK; inStep=sIS; pollAdj=sPA; iPoll=sIP;   // le lecteur ne doit pas modifier la décision d'interruption du C64
   if(MON.pendingUI) monDrvUI();
 }
 function drvLoadDisk(){
@@ -3842,10 +3849,10 @@ function monDrvUI(){ if(!MON.pendingUI) return; MON.pendingUI=false; if(HAS_DOM)
 function drvStep1(){
   if(!DRV.on||DRV.halted) throw new Error('Le lecteur 1541 émulé n\u2019est pas actif.');
   const sC=C, sR=RD, sW=WR, sT=trapsOn, sCyc=cyc, sA=cpuActive, sAE=accEnd, sRK=rmwK, sIS=inStep, sPA=pollAdj, sIP=iPoll;
-  C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false; DRVT.inDrive=true; DRVT.t64=sCyc;
+  C=DRV.C; RD=drvRD; WR=drvWR; trapsOn=false; cyc=DRV.cyc; cpuActive=false; DRVT.inDrive=true; DRVT.t64=sCyc; const sWL=WLO, sWH=WHI; WLO=0x1800; WHI=0x2000;
   try{ const v1=DRV.via1, v2=DRV.via2, c0=cyc; MON.lastOp8=drvPeekQ(C.pc); cpuStep(); const n=cyc-c0; viaAdvance(v1,n); viaAdvance(v2,n); diskAdvance(n);
     if(!C.i&&((v1.ifr&v1.ier&0x7F)||(v2.ifr&v2.ier&0x7F))) drvIrq(); }
-  finally{ DRV.cyc=cyc; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false; accEnd=sAE; rmwK=sRK; inStep=sIS; pollAdj=sPA; iPoll=sIP; }
+  finally{ DRV.cyc=cyc; WLO=sWL; WHI=sWH; C=sC; RD=sR; WR=sW; trapsOn=sT; cyc=sCyc; cpuActive=sA; DRVT.inDrive=false; accEnd=sAE; rmwK=sRK; inStep=sIS; pollAdj=sPA; iPoll=sIP; }
 }
 /* --- débogueur du BASIC intégré (interpréteur sans ROM) --- */
 function basicView(){ return MON.dev==='c64'&&!romMode&&state==='running'; }
@@ -5595,7 +5602,7 @@ async function start(){
   requestAnimationFrame(frame);
 }
 applyTiming();
-if(HAS_DOM){ start(); globalThis.EMU_DEBUG={vspWatch:v=>{ if(v!==undefined){ VSPW.on=!!v; if(v){ VSPW.log.length=0; VSPW.n=0; VSPW.warned=false; } } return VSPW.on; }, vspReport, syncFine:v=>{ if(v!==undefined){ SYNC_FINE=!!v; try{ localStorage.setItem(SYNCFINE_KEY,SYNC_FINE?'1':'0'); }catch(e){} } return SYNC_FINE; }, sid:()=>SID, joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
+if(HAS_DOM){ start(); globalThis.EMU_DEBUG={busExact:v=>{ if(v!==undefined){ BUSX=!!v; try{ localStorage.setItem(BUSX_KEY,BUSX?'1':'0'); }catch(e){} } return BUSX; }, vspWatch:v=>{ if(v!==undefined){ VSPW.on=!!v; if(v){ VSPW.log.length=0; VSPW.n=0; VSPW.warned=false; } } return VSPW.on; }, vspReport, syncFine:v=>{ if(v!==undefined){ SYNC_FINE=!!v; try{ localStorage.setItem(SYNCFINE_KEY,SYNC_FINE?'1':'0'); }catch(e){} } return SYNC_FINE; }, sid:()=>SID, joy:()=>joy2, frames:()=>vicFrameNo, hz:()=>typeof dispHz!=='undefined'?dispHz:0, poke:(a,v)=>{mem[a&65535]=v&255;}, peek:a=>mem[a&65535], regs:()=>({a:C.a,x:C.x,y:C.y,sp:C.sp,pc:C.pc,cyc:cyc>>>0}), st:()=>state, rom:()=>romMode, vsfExport, vsfImport}; }
 else globalThis.EMU={coldReset,update,feedKey,typeQueue,mem,prog:()=>prog,state:()=>state,importText,setProgram,exportText,
   screen:()=>{ const rows=[]; for(let r=0;r<25;r++){ let s=''; for(let c=0;c<40;c++){ const v=mem[SCR+r*40+c]&127; s+=v===0?'@':v<27?String.fromCharCode(64+v):v<64?String.fromCharCode(v):'#'; } rows.push(s.replace(/ +$/,'')); } return rows.join('\n'); },
   type:s=>typeQueue.push(...textToPet(s)), set turbo(v){turbo=v;},
