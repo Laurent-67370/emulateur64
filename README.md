@@ -9,7 +9,7 @@
 ### Modes système
 - **BASIC V2 réécrit** (mode par défaut) : interpréteur complet en JavaScript — PRINT, INPUT, GET, FOR/NEXT, GOSUB, ON…GOTO, DEF FN, POKE/PEEK, LOAD/SAVE, LIST, avec les erreurs et la tokenisation d'origine
 - **ROM d'origine** : chargez vos fichiers BASIC/KERNAL (8 Ko ou 16 Ko combinés) et CHARGEN (4 Ko) dans le menu Système — le vrai BASIC et le vrai KERNAL tournent sur le CPU émulé. Bouton « Charger depuis le serveur » pour les récupérer d'un point de sécurité (BasicAuth)
-- **Lecteur 1541 matériel** : émulation au niveau du firmware — le vrai DOS 1541 (ROM 16 Ko par moitiés $C000/$E000) tourne sur son propre CPU via le bus IEC bit par bit, avec décodage GCR natif. Loadeurs rapides et protections d'époque, format .g64 en lecture et export
+- **Lecteur 1541 matériel** : émulation au niveau du firmware — le vrai DOS 1541 (ROM 16 Ko par moitiés $C000/$E000) tourne sur son propre CPU via le bus IEC bit par bit, avec décodage GCR natif. Loadeurs rapides et protections d'époque, format .g64 en lecture et export (synchro fine optionnelle avec le C64 : EMU_DEBUG.syncFine)
 - **Synchro écran** : cadence PAL exacte sur écran 50/100 Hz (une image C64 par rafraîchissement, vitesse réelle, défilements fluides), SID rescalé automatiquement
 - **Open ROMs** inclus (libre, GNU LGPL v3, © MEGA65) — expérimental
 
@@ -23,7 +23,11 @@
 ### Supports
 - **Disquettes .d64** (35/40 pistes) : lecture **et écriture** (`SAVE` modifie l'image, téléchargeable ensuite), répertoire réel, lecteurs 8 (image) et 9 (disquette navigateur persistante)
 - **Cassettes .t64** (archives) et **.tap** (flux bit-level via le flag CIA, mode warp)
-- **Cartouches .crt** : normales 8/16 Ko, Ultimax, Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC, EasyFlash
+- **Cartouches .crt** : normales 8/16 Ko, Ultimax, Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et **EasyFlash inscriptible** (2× AM29F040 : programmation d'octet, effacement de secteur ou de puce, autosélection 01/A4, export `.crt` des modifications)
+- **Disquettes .g71** (GCR brut double face du 1571) : la face 1 est lisible par le lecteur 1541 émulé, la couche DOS voit les deux faces, export `.g71` (l'ouverture d'un vrai .g71 reste à confirmer)
+- **Modem SwiftLink** (ACIA 6551 en `$DE00`, NMI) : commandes Hayes ATZ/ATE/ATV/ATH/ATO/ATDT hôte:port, échappement `+++`, filtrage telnet et traduction PETSCII↔ASCII activables — l'appel passe par une passerelle WebSocket→TCP (URL configurable dans Périphériques, avec `{host}`/`{port}`)
+- **Synchro fine C64/1541 optionnelle** (`EMU_DEBUG.syncFine(true)` dans la console) : le lecteur est calé sur le cycle réel d'accès à `$DD00`/`$DD02` — zéro accès « dans le futur » au bus IEC ; désactivée par défaut (comportement V6.7)
+- **Diagnostic VSP/FLI** (`EMU_DEBUG.vspWatch(true)` / `vspReport()`) : relevé factuel des badlines forcées en cours de ligne, sans effet sur l'émulation
 - **Instantanés .VSF (VICE)** : l'export s'ouvre dans **x64sc** (émulateur par défaut de VICE 3.7+, mêmes modèles C64/C64C/NTSC) ; l'import accepte les instantanés de x64sc **et de l'ancien x64**, programme en cours compris, et règle le modèle tout seul
 - Import/export de listings BASIC et de fichiers .prg
 - **Partage par lien / QR / cloud** : la session complète ou un listing BASIC encodés (compressés) dans un lien `#s=`/`#b=`, QR code affiché à l'écran, ou lien court `emulateur64.lhusser.fr/s/<id>` via le relais intégré (conservation 90 jours)
