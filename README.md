@@ -60,4 +60,4 @@ Les instantanés .VSF sont validés en aller-retour avec le vrai VICE 3.7.1 (x64
 
 ---
 
-*Développé en collaboration avec Hermes (agent IA) — itérations V1 → V6.9 en 2026.*
+*Développé en collaboration avec Hermes (agent IA) — itérations V1 → V6.10 en 2026.*

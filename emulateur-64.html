@@ -305,11 +305,11 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
 <dialog id="dlg-disk">
   <div class="dh"><h2>Supports</h2><button class="x" data-close aria-label="Fermer">×</button></div>
   <div class="db">
-    <h3 class="sub">Lecteur 8 · image .d64, .g64, .d71 ou .d81</h3>
+    <h3 class="sub">Lecteur 8 · image .d64, .g64, .d71, .g71 ou .d81</h3>
     <div id="drv-box"></div>
     <div id="d64-box"></div>
     <div class="bar" style="margin:10px 0 22px">
-      <label class="act ghost" style="cursor:pointer">Insérer une image disque<input type="file" id="d64-file" accept=".d64,.g64,.d71,.d81,.D64,.G64,.D71,.D81" hidden></label>
+      <label class="act ghost" style="cursor:pointer">Insérer une image disque<input type="file" id="d64-file" accept=".d64,.g64,.d71,.g71,.d81,.D64,.G64,.D71,.G71,.D81" hidden></label>
       <button class="act ghost" id="d64-blank">Créer une disquette vierge</button>
     </div>
     <h3 class="sub">Cassette · .tap ou .t64</h3>
@@ -337,7 +337,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Collez un listing BASIC (une instruction numérotée par ligne) ou choisissez un fichier <b>.zip</b>, <b>.d64</b>, <b>.g64</b>, <b>.t64</b>, <b>.tap</b>, <b>.crt</b>, <b>.prg</b>, <b>.bas</b> ou <b>.txt</b> : il est chargé dès sa sélection. Vous pouvez aussi glisser un fichier sur l'écran. Les codes entre accolades comme <b>{clr}</b>, <b>{wht}</b> ou <b>{rvon}</b> sont reconnus.</p>
     <textarea class="code" id="imp-text" placeholder='10 PRINT "BONJOUR"&#10;20 GOTO 10'></textarea>
     <div class="bar">
-      <input type="file" id="imp-file" accept=".zip,.prg,.d64,.g64,.d71,.d81,.t64,.tap,.crt,.bas,.txt,.ZIP,.PRG,.D64,.G64,.D71,.D81,.T64,.TAP,.CRT,.BAS,.TXT">
+      <input type="file" id="imp-file" accept=".zip,.prg,.d64,.g64,.g71,.d71,.d81,.t64,.tap,.crt,.bas,.txt,.ZIP,.PRG,.D64,.G64,.G71,.D71,.D81,.T64,.TAP,.CRT,.BAS,.TXT">
       <label><input type="checkbox" id="imp-run" checked> Lancer après import</label>
       <button class="act" id="imp-go">Importer le listing</button>
     </div>
@@ -411,7 +411,8 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
       <div class="crtrow"><label for="crt-chroma">Bavure PAL</label><input type="range" id="crt-chroma" min="0" max="100" step="1"><output>0 %</output></div>
     </div>
     <h3 class="sub" style="margin-top:18px">Modem (RS-232)</h3>
-    <p style="color:var(--muted)">Un navigateur ne peut pas ouvrir de connexion réseau brute : pour appeler un serveur BBS, il faudrait un petit relais WebSocket sur un serveur. Non disponible pour l'instant.</p>
+    <p>Modem SwiftLink (ACIA 6551 en <b>$DE00</b>, NMI) avec commandes Hayes : <b>ATZ</b>, <b>ATE0/1</b>, <b>ATV0/1</b>, <b>ATH</b>, <b>ATO</b>, <b>ATDT hote:port</b>, échappement <b>+++</b>. Un navigateur n'ouvre pas de connexion TCP brute : l'appel passe par une <b>passerelle WebSocket</b> vers telnet/BBS que vous hébergez ou choisissez. Le SwiftLink n'est visible qu'en mode ROM et sans cartouche.</p>
+    <div class="list" id="modem-list"></div>
   </div>
 </dialog>
 
@@ -504,7 +505,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Open ROMs, inclus, est expérimental : son BASIC est très incomplet, et seuls LOAD et SAVE fonctionnent avec le lecteur virtuel (pas d'OPEN ni de canal de commande). Même limite avec un KERNAL modifié, comme JiffyDOS.</p>
 
     <h3>Disquettes</h3>
-    <p>Formats de disquette : .d64 (1541, 35 ou 40 pistes, avec ou sans octets d'erreur, reproduits par le 1541 émulé pour les protections), .g64, .d71 (1571, double face) et .d81 (1581, 3,5 pouces), lus et écrits par le lecteur virtuel. Une image .d64 (35 ou 40 pistes) insérée va dans le lecteur 8 ; elle est lisible et modifiable (SAVE écrit dans l'image, téléchargeable ensuite). La disquette du navigateur est alors sur le lecteur 9 ; sans image, elle est sur le lecteur 8. LOAD"$",8 affiche le répertoire ; LOAD"NOM",8 charge au début du BASIC, LOAD"NOM",8,1 à l'adresse du fichier ; LOAD"*",8,1 charge le premier programme. Sans numéro de lecteur, LOAD et SAVE simulent la cassette sur la disquette du navigateur (mode BASIC intégré uniquement).</p>
+    <p>Formats de disquette : .d64 (1541, 35 ou 40 pistes, avec ou sans octets d'erreur, reproduits par le 1541 émulé pour les protections), .g64, .g71 (GCR brut double face du 1571 : le 1541 émulé lit la face 1, la couche DOS voit les deux faces), .d71 (1571, double face) et .d81 (1581, 3,5 pouces), lus et écrits par le lecteur virtuel. Une image .d64 (35 ou 40 pistes) insérée va dans le lecteur 8 ; elle est lisible et modifiable (SAVE écrit dans l'image, téléchargeable ensuite). La disquette du navigateur est alors sur le lecteur 9 ; sans image, elle est sur le lecteur 8. LOAD"$",8 affiche le répertoire ; LOAD"NOM",8 charge au début du BASIC, LOAD"NOM",8,1 à l'adresse du fichier ; LOAD"*",8,1 charge le premier programme. Sans numéro de lecteur, LOAD et SAVE simulent la cassette sur la disquette du navigateur (mode BASIC intégré uniquement).</p>
     <p>Tout fichier .prg importé est chargé en mémoire et copié sur la disquette du navigateur : pour le recharger plus tard, LOAD"NOM",8,1 (ou ,9,1 si une image .d64 est insérée). Un programme en langage machine peut charger la suite d'un jeu par la routine système LOAD.</p>
 
     <h3>Lecteur 1541 émulé</h3>
@@ -517,7 +518,7 @@ textarea.code{width:100%;min-height:220px;font:14px/1.45 ui-monospace,Menlo,Cons
     <p>Le rendu passe par la carte graphique (<b>WebGL</b>) quand le navigateur le permet : le C64 est dessiné dans une texture, puis un filtre de tube cathodique l'affiche — masque de trous RVB, lignes de balayage, courbure, halo du phosphore et bavure de chrominance PAL. Les réglages sont dans <b>Périphériques</b>, section Écran : trois presets (Moniteur 1084, TV PAL, Démoscene) et six réglages fins, conservés d'une visite à l'autre. Le switch <b>Effet tube</b> coupe l'ensemble ; sans WebGL, un effet de lignes de balayage plus simple est utilisé, et le reste de la machine fonctionne à l'identique.</p>
     <h3>Cassettes et cartouches</h3>
     <p>Une archive .t64 contient des programmes prêts à charger : LOAD"NOM" (ou LOAD tout court pour le premier), dans les deux modes. Une cassette .tap est l'enregistrement fidèle de la bande : elle est lue impulsion par impulsion, ce qui permet aussi les chargeurs rapides des jeux, mais demande le mode ROM. Pour enregistrer, choisissez « Enregistrer une cassette vierge » puis tapez SAVE"NOM" : la cassette obtenue se télécharge en .tap. Tapez LOAD"",1 puis cliquez sur Lecture dans Supports (un fichier .tap glissé sur l'écran se charge tout seul) ; le chargement est accéléré par défaut.</p>
-    <p>Cartouches .crt gérées : Epyx FastLoad (avec son condensateur qui la désactive toute seule), Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (en lecture). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
+    <p>Cartouches .crt gérées : Epyx FastLoad (avec son condensateur qui la désactive toute seule), Action Replay et Final Cartridge III (avec leur bouton de gel), normales (8 Ko, 16 Ko, Ultimax), Ocean, Magic Desk, System 3, Dinamic, Fun Play, Super Games, Simons' BASIC et EasyFlash (lecture et écriture dans la flash simulée : programmation, effacement de secteur ou de puce ; les modifications ne sont pas conservées au rechargement de la page, utilisez « Exporter .crt » dans le menu de la cartouche). Brancher une cartouche redémarre la machine en mode ROM, sur vos ROM d'origine si elles sont chargées, sinon sur Open ROMs.</p>
 
     <h3>Limites</h3>
     <p>L'affichage est calculé au cycle près, accès mémoire de la puce vidéo compris, avec les points gris du VIC récent ; une adresse où rien n'est branché renvoie l'octet que la puce vidéo vient de lire (bus « flottant »). Les formes d'onde combinées du SID restent une approximation des tables mesurées sur les vraies puces. Le filtre du SID est une approximation (la courbe réelle du 6581 varie d'une puce à l'autre), et le processeur du lecteur 1541 exécute ses instructions d'un bloc, mais chacun de ses changements sur le bus série (ATN, CLOCK, DATA) est daté et n'est vu du C64 qu'à son instant réel, au demi-cycle près : les poignées de main des chargeurs rapides ne sont plus déphasées. Sans la ROM du lecteur, seul le lecteur virtuel est disponible.</p>
@@ -565,7 +566,7 @@ let inputReq=null, inputRow=0, inputCol=0;
 let tiStart=now(), turbo=false, cost=0;
 let curKey=64, shiftFlags=0, joy2=255;
 const PERIPH_KEY='emu64.periph.v1';
-const PERIPH={numpadJoy:false,mouse:'none',reu:0,sid2:0};
+const PERIPH={numpadJoy:false,mouse:'none',reu:0,sid2:0,modem:false,modemUrl:'',modemTelnet:true,modemXlat:'none'};
 try{ if(typeof localStorage!=='undefined') Object.assign(PERIPH,JSON.parse(localStorage.getItem(PERIPH_KEY)||'{}')); }catch(e){}
 function periphSave(){ try{ localStorage.setItem(PERIPH_KEY,JSON.stringify(PERIPH)); }catch(e){} }
 let joyB=255;                        // second joystick (pavé numérique)
@@ -594,6 +595,154 @@ function printerPut(c){
   printerDirty=true;
 }
 let printerDirty=false;
+/* ---- Modem : SwiftLink (ACIA 6551, $DE00-$DE03, NMI) + commandes Hayes + pont WebSocket ----
+   Un navigateur n'ouvre pas de connexion TCP brute : le « numéro » composé (ATDT hote:port) est transmis à une passerelle
+   WebSocket→TCP configurée dans Périphériques (URL avec {host} et {port}, ou ?host=&port= ajoutés). Sans le SwiftLink
+   ($DE00-$DEFF libre, aucune cartouche), rien n'est visible côté C64. */
+const MDM={ws:null,online:false,dialing:false,cmdBuf:'',echo:true,verbose:true,rx:[],rxAt:0,txq:[],txAt:0,tdre:true,rdr:0,rdrf:false,ovr:false,
+  cmd:0,ctl:0,irq:false,lineOn:false,plus:0,lastTx:0,tel:0,telOpt:0,sb:false,status:'Hors ligne',dialT:0,init:false};
+const MDM_BAUD=[19200,50,75,110,135,150,300,600,1200,1800,2400,3600,4800,7200,9600,19200];
+function mdmByteCyc(){ return Math.max(80,Math.round(TM.hz*10/(MDM_BAUD[MDM.ctl&15]||19200))); }
+function mdmIrqLine(){
+  if(MDM.irq){ if(!MDM.lineOn){ MDM.lineOn=true; if(!cia2.irqOn&&nmiAt<0) nmiAt=cyc; } } else MDM.lineOn=false;
+}
+function mdmRaise(){ MDM.irq=true; mdmIrqLine(); }
+function mdmReset(hang){
+  if(hang) mdmHang(true);
+  Object.assign(MDM,{cmdBuf:'',echo:true,verbose:true,rx:[],txq:[],tdre:true,rdr:0,rdrf:false,ovr:false,cmd:0,ctl:0,irq:false,lineOn:false,plus:0,tel:0,sb:false});
+}
+function mdmRead(r){
+  switch(r&3){
+    case 0: { const v=MDM.rdr; MDM.rdrf=false; MDM.ovr=false; if(MDM.rxAt<cyc) MDM.rxAt=cyc+mdmByteCyc(); return v; }
+    case 1: { let st=(MDM.rdrf?8:0)|(MDM.tdre?0x10:0)|(MDM.ovr?4:0)|(MDM.online?0:0x20); if(MDM.irq){ st|=0x80; MDM.irq=false; mdmIrqLine(); } return st; }   // DSR actif (bit 6 = 0), DCD actif seulement en ligne
+    case 2: return MDM.cmd;
+    default: return MDM.ctl;
+  }
+}
+function mdmWrite(r,v){
+  switch(r&3){
+    case 0: MDM.tdre=false; MDM.txAt=cyc+mdmByteCyc(); mdmTxByte(v); break;
+    case 1: MDM.cmd=(MDM.cmd&0xE0)|2; MDM.ovr=false; MDM.irq=false; mdmIrqLine(); break;      // RAZ programmée
+    case 2: MDM.cmd=v; break;
+    default: MDM.ctl=v;
+  }
+}
+function mdmQueueOut(bytes){ for(const b of bytes) MDM.rx.push(b&255); }
+function mdmText(str){ for(let i=0;i<str.length;i++) MDM.rx.push(str.charCodeAt(i)&255); }
+const MDM_RES={0:'OK',1:'CONNECT',3:'NO CARRIER',4:'ERROR',6:'NO DIALTONE',7:'BUSY',8:'NO ANSWER'};
+function mdmReply(code,extra){
+  if(!MDM.verbose){ mdmText(code+'\r'); return; }
+  mdmText('\r\n'+MDM_RES[code]+(extra?' '+extra:'')+'\r\n');
+}
+function petToAscii(b){ if(b>=0x41&&b<=0x5A) return b+0x20; if(b>=0xC1&&b<=0xDA) return b-0x80; if(b===0x14) return 8; return b; }
+function asciiToPet(b){ if(b>=0x61&&b<=0x7A) return b-0x20; if(b>=0x41&&b<=0x5A) return b+0x80; if(b===8||b===0x7F) return 0x14; return b; }
+function mdmTxByte(v){
+  const now=performance.now();
+  if(MDM.online){
+    // séquence d'échappement +++ (silence d'une seconde avant et après)
+    if(v===0x2B&&MDM.plus<3&&(MDM.plus>0||now-MDM.lastTx>=1000)){ MDM.plus++; MDM.lastTx=now; return; }
+    if(MDM.plus){ for(let i=0;i<MDM.plus;i++) mdmSendRaw(0x2B); MDM.plus=0; }
+    MDM.lastTx=now; mdmSendRaw(v); return;
+  }
+  MDM.lastTx=now; mdmCmdChar(v);
+}
+function mdmSendRaw(v){
+  let b=v&255; if(PERIPH.modemXlat==='ascii') b=petToAscii(b);
+  MDM.txq.push(b); if(PERIPH.modemTelnet&&b===255) MDM.txq.push(255);
+}
+function mdmFlush(){
+  if(!MDM.txq.length) return;
+  if(MDM.ws&&MDM.online&&MDM.ws.readyState===1){ try{ MDM.ws.send(new Uint8Array(MDM.txq)); }catch(e){} }
+  MDM.txq.length=0;
+}
+function mdmCmdChar(v){
+  if(MDM.echo) MDM.rx.push(v);
+  if(v===13){ const line=MDM.cmdBuf; MDM.cmdBuf=''; mdmExec(line); return; }
+  if(v===8||v===0x14||v===0x7F){ MDM.cmdBuf=MDM.cmdBuf.slice(0,-1); return; }
+  let c=v; if(c>=0x61&&c<=0x7A) c-=0x20; else if(c>=0xC1&&c<=0xDA) c-=0x80;
+  if(c>=0x20&&c<0x7F&&MDM.cmdBuf.length<120) MDM.cmdBuf+=String.fromCharCode(c);
+}
+function mdmExec(line){
+  line=line.trim(); if(!line) return;
+  if(!/^AT/.test(line)){ return; }
+  let i=2, ok=true;
+  const num=()=>{ let n=''; while(i<line.length&&/[0-9]/.test(line[i])) n+=line[i++]; return n===''?0:parseInt(n,10); };
+  while(i<line.length&&ok){
+    const c=line[i++];
+    if(c===' ') continue;
+    if(c==='Z'){ num(); MDM.echo=true; MDM.verbose=true; mdmHang(false); }
+    else if(c==='E'){ MDM.echo=num()!==0; }
+    else if(c==='V'){ MDM.verbose=num()!==0; }
+    else if(c==='H'){ num(); mdmHang(false); }
+    else if(c==='O'){ num(); if(MDM.ws&&MDM.ws.readyState===1){ MDM.online=true; MDM.plus=0; return; } else { mdmReply(3); return; } }
+    else if(c==='D'){ let t=line.slice(i).replace(/^[TPtp]/,'').trim(); i=line.length; mdmDial(t); return; }
+    else if(c==='A'){ mdmReply(8); return; }
+    else if(c==='S'){ num(); if(line[i]==='='){ i++; num(); } else if(line[i]==='?') i++; }
+    else if(c==='&'){ i++; num(); }
+    else if(c==='+'){ while(i<line.length&&line[i]!==';') i++; }
+    else if('MLXQBCFNWY'.includes(c)){ num(); }
+    else ok=false;
+  }
+  mdmReply(ok?0:4);
+}
+function mdmUrlFor(host,port){
+  let u=(PERIPH.modemUrl||'').trim(); if(!u) return '';
+  const h=encodeURIComponent(host), p=encodeURIComponent(String(port));
+  if(/\{host\}|\{port\}/.test(u)) return u.replace(/\{host\}/g,h).replace(/\{port\}/g,p);
+  return u+(u.includes('?')?'&':'?')+'host='+h+'&port='+p;
+}
+function mdmDial(target){
+  mdmHang(false,true);
+  const m=/^([A-Za-z0-9._-]+)(?:[:,\s]+(\d{1,5}))?$/.exec(target.replace(/\s+/g,''));
+  if(!m){ MDM.status='Numéro invalide'; mdmReply(4); return; }
+  const host=m[1].toLowerCase(), port=m[2]?parseInt(m[2],10):23, url=mdmUrlFor(host,port);
+  if(!url){ MDM.status='Aucune passerelle configurée'; mdmReply(6); return; }
+  if(typeof WebSocket==='undefined'){ MDM.status='WebSocket indisponible'; mdmReply(6); return; }
+  let ws; try{ ws=new WebSocket(url); }catch(e){ MDM.status='Passerelle refusée : '+e.message; mdmReply(3); return; }
+  ws.binaryType='arraybuffer'; MDM.ws=ws; MDM.dialing=true; MDM.status='Appel de '+host+':'+port+'…';
+  MDM.dialT=setTimeout(()=>{ if(MDM.ws===ws&&MDM.dialing){ MDM.dialing=false; try{ ws.close(); }catch(e){} MDM.ws=null; MDM.status='Pas de réponse'; mdmReply(8); } },20000);
+  ws.onopen=()=>{ if(MDM.ws!==ws) return; clearTimeout(MDM.dialT); MDM.dialing=false; MDM.online=true; MDM.plus=0; MDM.tel=0; MDM.sb=false; MDM.status='En ligne : '+host+':'+port;
+    mdmReply(1,String(MDM_BAUD[MDM.ctl&15]||2400)); };
+  ws.onmessage=e=>{ if(MDM.ws!==ws) return; let u; if(typeof e.data==='string'){ u=new Uint8Array(e.data.length); for(let i=0;i<u.length;i++) u[i]=e.data.charCodeAt(i)&255; } else u=new Uint8Array(e.data); mdmRxData(u); };
+  ws.onclose=()=>{ if(MDM.ws!==ws) return; clearTimeout(MDM.dialT); const was=MDM.online||MDM.dialing; MDM.online=false; MDM.dialing=false; MDM.ws=null; MDM.status='Hors ligne'; if(was) mdmReply(3); };
+  ws.onerror=()=>{ if(MDM.ws!==ws) return; MDM.status='Erreur de passerelle'; };
+}
+function mdmHang(silent,quiet){
+  clearTimeout(MDM.dialT);
+  const ws=MDM.ws, was=MDM.online||MDM.dialing; MDM.ws=null; MDM.online=false; MDM.dialing=false; MDM.plus=0; MDM.txq.length=0;
+  if(ws){ try{ ws.close(); }catch(e){} }
+  if(!quiet) MDM.status='Hors ligne';
+  if(was&&!silent&&!quiet) mdmReply(3);
+}
+function mdmRxData(u){
+  for(let k=0;k<u.length;k++){
+    let b=u[k];
+    if(PERIPH.modemTelnet){
+      if(MDM.tel===0){ if(b===255){ MDM.tel=1; continue; } }
+      else if(MDM.tel===1){
+        if(b===255){ MDM.tel=0; } else if(b>=251&&b<=254){ MDM.tel=2; MDM.telOpt=b; continue; } else if(b===250){ MDM.tel=4; continue; } else { MDM.tel=0; continue; }
+      }
+      else if(MDM.tel===2){ const opt=b; MDM.tel=0; let rsp;
+        if(MDM.telOpt===253) rsp=252; else if(MDM.telOpt===251) rsp=(opt===1||opt===3)?253:254; else rsp=0;
+        if(rsp&&MDM.ws&&MDM.ws.readyState===1){ try{ MDM.ws.send(new Uint8Array([255,rsp,opt])); }catch(e){} } continue; }
+      else if(MDM.tel===4){ if(b===255) MDM.tel=5; continue; }
+      else if(MDM.tel===5){ MDM.tel=(b===240)?0:4; continue; }
+    }
+    if(PERIPH.modemXlat==='ascii'){ if(b===10) continue; b=asciiToPet(b); }
+    MDM.rx.push(b);
+  }
+  if(MDM.rx.length>200000) MDM.rx.splice(0,MDM.rx.length-200000);
+}
+function mdmTick(){
+  if(MDM.tdre===false&&cyc>=MDM.txAt){ MDM.tdre=true; if(((MDM.cmd>>2)&3)===1&&(MDM.cmd&1)) mdmRaise(); }
+  if(!MDM.rdrf&&MDM.rx.length&&cyc>=MDM.rxAt){
+    MDM.rdr=MDM.rx.shift(); MDM.rdrf=true; MDM.rxAt=cyc+mdmByteCyc();
+    if((MDM.cmd&1)&&!(MDM.cmd&2)) mdmRaise();
+  }
+  if(MDM.txq.length&&(MDM.online)) mdmFlush();
+  const now=performance.now();
+  if(MDM.online&&MDM.plus){ if(now-MDM.lastTx>=1000){ if(MDM.plus===3){ MDM.plus=0; MDM.online=false; MDM.status='Mode commande (ligne maintenue)'; mdmReply(0); } else { for(let i=0;i<MDM.plus;i++) mdmSendRaw(0x2B); MDM.plus=0; } } }
+}
 /* extension mémoire REU (1700/1764/1750 et au-delà) */
 const REU={mem:null,size:0,st:0,cmd:0x10,c64a:0,reua:0,len:0xFFFF,imr:0x1F,acr:0x3F,sh:null,armed:false};
 function reuSetSize(kb){
@@ -1935,6 +2084,7 @@ function ioRead(a){
   if(a<0xDD00) return ciaRead(cia1,a&15);
   if(a<0xDE00) return ciaRead(cia2,a&15);
   if(REU.size&&a>=0xDF00) return reuRead(a&31);
+  if(!cart&&PERIPH.modem&&a<0xDF00) return mdmRead(a&3);
   return cart?cartIO(a,0,false):vicFloat();
 }
 function ioWrite(a,v){
@@ -1951,6 +2101,7 @@ function ioWrite(a,v){
   if(SID2_ADDR===0xDE00&&a>=0xDE00&&a<0xDE20){ mem[a]=v; if((a&31)<=24){ SI[1].q.push(cyc,a-0xDE00,v); if(SI[1].q.length>30000) SI[1].q.length=0; } return; }
   if(a<0xDE00){ ciaWrite(cia2,a&15,v); return; }
   if(REU.size&&a>=0xDF00){ reuWrite(a&31,v); return; }
+  if(!cart&&PERIPH.modem&&a<0xDF00){ mdmWrite(a&3,v); return; }
   cartIO(a,v,true);
 }
 function peek(a){
@@ -2020,7 +2171,7 @@ let RD=a=>{
   }
   return vicFloat();
 };
-let WR=(a,v)=>{ if(a<0x400||(a>=0xD000&&a<0xE000)) poke(a,v); else { if(cart&&cart.ramEn&&a>=0x8000&&a<0xA000&&pageR[8]===4){ cart.aram[a-0x8000]=v; return; } mem[a]=v; if(a===0xFF00&&REU.armed) reuExec(); } };
+let WR=(a,v)=>{ if(a<0x400||(a>=0xD000&&a<0xE000)) poke(a,v); else { if(cart&&cart.type===32){ const pg=pageR[a>>12]; if(pg===4&&a<0xA000){ flashStore('lo',a,v); return; } if(pg===5){ flashStore('hi',a,v); return; } } if(cart&&cart.ramEn&&a>=0x8000&&a<0xA000&&pageR[8]===4){ cart.aram[a-0x8000]=v; return; } mem[a]=v; if(a===0xFF00&&REU.armed) reuExec(); } };
 let trapsOn=true, inIrqSync=false, irqAbort=false;
 const OPROWS=[
 "BRK 0 7|ORA 9 6|JAM 0 2|SLO 9 8|NOP 3 3|ORA 3 3|ASL 3 5|SLO 3 5|PHP 0 3|ORA 2 2|ASL 1 2|ANC 2 2|NOP 6 4|ORA 6 4|ASL 6 6|SLO 6 6",
@@ -2380,6 +2531,7 @@ function busWait(){
 }
 function tick(){
   if(cyc>=vicNext) vicAdvance();
+  if(PERIPH.modem) mdmTick();
   if(DRV.on) drvRun(cyc);
   if(TAPE.run&&cyc>=TAPE.nextEdge) tapeEdges();
   if(cart&&cart.type===10&&!cart.exrom&&cyc>cart.epyx){ cart.exrom=1; updRom(); }
@@ -2755,8 +2907,55 @@ function parseCRT(b){
   if(!c.banks.length) throw new Error('Cartouche « '+name+' » : aucune donnée trouvée.');
   return c;
 }
+/* EasyFlash : deux puces AM29F040. Séquences reconnues : programmation d'un octet (AA/55/A0), effacement de
+   secteur (AA/55/80/AA/55/30) ou de puce (…/10), autosélection (AA/55/90), retour en lecture (F0).
+   Les opérations sont instantanées. La flash ne peut que faire passer des bits de 1 à 0 (effacer remet à $FF). */
+function flashChip(which){ const f=cart.fl||(cart.fl={lo:{st:0},hi:{st:0}}); return f[which]; }
+function flashArr(bank,which,create){
+  let bk=cart.banks[bank]; if(!bk){ if(!create) return null; bk=cart.banks[bank]={lo:null,hi:null}; }
+  let d=bk[which]; if(!d||d.length<8192){ if(!create) return d; const n=new Uint8Array(8192).fill(0xFF); if(d) n.set(d); d=bk[which]=n; }
+  return d;
+}
+function flashStore(which,off,v){
+  const ch=flashChip(which), ix=(cart.bank<<13)|(off&0x1FFF), a11=ix&0x7FF;
+  const done=()=>{ ch.st=0; };
+  if(v===0xF0&&ch.st!==3&&ch.st!==8){ ch.st=0; return; }                     // reset : retour en lecture
+  switch(ch.st){
+    case 0: if(a11===0x555&&v===0xAA) ch.st=1; break;
+    case 1: if(a11===0x2AA&&v===0x55) ch.st=2; else done(); break;
+    case 2: if(a11===0x555){ if(v===0xA0) ch.st=3; else if(v===0x80) ch.st=4; else if(v===0x90) ch.st=7; else done(); } else done(); break;
+    case 3: { const d=flashArr(cart.bank,which,true); d[off&0x1FFF]&=v; cart.dirty=true; flashNote(); done(); break; }   // programmation
+    case 4: if(a11===0x555&&v===0xAA) ch.st=5; else done(); break;
+    case 5: if(a11===0x2AA&&v===0x55) ch.st=6; else done(); break;
+    case 6:
+      if(a11===0x555&&v===0x10){ for(let b=0;b<64;b++){ const d=flashArr(b,which,false); if(d) d.fill(0xFF); } cart.dirty=true; flashNote(); }
+      else if(v===0x30){ const sec=cart.bank>>3; for(let b=sec*8;b<sec*8+8;b++){ const d=flashArr(b,which,false); if(d) d.fill(0xFF); } cart.dirty=true; flashNote(); }
+      done(); break;
+    case 7: done(); break;                                                     // autosélection : seul F0 en sort (traité plus haut)
+    default: done();
+  }
+}
+let flashWarned=false;
+function flashNote(){ if(HAS_DOM&&!flashWarned){ flashWarned=true; toast('Flash EasyFlash modifiée — pensez à exporter la cartouche (.crt) pour conserver les changements'); } }
+function flashRead(which,off){   // lecture en mode autosélection : fabricant/appareil
+  const ch=flashChip(which); if(ch.st!==7) return -1;
+  const a=off&3; return a===0?0x01:a===1?0xA4:0x00;
+}
+function buildCRT(c){
+  const parts=[], name=(c.name||'EASYFLASH').slice(0,32);
+  const hdr=new Uint8Array(64); hdr.set(pet16('C64 CARTRIDGE   '),0); hdr[0x13]=0x40; hdr[0x14]=1; hdr[0x15]=0; hdr[0x16]=0; hdr[0x17]=c.type; hdr[0x18]=c.exrom0?1:0; hdr[0x19]=c.game0?1:0;
+  for(let i=0;i<name.length;i++) hdr[0x20+i]=name.charCodeAt(i)&0x7F;
+  parts.push(hdr);
+  for(let b=0;b<c.banks.length;b++){ const bk=c.banks[b]; if(!bk) continue;
+    for(const [k,load] of [['lo',0x8000],['hi',0xA000]]){ const d=bk[k]; if(!d) continue;
+      const n=d.length, pk=new Uint8Array(16+n); pk.set([0x43,0x48,0x49,0x50],0);
+      const L=16+n; pk[4]=L>>>24; pk[5]=(L>>16)&255; pk[6]=(L>>8)&255; pk[7]=L&255; pk[9]=(c.type===32?2:0); pk[10]=b>>8; pk[11]=b&255; pk[12]=load>>8; pk[13]=load&255; pk[14]=n>>8; pk[15]=n&255; pk.set(d,16); parts.push(pk); } }
+  let t=0; for(const x of parts) t+=x.length; const out=new Uint8Array(t); let p=0; for(const x of parts){ out.set(x,p); p+=x.length; } return out;
+}
+function pet16(str){ const u=new Uint8Array(str.length); for(let i=0;i<str.length;i++) u[i]=str.charCodeAt(i); return u; }
 function cartReset(){
   if(!cart) return;
+  if(cart.fl){ cart.fl.lo.st=0; cart.fl.hi.st=0; }
   cart.bank=0; cart.ram.fill(0); cart.ramEn=false; cart.off=false;
   if(cart.type===32){ cart.exrom=1; cart.game=0; }
   else if(cart.type===1){ cart.exrom=0; cart.game=1; }
@@ -2764,8 +2963,8 @@ function cartReset(){
   else if(cart.type===3){ cart.exrom=0; cart.game=0; }
   else { cart.exrom=cart.exrom0?1:0; cart.game=cart.game0?1:0; }
 }
-function cartL(a){ if(cart&&cart.type===10) cart.epyx=cyc+512; if(cart&&cart.type===1&&cart.ramEn) return cart.aram[(a-0x8000)&0x1FFF]; const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.lo; return d?d[(a-0x8000)&(d.length-1)]:0xFF; }
-function cartH(a){ const bk=cart&&cart.banks[cart.bank]; const d=bk&&(bk.hi||(cart.type===1?bk.lo:null)); return d?d[a&0x1FFF&(d.length-1)]:0xFF; }
+function cartL(a){ if(cart&&cart.type===32&&cart.fl){ const r=flashRead('lo',a); if(r>=0) return r; } if(cart&&cart.type===10) cart.epyx=cyc+512; if(cart&&cart.type===1&&cart.ramEn) return cart.aram[(a-0x8000)&0x1FFF]; const bk=cart&&cart.banks[cart.bank]; const d=bk&&bk.lo; return d?d[(a-0x8000)&(d.length-1)]:0xFF; }
+function cartH(a){ if(cart&&cart.type===32&&cart.fl){ const r=flashRead('hi',a); if(r>=0) return r; } const bk=cart&&cart.banks[cart.bank]; const d=bk&&(bk.hi||(cart.type===1?bk.lo:null)); return d?d[a&0x1FFF&(d.length-1)]:0xFF; }
 function cartIO(a,v,w){
   if(!cart) return 0;
   const io1=a<0xDF00, t=cart.type, lines=()=>updRom();
@@ -2871,7 +3070,7 @@ function romReset(){
   pending=null; stopReq=false; typeQueue.length=0; kbd=[]; romActions.length=0; physHeld.clear(); synthKeys.length=0; keysDown.clear();
   romHalted=false; mem.fill(0); portReset(); mem[0]=0x2F; mem[1]=0x37; portAfterWrite(); cartReset(); if(DRV.on) drvReset(); updRom(); TAPE.run=false; TAPE.rem=0;
   if(ROM.chargen) CHARROM.set(ROM.chargen); else buildCharRom();
-  d019=0; rasterCmp=0; ciaReset(cia1); ciaReset(cia2); nmiLvl=false; nmiAt=-1; ramD.fill(0); vicReset(); sidReset();
+  d019=0; rasterCmp=0; ciaReset(cia1); ciaReset(cia2); nmiLvl=false; nmiAt=-1; mdmReset(true); ramD.fill(0); vicReset(); sidReset();
   iecSetup();
   IEC.chans={}; IEC.mode=0; IEC.opening=null; IEC.err={8:'73,CBM DOS V2.6 1541,00,00',9:'73,CBM DOS V2.6 1541,00,00'};
   C.sp=0xFD; C.i=1; C.d=0; C.a=C.x=C.y=0; C.pc=RD(0xFFFC)|(RD(0xFFFD)<<8);
@@ -3098,12 +3297,13 @@ function buildTrack(img,t){
   }
   return out;
 }
-function decodeTrack(tr,t,img){
+function decodeTrack(tr,t,img,ht){
+  if(ht===undefined) ht=t;
   const L=tr.length, buf=new Uint8Array(L+400); buf.set(tr); buf.set(tr.subarray(0,400),L); let n=0;
   for(let i=1;i<L;i++){
     if(buf[i-1]!==0xFF||buf[i]===0xFF) continue;
     const h=gcrDecode(buf,i,10);
-    if(!h||h[0]!==8||h[3]!==t||h[2]>=SPT(t)) continue;
+    if(!h||h[0]!==8||(h[3]!==ht&&h[3]!==t)||h[2]>=SPT(t)) continue;
     let j=i+10; while(j<i+80&&!(buf[j-1]===0xFF&&buf[j]!==0xFF)) j++;
     if(j>=i+80||j+325>buf.length) continue;
     const d=gcrDecode(buf,j,325);
@@ -3112,16 +3312,17 @@ function decodeTrack(tr,t,img){
   return n;
 }
 function parseG64(b){
-  if(String.fromCharCode(...b.subarray(0,8))!=='GCR-1541') throw new Error('Ce fichier n\u2019est pas une image .g64 valide.');
+  const sig=String.fromCharCode(...b.subarray(0,8));
+  if(sig!=='GCR-1541'&&sig!=='GCR-1571') throw new Error('Ce fichier n\u2019est pas une image .g64/.g71 valide.');
   const nt=b[9], le32=o=>(b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0, tracks=[];
   for(let i=0;i<nt;i++){ const off=le32(12+i*4); if(!off||off+2>b.length) continue; const len=b[off]|(b[off+1]<<8); tracks[i+2]=b.slice(off+2,off+2+len); }
   return tracks;
 }
-function buildG64(tracks){
-  const nt=84, max=7928, parts=[]; let off=12+nt*8; const hdr=new Uint8Array(off);
-  hdr.set(pet('GCR-1541'),0); hdr[8]=0; hdr[9]=nt; hdr[10]=max&255; hdr[11]=max>>8;
+function buildG64(tracks,nt71){
+  const nt=nt71||84, max=7928, parts=[]; let off=12+nt*8; const hdr=new Uint8Array(off);
+  hdr.set(pet(nt71?'GCR-1571':'GCR-1541'),0); hdr[8]=0; hdr[9]=nt; hdr[10]=max&255; hdr[11]=max>>8;
   for(let i=0;i<nt;i++){
-    const tr=tracks[i+2], sp=zoneOf((i+2)>>1);
+    const tr=tracks[i+2], tn=(i+2)>>1, sp=zoneOf(nt71&&tn>35?tn-35:tn);
     const so=12+nt*4+i*4; hdr[so]=sp;
     if(!tr) continue;
     const e=new Uint8Array(2+max); e[0]=tr.length&255; e[1]=tr.length>>8; e.set(tr.subarray(0,max),2);
@@ -3130,6 +3331,17 @@ function buildG64(tracks){
   }
   const out=new Uint8Array(off); out.set(hdr,0); let p=hdr.length; for(const e of parts){ out.set(e,p); p+=e.length; }
   return out;
+}
+/* .g71 : GCR brut double face du 1571 (70 pistes, jusqu'à 140 demi-pistes). La face 1 est lue par le 1541 émulé ;
+   la couche DOS (lecteur non émulé) voit l'image d71 décodée des deux faces. La face 2 n'est pas accessible au 1541. */
+function g71Mount(b,file){
+  const tracks=parseG64(b), img=new Uint8Array(349696);
+  for(let t=1;t<=35;t++) if(tracks[2*t]) decodeTrack(tracks[2*t],t,img);
+  // face 2 : on décode piste par piste (numéro d'en-tête 36..70, piste physique 1..35) dans le second bloc de l'image d71
+  for(let t=36;t<=70;t++) if(tracks[2*t]){ const u=t-35, tt=new Uint8Array(174848); decodeTrack(tracks[2*t],u,tt,t); const o0=tsOff(u,0), n=SPT(u)*256; img.set(tt.subarray(o0,o0+n),174848+o0); }
+  d64={img,tracks:70,kind:'d71',file:file||'disque.g71',g64:tracks,g71:true,err:null};
+  try{ localStorage.removeItem(D64_KEY); }catch(e){}
+  drvLoadDisk(); return d64;
 }
 function g64Mount(b,file){
   const tracks=parseG64(b), img=new Uint8Array(196608);
@@ -3297,15 +3509,15 @@ function drvRun(t64){
 function drvLoadDisk(){
   drvSync(); DRV.tracks=[]; DRV.dirty=false;
   if(!d64) return;
-  if(d64.g64){ d64.g64.forEach((t,h)=>{ if(t) DRV.tracks[h]=t; }); }
+  if(d64.g64){ d64.g64.forEach((t,h)=>{ if(t&&(!d64.g71||h<=70)) DRV.tracks[h]=t; }); }
   else if(d64.kind!=='d81'){ const mt=Math.min(d64.tracks,d64.kind==='d71'?35:42); for(let t=1;t<=mt;t++) DRV.tracks[2*t]=buildTrack(d64.img,t); }
   DRV.bitPos=0;
 }
 function drvSync(){
   if(!DRV.dirty||!d64) return;
   DRV.dirty=false;
-  for(let t=1;t<=Math.min(d64.tracks,42);t++) if(DRV.tracks[2*t]) decodeTrack(DRV.tracks[2*t],t,d64.img);
-  if(d64.g64) d64.g64=DRV.tracks; else d64Persist();
+  for(let t=1;t<=Math.min(d64.g71?35:d64.tracks,42);t++) if(DRV.tracks[2*t]) decodeTrack(DRV.tracks[2*t],t,d64.img);
+  if(d64.g71){ for(let h=0;h<=70;h++) if(DRV.tracks[h]) d64.g64[h]=DRV.tracks[h]; } else if(d64.g64) d64.g64=DRV.tracks; else d64Persist();
   refreshDisk();
 }
 function drvReset(){
@@ -4686,7 +4898,7 @@ function refreshDisk(){
     dbox.append(mkItem(petToText(h.name)||'(sans nom)',({d64:'1541',d71:'1571',d81:'1581'}[d64.kind||'d64'])+(d64.err?' · octets d\u2019erreur':'')+' · ID '+petToText(h.id)+' · '+files.length+' fichier'+(files.length>1?'s':'')+' · '+free+' blocs libres · '+d64.file,[
       mkBtn('Répertoire','',()=>{ prepLoad(); typeQueue.push(...textToPet('LOAD"$",8\nLIST\n')); }),
       mkBtn('.'+(d64.kind||'d64'),'ghost',()=>{ drvSync(); download(d64Bytes(),d64.file.replace(/\.[dg](64|71|81)$/i,'')+'.'+(d64.kind||'d64'),'application/octet-stream'); toast('Image téléchargée'); }),
-      mkBtn('.g64','ghost',()=>{ drvSync(); const tr=DRV.on||d64.g64?(d64.g64||DRV.tracks):(()=>{ const a=[]; for(let t=1;t<=d64.tracks;t++) a[2*t]=buildTrack(d64.img,t); return a; })(); download(buildG64(tr),d64.file.replace(/\.[dg]64$/i,'')+'.g64','application/octet-stream'); toast('Image .g64 téléchargée'); }),
+      ...(d64.g71?[mkBtn('.g71','ghost',()=>{ drvSync(); download(buildG64(d64.g64,140),d64.file.replace(/\.[dg](64|71)$/i,'')+'.g71','application/octet-stream'); toast('Image .g71 téléchargée'); })]:[mkBtn('.g64','ghost',()=>{ drvSync(); const tr=DRV.on||d64.g64?(d64.g64||DRV.tracks):(()=>{ const a=[]; for(let t=1;t<=d64.tracks;t++) a[2*t]=buildTrack(d64.img,t); return a; })(); download(buildG64(tr),d64.file.replace(/\.[dg]64$/i,'')+'.g64','application/octet-stream'); toast('Image .g64 téléchargée'); })]),
       mkBtn('Éjecter','ghost',()=>{ d64Eject(); refreshDisk(); toast('Disquette éjectée : le lecteur 8 revient à la disquette du navigateur'); })
     ],'disk'));
     const list=document.createElement('div'); list.className='list files'; list.style.marginTop='8px';
@@ -4733,13 +4945,14 @@ function refreshDisk(){
   const cbx=$('#cart-box'); cbx.innerHTML='';
   if(cart) cbx.append(mkItem(cart.name,'Type '+CART_TYPES[cart.type]+' · '+cart.banks.length+' banque'+(cart.banks.length>1?'s':''),[
     ...((cart.type===1||cart.type===3)?[mkBtn('Figer (freeze)','',()=>{ closeAll(); if(cartFreeze()) toast('Cartouche : bouton de gel pressé'); })]:[]),
+    ...(cart.type===32?[mkBtn(cart.dirty?'Exporter .crt (modifiée)':'Exporter .crt','ghost',()=>{ download(buildCRT(cart),safeName(cart.name||'easyflash')+'.crt','application/octet-stream'); cart.dirty=false; flashWarned=false; toast('Cartouche exportée en .crt'); })]:[]),
     mkBtn('Redémarrer','ghost',()=>{ closeAll(); romReset(); }),
     mkBtn('Débrancher','ghost',()=>{ cartEject(); refreshDisk(); toast('Cartouche débranchée'); })],'disk'));
   else cbx.innerHTML='<div class="empty">Aucune cartouche. Brancher une cartouche redémarre la machine en mode ROM.</div>';
   if(zipDisks.length>1){
     const zl=document.createElement('div'); zl.className='list'; zl.style.margin='8px 0 0';
     for(const z of zipDisks){ const cur=d64&&d64.file===z.name;
-      zl.append(mkItem(z.name,cur?'Dans le lecteur':'Disquette de la même archive',cur?[]:[mkBtn('Insérer','ghost',()=>{ if(/\.g64$/i.test(z.name)) g64Mount(z.data.slice(),z.name); else d64Mount(z.data.slice(),z.name); refreshDisk(); toast('Disquette changée : '+z.name); })],cur?'disk':'')); }
+      zl.append(mkItem(z.name,cur?'Dans le lecteur':'Disquette de la même archive',cur?[]:[mkBtn('Insérer','ghost',()=>{ if(/\.g71$/i.test(z.name)) g71Mount(z.data.slice(),z.name); else if(/\.g64$/i.test(z.name)) g64Mount(z.data.slice(),z.name); else d64Mount(z.data.slice(),z.name); refreshDisk(); toast('Disquette changée : '+z.name); })],cur?'disk':'')); }
     dbox.append(zl);
   }
   const dev=webDev();
@@ -4799,6 +5012,20 @@ async function refreshStates(){
 async function quickSave(){ try{ await stateSave('rapide'); toast('Sauvegarde rapide faite (F10 pour y revenir)'); }catch(ex){ toast(ex.message); } }
 async function quickLoad(){ try{ const w=await stateLoad('rapide'); toast(w||'Sauvegarde rapide restaurée'); }catch(ex){ toast(ex.message==='Emplacement vide.'?'Aucune sauvegarde rapide : appuyez d\u2019abord sur F9':ex.message); } }
 function refreshPrinter(){ const t=$('#prn-text'); if(!t) return; t.value=PRN.text||''; t.placeholder='Aucune impression pour l\u2019instant.'; t.scrollTop=t.scrollHeight; }
+function refreshModem(){
+  const ml=$('#modem-list'); if(!ml) return; ml.innerHTML='';
+  ml.append(mkItem('SwiftLink ($DE00)',PERIPH.modem?'Branché : les terminaux (CCGMS, Novaterm…) voient un modem Hayes. '+MDM.status:'Débranché. Nécessite le mode ROM et aucune cartouche.',[
+    mkBtn(PERIPH.modem?'Débrancher':'Brancher',PERIPH.modem?'ghost':'',()=>{ PERIPH.modem=!PERIPH.modem; if(!PERIPH.modem) mdmReset(true); else mdmReset(false); periphSave(); refreshPeriph(); toast(PERIPH.modem?'SwiftLink branché en $DE00':'SwiftLink débranché'); })],PERIPH.modem?'disk':''));
+  const it=document.createElement('div'); it.className='item';
+  it.innerHTML='<div><b>Passerelle WebSocket</b><small>URL de votre relais WebSocket→TCP. Utilisez {host} et {port} (ex. wss://exemple.org/tcp?host={host}&amp;port={port}) ; sans marqueurs, ?host=…&amp;port=… est ajouté. Le numéro composé (ATDT bbs.exemple.org:23) est transmis à ce relais.</small></div><div class="bar" style="margin:0;flex-wrap:wrap;gap:6px"></div>';
+  const inp=document.createElement('input'); inp.type='text'; inp.id='modem-url'; inp.value=PERIPH.modemUrl||''; inp.placeholder='wss://…/tcp?host={host}&port={port}'; inp.style.cssText='flex:1;min-width:180px;padding:8px;border-radius:8px;border:1px solid var(--line,#444);background:transparent;color:inherit';
+  inp.addEventListener('keydown',e=>e.stopPropagation()); inp.addEventListener('keyup',e=>e.stopPropagation());
+  it.lastChild.append(inp, mkBtn('Enregistrer','',()=>{ PERIPH.modemUrl=inp.value.trim(); periphSave(); toast(PERIPH.modemUrl?'Passerelle enregistrée':'Passerelle effacée'); }));
+  ml.append(it);
+  ml.append(mkItem('Protocole telnet',PERIPH.modemTelnet?'Négociation IAC filtrée (recommandé pour les BBS telnet).':'Octets transmis tels quels.',[mkBtn(PERIPH.modemTelnet?'Activé':'Désactivé',PERIPH.modemTelnet?'':'ghost',()=>{ PERIPH.modemTelnet=!PERIPH.modemTelnet; periphSave(); refreshModem(); })],PERIPH.modemTelnet?'disk':''));
+  ml.append(mkItem('Traduction PETSCII ⇄ ASCII',PERIPH.modemXlat==='ascii'?'Le modem convertit les octets (terminal en mode PETSCII).':'Aucune : le terminal fait sa propre conversion (mode ASCII).',[mkBtn(PERIPH.modemXlat==='ascii'?'Activée':'Désactivée',PERIPH.modemXlat==='ascii'?'':'ghost',()=>{ PERIPH.modemXlat=PERIPH.modemXlat==='ascii'?'none':'ascii'; periphSave(); refreshModem(); })],PERIPH.modemXlat==='ascii'?'disk':''));
+  if(MDM.online||MDM.dialing) ml.append(mkItem('Ligne : '+MDM.status,'',[mkBtn('Raccrocher','ghost',()=>{ mdmHang(false); refreshModem(); })],'disk'));
+}
 function refreshPeriph(){
   const jl=$('#joy-list'); jl.innerHTML='';
   let pads=0; for(const g of getPads()) if(g&&g.connected) pads++;
@@ -4814,6 +5041,7 @@ function refreshPeriph(){
   const it=document.createElement('div'); it.className='item'; it.innerHTML='<div><b>Taille</b><small>La REU sert à GEOS, à certaines démos et utilitaires ; changer la taille la vide.</small></div><div class="bar" style="margin:0;flex-wrap:wrap"></div>';
   for(const [kb,t] of sizes) it.lastChild.append(mkBtn(t,PERIPH.reu===kb?'':'ghost',()=>{ reuSetSize(kb); periphSave(); refreshPeriph(); toast(kb?'REU de '+t+' branchée':'REU débranchée'); }));
   rl.append(it);
+  refreshModem();
   refreshSid2();
   refreshPrinter();
 }
@@ -4840,14 +5068,14 @@ async function unzip(buf){
   }
   return out;
 }
-const ZIP_KINDS=/\.(d64|g64|d71|d81|t64|tap|crt|prg|bas|txt)$/i;
+const ZIP_KINDS=/\.(d64|g64|g71|d71|d81|t64|tap|crt|prg|bas|txt)$/i;
 let zipDisks=[];      // autres disquettes d'une même archive, pour en changer d'un clic
 async function openZip(f,run){
   const files=(await unzip(new Uint8Array(await f.arrayBuffer()))).filter(x=>ZIP_KINDS.test(x.name));
   if(!files.length) throw new Error('Aucun fichier utilisable pour le C64 dans cette archive.');
-  const order=['crt','d64','g64','d71','d81','t64','tap','prg','bas','txt'], ext=x=>x.name.split('.').pop().toLowerCase();
+  const order=['crt','d64','g64','g71','d71','d81','t64','tap','prg','bas','txt'], ext=x=>x.name.split('.').pop().toLowerCase();
   files.sort((a,b)=>order.indexOf(ext(a))-order.indexOf(ext(b))||a.name.localeCompare(b.name,'fr',{numeric:true}));
-  zipDisks=files.filter(x=>/^(d64|g64|d71|d81)$/.test(ext(x)));
+  zipDisks=files.filter(x=>/^(d64|g64|g71|d71|d81)$/.test(ext(x)));
   const first=files[0];
   await openFile(new File([first.data],first.name),run);
   if(zipDisks.length>1) toast(zipDisks.length+' disquettes dans l\u2019archive : changez de disque dans Supports');
@@ -4859,8 +5087,8 @@ async function openFile(f,run){
   if(low.endsWith('.crt')){ const c=parseCRT(new Uint8Array(await f.arrayBuffer())); closeAll(); cartInsert(c); refreshDisk(); toast('Cartouche « '+c.name+' » branchée'); return; }
   if(low.endsWith('.tap')){ const t=parseTAP(new Uint8Array(await f.arrayBuffer())); tapeInsert('tap',t,f.name); closeAll(); ensureRom(); refreshDisk(); if(run){ romAfter(300,()=>{}); typeQueue.push(...pet('LOAD"",1'),13); romAfter(1500,()=>tapePlay()); } toast('Cassette insérée'+(run?' : chargement lancé':'')); return; }
   if(low.endsWith('.t64')){ const t=parseT64(new Uint8Array(await f.arrayBuffer())); tapeInsert('t64',t,f.name); closeAll(); refreshDisk(); if(run){ prepLoad(); const f0=t.files[0], ml=(f0.bytes[0]|(f0.bytes[1]<<8))!==0x0801; typeQueue.push(...pet('LOAD'),13); if(!ml) typeQueue.push(...pet('RUN'),13); } toast('Archive « '+(petToText(t.name)||f.name)+' » insérée'); return; }
-  if(low.endsWith('.d64')||low.endsWith('.g64')||low.endsWith('.d71')||low.endsWith('.d81')){
-    const u=new Uint8Array(await f.arrayBuffer()); if(low.endsWith('.g64')) g64Mount(u,f.name); else d64Mount(u,f.name); refreshDisk();
+  if(low.endsWith('.d64')||low.endsWith('.g64')||low.endsWith('.g71')||low.endsWith('.d71')||low.endsWith('.d81')){
+    const u=new Uint8Array(await f.arrayBuffer()); if(low.endsWith('.g71')) g71Mount(u,f.name); else if(low.endsWith('.g64')) g64Mount(u,f.name); else d64Mount(u,f.name); refreshDisk();
     const h=d64Header(); closeAll();
     if(run){ if(state!=='idle') restoreKey(); typeQueue.push(...textToPet('LOAD"$",8\nLIST\n')); }
     toast('Disquette « '+petToText(h.name).trim()+' » insérée dans le lecteur 8');
@@ -5285,7 +5513,7 @@ function initUI(){
   $('#tape-rec').addEventListener('click',()=>{ ensureRom(); tapeRecStart(); toast('Cassette vierge en place, touches RECORD et PLAY enfoncées : tapez SAVE"NOM" puis RETURN'); refreshDisk(); });
   $('#tape-dl').addEventListener('click',()=>{ const d=TAPE.recorded||(TAPE.data&&TAPE.data.subarray?TAPE.data:null); if(!d){ toast('Aucune cassette .tap à télécharger'); return; } download(d,(TAPE.name||'cassette').replace(/\.tap$/i,'')+'.tap','application/octet-stream'); });
   $('#cart-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ await openFile(f,true); }catch(ex){ toast(ex.message); } });
-  $('#d64-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const u=new Uint8Array(await f.arrayBuffer()); if(/\.g64$/i.test(f.name)) g64Mount(u,f.name); else d64Mount(u,f.name); if(d64.kind==='d81'&&DRV.on) toast('Une disquette 3,5" (.d81) ne se lit pas dans un 1541 : désactivez le 1541 émulé pour utiliser le lecteur virtuel'); refreshDisk(); toast('Disquette insérée : '+f.name); }catch(ex){ toast(ex.message); } });
+  $('#d64-file').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const u=new Uint8Array(await f.arrayBuffer()); if(/\.g71$/i.test(f.name)) g71Mount(u,f.name); else if(/\.g64$/i.test(f.name)) g64Mount(u,f.name); else d64Mount(u,f.name); if(d64.kind==='d81'&&DRV.on) toast('Une disquette 3,5" (.d81) ne se lit pas dans un 1541 : désactivez le 1541 émulé pour utiliser le lecteur virtuel'); refreshDisk(); toast('Disquette insérée : '+f.name); }catch(ex){ toast(ex.message); } });
   $('#d64-blank').addEventListener('click',()=>{ const n=Object.keys(diskAll()).length; d64Mount(d64Blank('DISQUETTE','01'),'vierge.d64'); refreshDisk(); toast('Disquette vierge insérée : SAVE"NOM",8 pour y enregistrer'); });
   const tube=$('.monitor');
   tube.addEventListener('dragover',e=>{ e.preventDefault(); tube.classList.add('drop'); });
